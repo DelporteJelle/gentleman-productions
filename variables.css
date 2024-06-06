@@ -1,0 +1,17 @@
+:root {
+  --background-color: #121212;
+  --primary-red: #c41023;
+  --primary-yellow: #fbb238;
+  --white: #ffffff;
+  --grey-1000: #010101;
+  --grey-900: #171717;
+  --grey-800: #262626;
+  --grey-700: #3e3e3e;
+  --grey-600: #666666;
+  --grey-500: #777777;
+  --grey-400: rgb(162, 162, 162);
+  --grey-300: #c3c3c3;
+  --grey-200: #cdcdcd;
+  --grey-100: #e1e1e1;
+  --grey-50: #f0f0f0;
+}

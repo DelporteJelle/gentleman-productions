@@ -1,0 +1,17 @@
+.navbar {
+  height: 50px;
+  display: flex;
+  flex-direction: row;
+  justify-content: space-between;
+}
+
+.navigation {
+  display: flex;
+  flex-direction: row;
+  justify-content: space-between;
+}
+.a {
+  text-decoration: none;
+  color: var(--text-color);
+  margin: 0 10px;
+}

@@ -3,8 +3,8 @@
   color: inherit; /* Removes the default blue color */
   cursor: inherit; /* Removes the default pointer cursor */
   color: #000;
+  &:hover {
+    text-decoration: none;
+    color: inherit;
+  }
 }
-.a:hover {
-  text-decoration: none;
-  color: inherit;
-}/*# sourceMappingURL=globals.css.map */
