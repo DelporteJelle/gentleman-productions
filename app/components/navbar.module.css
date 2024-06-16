@@ -1,14 +1,26 @@
 .navbar {
-  height: 50px;
+  height: 40px;
+  display: flex;
+  flex-direction: row;
+  justify-content: space-between;
+  margin: 10px 15px;
+  align-items: center;
+}
+
+.navigation {
+  width: 200px;
   display: flex;
   flex-direction: row;
   justify-content: space-between;
 }
-
-.navigation {
+.logo {
+  width: 200px;
+  padding-left: 0px;
+}
+.socials {
+  width: 200px;
   display: flex;
-  flex-direction: row;
-  justify-content: space-between;
+  justify-content: right;
 }
 .a {
   text-decoration: none;

@@ -1,10 +1,12 @@
-.a {
-  text-decoration: none;
-  color: inherit; /* Removes the default blue color */
-  cursor: inherit; /* Removes the default pointer cursor */
-  color: #000;
-  &:hover {
-    text-decoration: none;
-    color: inherit;
-  }
+@import "~bootstrap/scss/bootstrap";
+
+a {
+  text-decoration: none; /* Removes the underline */
+  cursor: pointer; /* Optional: Ensures it still looks clickable */
+  color: var(--white);
+}
+
+a:hover {
+  color: var(--primary-red) !important;
+  text-decoration: underline;
 }
