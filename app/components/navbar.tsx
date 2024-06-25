@@ -1,4 +1,4 @@
-import styles from "./navbar.module.css";
+import styles from "./bar.module.css";
 import Image from "next/image";
 import { BsInstagram, BsFacebook, BsTwitterX } from "react-icons/bs";
 

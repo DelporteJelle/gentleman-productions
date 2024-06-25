@@ -1,6 +1,7 @@
 :root {
-  --background-color: #121212;
+  --background-color: #111111;
   --primary-red: #bf1b2c;
+  --red-2: #af202f;
   --primary-yellow: #f9a72b;
   --white: #ffffff;
   --grey-1000: #010101;
@@ -11,7 +12,7 @@
   --grey-500: #777777;
   --grey-400: rgb(162, 162, 162);
   --grey-300: #c3c3c3;
-  --grey-200: #cdcdcd;
+  --grey-200: #d2d3d3;
   --grey-100: #e1e1e1;
   --grey-50: #f0f0f0;
 }

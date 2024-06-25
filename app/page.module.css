@@ -1,10 +1,22 @@
-.root {
+@import url("https://fonts.googleapis.com/css2?family=Fjalla+One&display=swap");
+
+.main {
   /* background-color: var(--background-color); */
   overflow: hidden;
-  font-family: "overpass", sans-serif;
+  display: flex;
+  color: var(--white);
+  flex-direction: column;
+
+  /* background-image: url("/BGtest4.jpeg");
+  background-size: cover;
+  background-attachment: fixed; */
 }
 
-.root::before {
+.root {
+  background-color: var(--background-color);
+}
+
+.main::before {
   content: "";
   position: absolute;
   top: 0;
@@ -13,11 +25,13 @@
   bottom: 0;
   background-image: url("/BGtest4.jpeg");
   background-size: cover;
+  background-attachment: fixed;
+
   filter: blur(2px);
   z-index: -2;
 }
 
-.root::after {
+.main::after {
   content: "";
   position: absolute;
   top: 0;
@@ -28,9 +42,34 @@
   pointer-events: none;
   z-index: -1;
 }
-.main {
+
+.hightlight {
+  height: calc(100vh - 60px);
+  margin: 0px auto 0 100px;
+  padding-top: 200px;
+  font-family: "Fjalla One", sans-serif;
+  text-transform: uppercase;
+}
+.line {
+  height: 5px;
+  width: 60%;
+  background-color: var(--red-2);
+}
+
+.title {
+  font-size: 52px;
+  font-weight: bold;
+  margin-bottom: 30px;
+}
+.date {
+  font-size: 24px;
+  font-weight: bold;
+  margin-bottom: 30px;
+}
+
+.announcement {
   display: flex;
-  justify-content: center;
+  flex-direction: column;
   align-items: center;
-  /* background-image: "./pictures/BGtest1.jpeg" !important; */
+  /* margin: 50px 200px; */
 }

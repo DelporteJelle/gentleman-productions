@@ -4,6 +4,7 @@ import "/variables.css";
 import "./globals.css";
 import styles from "./page.module.css";
 import NavBar from "./components/navbar";
+import Footer from "./components/footer";
 
 const inter = Inter({ subsets: ["latin"] });
 
@@ -24,6 +25,9 @@ export default function RootLayout({
           <NavBar />
         </header>
         <main>{children}</main>
+        <footer>
+          <Footer />
+        </footer>
       </body>
     </html>
   );
