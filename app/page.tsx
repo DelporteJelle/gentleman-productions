@@ -1,155 +1,169 @@
 import Image from "next/image";
 import styles from "./page.module.css";
 import Link from "next/link";
+import { gsap } from "gsap";
+import { useGSAP } from "@gsap/react";
+
+import { ScrollTrigger } from "gsap/ScrollTrigger";
+import { ScrollToPlugin } from "gsap/ScrollToPlugin";
+
+gsap.registerPlugin(useGSAP, ScrollTrigger, ScrollToPlugin);
+
+const mockdata = {
+  mainHighlight: {
+    title: "End of the line",
+    dates: [new Date(2024, 10, 30), new Date(2024, 11, 1)],
+  },
+  Events: [
+    {
+      title: "Deal or No Deal?",
+      text: "The Gentleman keert terug naar Merelbeke met een nieuw fris verhaal vol drama en zottigheid. \nEchter, deze keer loopt het niet van een leien dakje, er is storm op komst en de oorzaak is ongekend. \nKom kijken en beleef mee wat Damon en Jowie in petto hebben.",
+      dates: [new Date(2023, 11, 2), new Date(2023, 11, 3)],
+      imageSrc: "/Event_2.jpeg",
+    },
+    {
+      title: "The Gentleman, Welcome to the upper class",
+      text: "Hoe het allemaal begon: charmant, sexy en stijlvol.",
+      dates: [new Date(2022, 12, 27)],
+      imageSrc: "/Event_16.jpeg",
+    },
+
+    {
+      title: "End of the line",
+      text: "Het is niet al goud wat blinkt. Loopt alles goed af met Damon, Jowie en de vriendengroep? \nKom kijken, ontdek en geniet van het laatste deel van onze trilogie. \nEen spannend verhaal vol humor, straffe choreo en bekende muziek.\n\nHeb je het 1e en 2e deel niet gezien? Geen probleem, wij nemen je mee in een uniek verhaal waarin alles duidelijk wordt, zelf zonder voorkennis.",
+      dates: [new Date(2024, 10, 31), new Date(2024, 11, 1)],
+      imageSrc: "/Event_3.jpg  ",
+    },
+  ],
+};
 
 export default function Home() {
+  const imgWidth = 550;
   return (
     <main className={styles.main}>
       <div className={styles.hightlight}>
         <div className={styles.title}>
-          End of the line<div className={styles.line}></div>
+          {mockdata.mainHighlight.title}
+          <div className={styles.line}></div>
         </div>
         <div>SAVE THE DATE</div>
-        <div className={styles.date}>10 September 2024</div>
+        <div className={styles.date}>
+          {mockdata.mainHighlight.dates.map((date, index) => (
+            <span key={index}>
+              {date.toLocaleDateString("nl-BE", {
+                day: "numeric",
+                month: "long",
+                year: "numeric",
+              })}
+              {index === 0 ? " - " : ""}
+            </span>
+          ))}
+        </div>
         <button className="btn-red">Buy tickets here</button>
       </div>
       {/* anouncements section */}
       <div className="d-flex flex-column align-items-center">
-        {/* future events */}
+        {/* Upcomming events */}
 
         <div className="d-flex flex-column align-items-center my-5">
           <div className="header">Upcomming events</div>
-          <div className="d-flex flex-row my-5">
-            <div className="m-4">
-              <Image
-                src="/end-of-the-line.PNG"
-                alt="event"
-                width={650}
-                height={300}
-                style={{ objectFit: "contain" }}
-              />
-            </div>
-            <div
-              className="d-flex flex-column justify-content-center m-4"
-              style={{ width: "650px" }}
-            >
-              <div className="subheader">Event 1</div>
-              <div className="date">12 juli 2024</div>
-              <div>
-                Lorem ipsum dolor sit amet, consectetur adipiscing elit. Nullam
-                porttitor risus purus. Maecenas vulputate lorem quam, ac dapibus
-                lectus tristique nec. Vestibulum quis neque in augue rhoncus
-                congue. Orci varius natoque penatibus et magnis dis parturient
-                montes, nascetur ridiculus mus. Lorem ipsum dolor sit amet,
-                consectetur adipiscing elit. Nullam porttitor risus purus.
-                Maecenas vulputate lorem quam, ac dapibus lectus tristique nec.
-                Vestibulum quis neque in augue rhoncus congue. Orci varius
-                natoque penatibus et magnis dis parturient montes, nascetur
-                ridiculus mus.
+          {mockdata.Events.filter(
+            (event) => new Date(event.dates[0]) > new Date(),
+          )
+            // Sort events by date in ascending order
+            .sort(
+              (a, b) =>
+                new Date(a.dates[0]).getTime() - new Date(b.dates[0]).getTime(),
+            ) // Sort by the first date
+            .map((event, index) => (
+              <div
+                key={index}
+                className={`d-flex flex-row my-5 ${
+                  index % 2 && "flex-row-reverse"
+                }`}
+              >
+                <div className="m-4">
+                  <Image
+                    src={event.imageSrc}
+                    alt={event.title}
+                    width={imgWidth}
+                    height={300}
+                    style={{ objectFit: "contain" }}
+                  />
+                </div>
+                <div
+                  className="d-flex flex-column justify-content-center m-4"
+                  style={{ width: `${imgWidth}px` }}
+                >
+                  <div className="subheader">{event.title}</div>
+                  <div className="date">
+                    {event.dates.map((date, index) => (
+                      <span key={index}>
+                        {date.toLocaleDateString("nl-BE", {
+                          day: "numeric",
+                          month: "long",
+                          year: "numeric",
+                        })}
+                        {index === 0 && event.dates.length > 1 ? " - " : ""}
+                      </span>
+                    ))}
+                  </div>
+                  <div style={{ whiteSpace: "pre-wrap" }}>{event.text}</div>
+                  <div className="btn-yellow">More info</div>
+                </div>
               </div>
-              <div className="btn-yellow">More info</div>
-            </div>
-          </div>
-          <div className="d-flex flex-row">
-            <div
-              className="d-flex flex-column justify-content-center m-4"
-              style={{ width: "650px" }}
-            >
-              <div className="subheader">Event 1</div>
-              <div className="date">12 juli 2024</div>
-              <div>
-                Lorem ipsum dolor sit amet, consectetur adipiscing elit. Nullam
-                porttitor risus purus. Maecenas vulputate lorem quam, ac dapibus
-                lectus tristique nec. Vestibulum quis neque in augue rhoncus
-                congue. Orci varius natoque penatibus et magnis dis parturient
-                montes, nascetur ridiculus mus. Lorem ipsum dolor sit amet,
-                consectetur adipiscing elit. Nullam porttitor risus purus.
-                Maecenas vulputate lorem quam, ac dapibus lectus tristique nec.
-                Vestibulum quis neque in augue rhoncus congue. Orci varius
-                natoque penatibus et magnis dis parturient montes, nascetur
-                ridiculus mus.
-              </div>
-              <div className="btn-yellow">More info</div>
-            </div>
-            <div className="m-4">
-              <Image
-                src="/end-of-the-line.PNG"
-                alt="event"
-                width={650}
-                height={300}
-                style={{ objectFit: "contain" }}
-              />
-            </div>
-          </div>
-          <div className={styles.event_left}></div>
+            ))}
         </div>
         {/* past events */}
 
         <div className="d-flex flex-column align-items-center my-5">
           <div className="header">Past events</div>
-          <div className="d-flex flex-row my-5">
-            <div className="m-4">
-              <Image
-                src="/end-of-the-line.PNG"
-                alt="event"
-                width={650}
-                height={300}
-                style={{ objectFit: "contain" }}
-              />
-            </div>
-            <div
-              className="d-flex flex-column justify-content-center m-4"
-              style={{ width: "650px" }}
-            >
-              <div className="subheader">Event 1</div>
-              <div className="date">12 juli 2024</div>
-              <div>
-                Lorem ipsum dolor sit amet, consectetur adipiscing elit. Nullam
-                porttitor risus purus. Maecenas vulputate lorem quam, ac dapibus
-                lectus tristique nec. Vestibulum quis neque in augue rhoncus
-                congue. Orci varius natoque penatibus et magnis dis parturient
-                montes, nascetur ridiculus mus. Lorem ipsum dolor sit amet,
-                consectetur adipiscing elit. Nullam porttitor risus purus.
-                Maecenas vulputate lorem quam, ac dapibus lectus tristique nec.
-                Vestibulum quis neque in augue rhoncus congue. Orci varius
-                natoque penatibus et magnis dis parturient montes, nascetur
-                ridiculus mus.
+          {mockdata.Events.filter(
+            (event) => new Date(event.dates[0]) < new Date(),
+          )
+            // Sort events by date in ascending order
+            .sort(
+              (a, b) =>
+                new Date(a.dates[0]).getTime() - new Date(b.dates[0]).getTime(),
+            ) // Sort by the first date
+            .map((event, index) => (
+              <div
+                key={index}
+                className={`d-flex flex-row my-5 ${
+                  index % 2 && "flex-row-reverse"
+                }`}
+              >
+                <div className="m-4">
+                  <Image
+                    src={event.imageSrc}
+                    alt={event.title}
+                    width={imgWidth}
+                    height={300}
+                    style={{ objectFit: "contain" }}
+                  />
+                </div>
+                <div
+                  className="d-flex flex-column justify-content-center m-4"
+                  style={{ width: `${imgWidth}px` }}
+                >
+                  <div className="subheader">{event.title}</div>
+                  <div className="date">
+                    {event.dates.map((date, index) => (
+                      <span key={index}>
+                        {date.toLocaleDateString("nl-BE", {
+                          day: "numeric",
+                          month: "long",
+                          year: "numeric",
+                        })}
+                        {index === 0 && event.dates.length > 1 ? " - " : ""}
+                      </span>
+                    ))}
+                  </div>
+                  <div style={{ whiteSpace: "pre-wrap" }}>{event.text}</div>
+                  <div className="btn-yellow">More info</div>
+                </div>
               </div>
-              <div className="btn-yellow">More info</div>
-            </div>
-          </div>
-          <div className="d-flex flex-row">
-            <div
-              className="d-flex flex-column justify-content-center m-4"
-              style={{ width: "650px" }}
-            >
-              <div className="subheader">Event 1</div>
-              <div className="date">12 juli 2024</div>
-              <div>
-                Lorem ipsum dolor sit amet, consectetur adipiscing elit. Nullam
-                porttitor risus purus. Maecenas vulputate lorem quam, ac dapibus
-                lectus tristique nec. Vestibulum quis neque in augue rhoncus
-                congue. Orci varius natoque penatibus et magnis dis parturient
-                montes, nascetur ridiculus mus. Lorem ipsum dolor sit amet,
-                consectetur adipiscing elit. Nullam porttitor risus purus.
-                Maecenas vulputate lorem quam, ac dapibus lectus tristique nec.
-                Vestibulum quis neque in augue rhoncus congue. Orci varius
-                natoque penatibus et magnis dis parturient montes, nascetur
-                ridiculus mus.
-              </div>
-              <div className="btn-yellow">More info</div>
-            </div>
-            <div className="m-4">
-              <Image
-                src="/end-of-the-line.PNG"
-                alt="event"
-                width={650}
-                height={300}
-                style={{ objectFit: "contain" }}
-              />
-            </div>
-          </div>
-          <div className={styles.event_left}></div>
+            ))}
         </div>
       </div>
     </main>

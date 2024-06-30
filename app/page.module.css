@@ -1,4 +1,5 @@
 @import url("https://fonts.googleapis.com/css2?family=Fjalla+One&display=swap");
+@import url("https://fonts.googleapis.com/css2?family=Bebas+Neue&display=swap");
 
 .main {
   /* background-color: var(--background-color); */
@@ -57,7 +58,8 @@
 }
 
 .title {
-  font-size: 52px;
+  /* font-family: "Bebas Neue", sans-serif; */
+  font-size: 64px;
   font-weight: bold;
   margin-bottom: 30px;
 }
