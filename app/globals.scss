@@ -6,6 +6,11 @@ body {
   font-family: "Overpass", sans-serif;
 }
 
+main {
+  min-height: 85.3vh;
+  margin: 50px;
+}
+
 a {
   text-decoration: none; /* Removes the underline */
   cursor: pointer; /* Optional: Ensures it still looks clickable */
@@ -25,7 +30,11 @@ a:hover {
   border-radius: 5px;
   cursor: pointer;
   font-size: 24px;
+  :hover {
+    color: var(--white);
+  }
 }
+
 .btn-yellow {
   background-color: var(--primary-yellow);
   color: var(--white);
@@ -58,4 +67,13 @@ a:hover {
   text-transform: uppercase;
   font-family: "Roboto", sans-serif;
   color: var(--grey-200);
+}
+.bold {
+  font-weight: bold;
+}
+.underline {
+  text-decoration: underline;
+}
+.white {
+  color: var(--white);
 }

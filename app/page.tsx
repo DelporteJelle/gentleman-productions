@@ -1,4 +1,3 @@
-import Image from "next/image";
 import styles from "./page.module.css";
 import Link from "next/link";
 import { gsap } from "gsap";
@@ -6,6 +5,7 @@ import { useGSAP } from "@gsap/react";
 
 import { ScrollTrigger } from "gsap/ScrollTrigger";
 import { ScrollToPlugin } from "gsap/ScrollToPlugin";
+import ImageTextCard from "../components/ImageTextCard";
 
 gsap.registerPlugin(useGSAP, ScrollTrigger, ScrollToPlugin);
 
@@ -38,7 +38,6 @@ const mockdata = {
 };
 
 export default function Home() {
-  const imgWidth = 550;
   return (
     <main className={styles.main}>
       <div className={styles.hightlight}>
@@ -59,7 +58,9 @@ export default function Home() {
             </span>
           ))}
         </div>
-        <button className="btn-red">Buy tickets here</button>
+        <button className="btn-red">
+          <Link href={"/tickets"}>Buy tickets</Link>
+        </button>
       </div>
       {/* anouncements section */}
       <div className="d-flex flex-column align-items-center">
@@ -70,48 +71,12 @@ export default function Home() {
           {mockdata.Events.filter(
             (event) => new Date(event.dates[0]) > new Date(),
           )
-            // Sort events by date in ascending order
             .sort(
               (a, b) =>
                 new Date(a.dates[0]).getTime() - new Date(b.dates[0]).getTime(),
-            ) // Sort by the first date
+            )
             .map((event, index) => (
-              <div
-                key={index}
-                className={`d-flex flex-row my-5 ${
-                  index % 2 && "flex-row-reverse"
-                }`}
-              >
-                <div className="m-4">
-                  <Image
-                    src={event.imageSrc}
-                    alt={event.title}
-                    width={imgWidth}
-                    height={300}
-                    style={{ objectFit: "contain" }}
-                  />
-                </div>
-                <div
-                  className="d-flex flex-column justify-content-center m-4"
-                  style={{ width: `${imgWidth}px` }}
-                >
-                  <div className="subheader">{event.title}</div>
-                  <div className="date">
-                    {event.dates.map((date, index) => (
-                      <span key={index}>
-                        {date.toLocaleDateString("nl-BE", {
-                          day: "numeric",
-                          month: "long",
-                          year: "numeric",
-                        })}
-                        {index === 0 && event.dates.length > 1 ? " - " : ""}
-                      </span>
-                    ))}
-                  </div>
-                  <div style={{ whiteSpace: "pre-wrap" }}>{event.text}</div>
-                  <div className="btn-yellow">More info</div>
-                </div>
-              </div>
+              <ImageTextCard key={index} event={event} index={index} />
             ))}
         </div>
         {/* past events */}
@@ -121,48 +86,12 @@ export default function Home() {
           {mockdata.Events.filter(
             (event) => new Date(event.dates[0]) < new Date(),
           )
-            // Sort events by date in ascending order
             .sort(
               (a, b) =>
                 new Date(a.dates[0]).getTime() - new Date(b.dates[0]).getTime(),
-            ) // Sort by the first date
+            )
             .map((event, index) => (
-              <div
-                key={index}
-                className={`d-flex flex-row my-5 ${
-                  index % 2 && "flex-row-reverse"
-                }`}
-              >
-                <div className="m-4">
-                  <Image
-                    src={event.imageSrc}
-                    alt={event.title}
-                    width={imgWidth}
-                    height={300}
-                    style={{ objectFit: "contain" }}
-                  />
-                </div>
-                <div
-                  className="d-flex flex-column justify-content-center m-4"
-                  style={{ width: `${imgWidth}px` }}
-                >
-                  <div className="subheader">{event.title}</div>
-                  <div className="date">
-                    {event.dates.map((date, index) => (
-                      <span key={index}>
-                        {date.toLocaleDateString("nl-BE", {
-                          day: "numeric",
-                          month: "long",
-                          year: "numeric",
-                        })}
-                        {index === 0 && event.dates.length > 1 ? " - " : ""}
-                      </span>
-                    ))}
-                  </div>
-                  <div style={{ whiteSpace: "pre-wrap" }}>{event.text}</div>
-                  <div className="btn-yellow">More info</div>
-                </div>
-              </div>
+              <ImageTextCard key={index} event={event} index={index} />
             ))}
         </div>
       </div>

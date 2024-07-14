@@ -1,0 +1,25 @@
+.card {
+  margin: 20px;
+  /* padding: 10px; */
+  background-color: var(--grey-900);
+  border-radius: 7px;
+  box-shadow: 0 0 10px rgba(0, 0, 0, 0.5);
+  width: 500px;
+  height: 500px;
+  position: relative;
+}
+.content {
+  padding: 20px;
+  color: var(--white);
+}
+.price {
+  position: absolute;
+  display: flex;
+  align-items: center;
+  bottom: 0px;
+  right: 0px;
+  margin: 10px;
+  color: var(--primary-yellow);
+  font-weight: bold;
+  font-size: 20px;
+}
