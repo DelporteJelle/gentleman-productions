@@ -1,0 +1,49 @@
+.card_left {
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  margin: 5px;
+}
+.card_right {
+  width: 600px;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  margin: 5px;
+  background-color: var(--gray-900);
+  padding: 20px;
+  border-radius: 10px 10px 0 0;
+  border-bottom: 8px solid var(--red-2);
+}
+.subheader_line {
+  height: 3px;
+  width: 60%;
+  background-color: var(--red-2);
+}
+.card {
+  display: flex;
+  flex-direction: row;
+  margin: 80px 0;
+}
+.card_reverse {
+  display: flex;
+  flex-direction: row-reverse;
+  margin: 80px 0;
+}
+@media screen and (max-width: 1000px) {
+  .card {
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    align-items: center;
+  }
+  .card_reverse {
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    align-items: center;
+  }
+  .card_right {
+    width: 100%;
+  }
+}

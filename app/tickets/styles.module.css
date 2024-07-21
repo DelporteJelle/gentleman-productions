@@ -1,11 +1,13 @@
 .page {
   display: flex;
   justify-content: center;
+  min-height: 85.3vh;
 }
 
-.card {
-  margin: 50px;
-  width: 300px;
-  height: 300px;
-  background-color: var(--grey-900);
+@media screen and (max-width: 1000px) {
+  .page {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+  }
 }

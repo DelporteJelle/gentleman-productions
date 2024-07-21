@@ -1,20 +1,20 @@
 @import url("https://fonts.googleapis.com/css2?family=Fjalla+One&display=swap");
 @import url("https://fonts.googleapis.com/css2?family=Bebas+Neue&display=swap");
+@import url("https://fonts.googleapis.com/css2?family=Questrial&display=swap");
+@import url("https://fonts.googleapis.com/css2?family=Poppins:ital,wght@0,100;0,200;0,300;0,400;0,500;0,600;0,700;0,800;0,900;1,100;1,200;1,300;1,400;1,500;1,600;1,700;1,800;1,900&display=swap");
+@import url("https://fonts.googleapis.com/css2?family=Overpass:ital,wght@0,100..900;1,100..900&display=swap");
 
 .main {
   /* background-color: var(--background-color); */
-  overflow: hidden;
+  /* overflow: hidden; */
   display: flex;
   color: var(--white);
   flex-direction: column;
-
+  min-height: 85.3vh;
+  margin: 50px;
   /* background-image: url("/BGtest4.jpeg");
   background-size: cover;
   background-attachment: fixed; */
-}
-
-.root {
-  background-color: var(--background-color);
 }
 
 .main::before {
@@ -45,8 +45,8 @@
 }
 
 .hightlight {
+  max-width: 500px;
   height: calc(100vh - 60px);
-  margin: 0px auto 0 100px;
   padding-top: 200px;
   font-family: "Fjalla One", sans-serif;
   text-transform: uppercase;
@@ -58,7 +58,6 @@
 }
 
 .title {
-  /* font-family: "Bebas Neue", sans-serif; */
   font-size: 64px;
   font-weight: bold;
   margin-bottom: 30px;

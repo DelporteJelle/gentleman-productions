@@ -1,0 +1,51 @@
+.card {
+  margin: 20px;
+  background-color: var(--gray-900);
+  border-radius: 7px;
+  box-shadow: 0 0 10px rgba(0, 0, 0, 0.5);
+  max-width: 800px;
+  position: relative;
+  transform: scale(1.05);
+  transition: transform 0.5s;
+}
+
+.card:hover {
+  cursor: pointer;
+}
+
+.content {
+  padding: 20px;
+  color: var(--white);
+}
+
+.price {
+  color: var(--primary-yellow);
+  font-weight: bold;
+  font-size: 20px;
+}
+
+.info {
+  width: 30%;
+  padding: 10px;
+  background-color: var(--background-color);
+  border-radius: 5px;
+}
+
+.icon {
+  padding: 5px;
+  background-color: var(--primary-yellow);
+  border-radius: 20px;
+}
+
+@media screen and (max-width: 1000px) {
+  .card {
+    width: 90%;
+    height: min-content;
+  }
+}
+
+@media screen and (max-width: 600px) {
+  .info {
+    width: 100%;
+  }
+}

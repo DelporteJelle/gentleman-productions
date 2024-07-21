@@ -1,6 +1,7 @@
-import styles from "../components/card.module.css";
-import Image from "next/image";
+"use client";
 
+import { Image } from "@mantine/core";
+import styles from "./EventCard.module.css";
 interface props {
   event: any;
   index: any;
@@ -10,7 +11,8 @@ export default function ImageTextCard({ event, index }: props) {
   return (
     <div
       key={index}
-      className={`d-flex flex-row my-5 ${index % 2 && "flex-row-reverse"}`}
+      // className={`d-flex flex-row my-5 ${index % 2 && "flex-row-reverse"}`}
+      className={index % 2 ? styles.card_reverse : styles.card}
     >
       <div className={styles.card_left}>
         <Image
@@ -21,7 +23,7 @@ export default function ImageTextCard({ event, index }: props) {
           style={{ objectFit: "contain" }}
         />
       </div>
-      <div className={styles.card_right} style={{ width: `600px` }}>
+      <div className={styles.card_right}>
         <div className="subheader">{event.title}</div>
 
         <div className="date mt-4">

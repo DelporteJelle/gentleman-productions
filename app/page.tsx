@@ -1,3 +1,5 @@
+"use client";
+
 import styles from "./page.module.css";
 import Link from "next/link";
 import { gsap } from "gsap";
@@ -5,7 +7,7 @@ import { useGSAP } from "@gsap/react";
 
 import { ScrollTrigger } from "gsap/ScrollTrigger";
 import { ScrollToPlugin } from "gsap/ScrollToPlugin";
-import ImageTextCard from "../components/ImageTextCard";
+import EventCard from "@/components/EventCard/EventCard";
 
 gsap.registerPlugin(useGSAP, ScrollTrigger, ScrollToPlugin);
 
@@ -67,7 +69,7 @@ export default function Home() {
         {/* Upcomming events */}
 
         <div className="d-flex flex-column align-items-center my-5">
-          <div className="header">Upcomming events</div>
+          <div className="header">Upcoming events</div>
           {mockdata.Events.filter(
             (event) => new Date(event.dates[0]) > new Date(),
           )
@@ -76,7 +78,7 @@ export default function Home() {
                 new Date(a.dates[0]).getTime() - new Date(b.dates[0]).getTime(),
             )
             .map((event, index) => (
-              <ImageTextCard key={index} event={event} index={index} />
+              <EventCard key={index} event={event} index={index} />
             ))}
         </div>
         {/* past events */}
@@ -91,7 +93,7 @@ export default function Home() {
                 new Date(a.dates[0]).getTime() - new Date(b.dates[0]).getTime(),
             )
             .map((event, index) => (
-              <ImageTextCard key={index} event={event} index={index} />
+              <EventCard key={index} event={event} index={index} />
             ))}
         </div>
       </div>
