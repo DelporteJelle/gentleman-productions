@@ -8,6 +8,7 @@ import { useRouter } from "next/navigation";
 import { ScrollTrigger } from "gsap/ScrollTrigger";
 import { ScrollToPlugin } from "gsap/ScrollToPlugin";
 import EventCard from "@/components/EventCard/EventCard";
+import { useEffect, useState } from "react";
 
 gsap.registerPlugin(useGSAP, ScrollTrigger, ScrollToPlugin);
 
@@ -39,11 +40,39 @@ const mockdata = {
   ],
 };
 
+const images = [
+  "/Banner_1.jpg",
+  "/Banner_2.jpg",
+  "/Banner_3.jpg",
+  "/Banner_4.jpg",
+  "/Banner_5.jpg",
+  "/Banner_6.jpg",
+  "/Banner_7.jpg",
+  "/Banner_8.jpg",
+  "/Banner_9.jpg",
+  "/Banner_10.jpg",
+  "/Banner_11.jpg",
+];
+
 export default function Home() {
   const router = useRouter();
 
+  const [currentIndex, setCurrentIndex] = useState(0);
+
+  useEffect(() => {
+    const intervalId = setInterval(() => {
+      setCurrentIndex((prevIndex) => (prevIndex + 1) % images.length);
+    }, 5000); // Change image every 5 seconds
+
+    return () => clearInterval(intervalId); // Cleanup interval on component unmount
+  }, []);
+
   return (
-    <main className={styles.main}>
+    <main
+      className={styles.main}
+      // style={{ backgroundImage: `url(${images[currentIndex]})` }}
+    >
+      {/* <main className={`${styles.main} ${styles[`background${currentIndex}`]}`}> */}
       <div className={styles.hightlight}>
         <div className={styles.title}>
           {mockdata.mainHighlight.title}
