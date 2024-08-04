@@ -11980,6 +11980,16 @@ a {
   color: var(--white);
 }
 
+a:hover {
+  color: var(--primary-red) !important;
+  text-decoration: underline;
+}
+
+a.active {
+  color: var(--primary-red) !important;
+  text-decoration: underline;
+}
+
 .btn-red {
   background-color: var(--red-2);
   color: var(--white);

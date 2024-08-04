@@ -4,7 +4,7 @@ import styles from "./page.module.css";
 import Link from "next/link";
 import { gsap } from "gsap";
 import { useGSAP } from "@gsap/react";
-
+import { useRouter } from "next/navigation";
 import { ScrollTrigger } from "gsap/ScrollTrigger";
 import { ScrollToPlugin } from "gsap/ScrollToPlugin";
 import EventCard from "@/components/EventCard/EventCard";
@@ -40,6 +40,8 @@ const mockdata = {
 };
 
 export default function Home() {
+  const router = useRouter();
+
   return (
     <main className={styles.main}>
       <div className={styles.hightlight}>
@@ -60,8 +62,13 @@ export default function Home() {
             </span>
           ))}
         </div>
-        <button className="btn-red">
-          <Link href={"/tickets"}>Buy tickets</Link>
+        <button
+          className="btn-red"
+          onClick={() => {
+            router.push("/tickets");
+          }}
+        >
+          Buy tickets
         </button>
       </div>
       {/* anouncements section */}

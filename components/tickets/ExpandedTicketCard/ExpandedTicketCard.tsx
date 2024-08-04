@@ -1,7 +1,9 @@
 "use client";
 
 import {
+  IconArrowBadgeRightFilled,
   IconCalendarFilled,
+  IconClockFilled,
   IconClockHour4Filled,
   IconCurrencyEuro,
   IconLocationFilled,
@@ -47,11 +49,10 @@ export default function ExpandedTicketCard({ ticket, setActiveCard }: props) {
           {/* Event timeline */}
           <Stack justify="flex-start">
             <div className="subsubheader">Event timeline</div>
-            <Timeline bulletSize={30} autoContrast>
+            <Timeline bulletSize={30} autoContrast active={10} color="yellow">
               <Timeline.Item
                 bullet={<IconCalendarFilled color="white" />}
                 title="Start datum"
-                color="white"
               >
                 <Text c="white" size="sm">
                   {ticket.start.toLocaleDateString("en-GB", {
@@ -61,12 +62,18 @@ export default function ExpandedTicketCard({ ticket, setActiveCard }: props) {
                   })}
                 </Text>
               </Timeline.Item>
-              <Timeline.Item title="18:00" color="white">
+              <Timeline.Item
+                title="18:00"
+                bullet={<IconClockFilled color="white" />}
+              >
                 <Text c="white" size="sm">
                   Deuren open, start receptie
                 </Text>
               </Timeline.Item>
-              <Timeline.Item title="19:30" color="white">
+              <Timeline.Item
+                title="19:30"
+                bullet={<IconClockFilled color="white" />}
+              >
                 <Text c="white" size="sm">
                   Aanvang show
                 </Text>
@@ -76,13 +83,18 @@ export default function ExpandedTicketCard({ ticket, setActiveCard }: props) {
           {/* Event location */}
           <Stack>
             <div className="subsubheader">Event Location</div>
-            <Timeline bulletSize={30} autoContrast lineWidth={0}>
+            <Timeline
+              bulletSize={30}
+              autoContrast
+              lineWidth={0}
+              active={10}
+              color="yellow"
+            >
               {Object.entries(ticket.place).map(([key, value]) => (
                 <Timeline.Item
-                  bullet={<IconMapPinFilled color="white" />}
+                  bullet={<IconArrowBadgeRightFilled color="white" />}
                   key={key}
                   title={key.charAt(0).toUpperCase() + key.slice(1)}
-                  color="white"
                 >
                   <Text c="white" size="sm">
                     {value as string}
@@ -94,10 +106,13 @@ export default function ExpandedTicketCard({ ticket, setActiveCard }: props) {
         </Group>
 
         <Group justify="center" mt={20}>
-          <button className="btn-red">
-            <a target="_blank" href={ticket.external_link}>
-              Buy tickets here
-            </a>
+          <button
+            className="btn-red"
+            onClick={() => {
+              window.open(ticket.external_link, "_blank");
+            }}
+          >
+            Buy tickets here
           </button>
         </Group>
 
