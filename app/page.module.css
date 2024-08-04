@@ -4,6 +4,15 @@
 @import url("https://fonts.googleapis.com/css2?family=Poppins:ital,wght@0,100;0,200;0,300;0,400;0,500;0,600;0,700;0,800;0,900;1,100;1,200;1,300;1,400;1,500;1,600;1,700;1,800;1,900&display=swap");
 @import url("https://fonts.googleapis.com/css2?family=Overpass:ital,wght@0,100..900;1,100..900&display=swap");
 
+/* @keyframes moveBackground {
+  0% {
+    background-position: 0% 0%;
+  }
+  100% {
+    background-position: 0% 200%;
+  }
+} */
+
 .main {
   display: flex;
   color: var(--white);
@@ -19,12 +28,13 @@
   left: 0;
   right: 0;
   bottom: 0;
-  background-image: url("/Banner_11.jpg");
+  /* background-image: url("/Banner_11.jpg"); */
   background-size: cover;
   background-attachment: fixed;
 
-  filter: blur(2px);
+  filter: blur(1px);
   z-index: -2;
+  /* animation: moveBackground 30s linear infinite; */
 }
 
 .main::after {
@@ -70,46 +80,46 @@
   /* margin: 50px 200px; */
 }
 
-.background0 {
+.background0::before {
   background-image: url("/Banner_1.jpg");
 }
 
-.background1 {
+.background1::before {
   background-image: url("/Banner_2.jpg");
 }
 
-.background2 {
+.background2::before {
   background-image: url("/Banner_3.jpg");
 }
 
-.background3 {
+.background3::before {
   background-image: url("/Banner_4.jpg");
 }
 
-.background4 {
+.background4::before {
   background-image: url("/Banner_5.jpg");
 }
 
-.background5 {
+.background5::before {
   background-image: url("/Banner_6.jpg");
 }
 
-.background6 {
+.background6::before {
   background-image: url("/Banner_7.jpg");
 }
 
-.background7 {
+.background7::before {
   background-image: url("/Banner_8.jpg");
 }
 
-.background8 {
+.background8::before {
   background-image: url("/Banner_9.jpg");
 }
 
-.background9 {
+.background9::before {
   background-image: url("/Banner_10.jpg");
 }
 
-.background10 {
+.background10::before {
   background-image: url("/Banner_11.jpg");
 }

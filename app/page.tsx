@@ -57,22 +57,20 @@ const images = [
 export default function Home() {
   const router = useRouter();
 
-  const [currentIndex, setCurrentIndex] = useState(0);
+  const [currentIndex, setCurrentIndex] = useState(
+    Math.floor(Math.random() * images.length),
+  );
 
   useEffect(() => {
     const intervalId = setInterval(() => {
       setCurrentIndex((prevIndex) => (prevIndex + 1) % images.length);
-    }, 5000); // Change image every 5 seconds
+    }, 30000);
 
-    return () => clearInterval(intervalId); // Cleanup interval on component unmount
+    return () => clearInterval(intervalId);
   }, []);
 
   return (
-    <main
-      className={styles.main}
-      // style={{ backgroundImage: `url(${images[currentIndex]})` }}
-    >
-      {/* <main className={`${styles.main} ${styles[`background${currentIndex}`]}`}> */}
+    <main className={`${styles.main} ${styles[`background${currentIndex}`]}`}>
       <div className={styles.hightlight}>
         <div className={styles.title}>
           {mockdata.mainHighlight.title}
