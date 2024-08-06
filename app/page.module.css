@@ -17,7 +17,6 @@
   display: flex;
   color: var(--white);
   flex-direction: column;
-  min-height: 85.3vh;
   margin: 50px;
 }
 
@@ -32,7 +31,7 @@
   background-size: cover;
   background-attachment: fixed;
 
-  filter: blur(1px);
+  /* filter: blur(1px); */
   z-index: -2;
   /* animation: moveBackground 30s linear infinite; */
 }
@@ -48,13 +47,11 @@
   pointer-events: none;
   z-index: -1;
 }
-
 .hightlight {
+  color: var(--white);
   max-width: 500px;
   height: calc(100vh - 60px);
   padding-top: 200px;
-  font-family: "Fjalla One", sans-serif;
-  text-transform: uppercase;
 }
 .line {
   height: 5px;
@@ -62,11 +59,6 @@
   background-color: var(--red-2);
 }
 
-.title {
-  font-size: 64px;
-  font-weight: bold;
-  margin-bottom: 30px;
-}
 .date {
   font-size: 24px;
   font-weight: bold;

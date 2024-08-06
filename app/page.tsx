@@ -9,6 +9,7 @@ import { ScrollToPlugin } from "gsap/ScrollToPlugin";
 import EventCard from "@/components/EventCard/EventCard";
 import { useEffect, useState } from "react";
 import { Event } from "@/types";
+import { Stack } from "@mantine/core";
 
 gsap.registerPlugin(useGSAP, ScrollTrigger, ScrollToPlugin);
 
@@ -81,11 +82,11 @@ export default function Home() {
   return (
     <main className={`${styles.main} ${styles[`background${currentIndex}`]}`}>
       <div className={styles.hightlight}>
-        <div className={styles.title}>
+        <div className={"title"}>
           {mockdata.mainHighlight.title}
           <div className={styles.line}></div>
         </div>
-        <div>SAVE THE DATE</div>
+        <div className="bold">SAVE THE DATE</div>
         <div className={styles.date}>
           {mockdata.mainHighlight.dates.map((date, index) => (
             <span key={index}>
@@ -108,27 +109,13 @@ export default function Home() {
         </button>
       </div>
       {/* anouncements section */}
-      <div className="d-flex flex-column align-items-center">
+      <Stack align="center" justify="center">
         {/* Upcomming events */}
 
-        {/* <div className="d-flex flex-column align-items-center my-5">
+        <Stack align="center" justify="center">
           <div className="header">Upcoming events</div>
-          {mockdata.Events.filter(
-            (event) => new Date(event.dates[0]) > new Date(),
-          )
-            .sort(
-              (a, b) =>
-                new Date(a.dates[0]).getTime() - new Date(b.dates[0]).getTime(),
-            )
-            .map((event, index) => (
-              <EventCard key={index} event={event} index={index} />
-            ))}
-        </div> */}
-        {/* past events */}
-
-        <div className="d-flex flex-column align-items-center my-5">
-          <div className="header">Past events</div>
           {events
+            .filter((event) => new Date(event.dates[0].start) > new Date())
             .sort(
               (a, b) =>
                 new Date(a.dates[0].start).getTime() -
@@ -137,8 +124,23 @@ export default function Home() {
             .map((event, index) => (
               <EventCard key={index} event={event} index={index} />
             ))}
-        </div>
-      </div>
+        </Stack>
+        {/* past events */}
+
+        <Stack align="center" justify="center">
+          <div className="header">Past events</div>
+          {events
+            .filter((event) => new Date(event.dates[0].start) < new Date())
+            .sort(
+              (a, b) =>
+                new Date(a.dates[0].start).getTime() -
+                new Date(b.dates[0].start).getTime(),
+            )
+            .map((event, index) => (
+              <EventCard key={index} event={event} index={index} />
+            ))}
+        </Stack>
+      </Stack>
     </main>
   );
 }
