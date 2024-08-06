@@ -8,7 +8,6 @@ import { usePathname } from "next/navigation";
 
 export default function NavBar() {
   const pathname = usePathname();
-  console.log(pathname);
   return (
     <div className={styles.navbar}>
       <div className={styles.logo}>
