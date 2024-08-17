@@ -14,11 +14,13 @@
     "@mantine/core": "^7.12.0",
     "@mantine/hooks": "^7.12.0",
     "@tabler/icons-react": "^3.11.0",
+    "@types/react-scroll": "^1.8.10",
     "bootstrap-icons": "^1.11.3",
     "gsap": "^3.12.5",
     "next": "^14.2.3",
     "react": "^18",
-    "react-dom": "^18"
+    "react-dom": "^18",
+    "react-scroll": "^1.9.0"
   },
   "devDependencies": {
     "@types/node": "^20",

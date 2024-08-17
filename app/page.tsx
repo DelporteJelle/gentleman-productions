@@ -61,7 +61,7 @@ export default function Home() {
   const [currentIndex, setCurrentIndex] = useState(
     Math.floor(Math.random() * images.length),
   );
-
+  // Fetch data
   useEffect(() => {
     fetch("/api/events")
       .then((response) => response.json())
@@ -75,12 +75,52 @@ export default function Home() {
     return () => clearInterval(intervalId);
   }, [setEvents]);
 
+  // Scroll effect to clarify page is scrollable
+  const [pulseVisible, setPulseVisible] = useState(false);
+  const [hasScrolled, setHasScrolled] = useState(false);
+  useEffect(() => {
+    window.addEventListener("scroll", () => {
+      setHasScrolled(true);
+    });
+
+    const timer = setTimeout(() => {
+      if (hasScrolled) return;
+      setPulseVisible(true);
+
+      gsap.to(window, {
+        scrollTo: { y: "+=60", autoKill: false },
+        duration: 0.5,
+        onComplete: () => {
+          gsap.to(window, {
+            scrollTo: { y: "-=60", autoKill: false },
+            duration: 0.5,
+            ease: "bounce.out", // Bounce effect for scrolling back up
+            onComplete: () => {
+              setPulseVisible(false);
+            },
+          });
+        },
+      });
+    }, 10000);
+    return () => {
+      clearTimeout(timer);
+      window.removeEventListener("scroll", () => {});
+    };
+  }, [hasScrolled]);
+
   if (!events) {
     return <div>Loading...</div>;
   }
 
   return (
     <main className={`${styles.main} ${styles[`background${currentIndex}`]}`}>
+      {pulseVisible && (
+        <div className={styles.pulse_indicator}>
+          <div className={styles.ring}></div>
+          <div className={styles.ring}></div>
+          <div className={styles.ring}></div>
+        </div>
+      )}
       <div className={styles.hightlight}>
         <div className={"title"}>
           {mockdata.mainHighlight.title}
