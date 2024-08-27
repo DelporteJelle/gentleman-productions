@@ -8,6 +8,7 @@ main {
 
 .root {
   background-color: var(--background-color);
+  background: radial-gradient(circle, rgb(12, 12, 12) 68%, rgb(48, 48, 48) 96%);
   font-family: "Questrial", sans-serif;
 }
 

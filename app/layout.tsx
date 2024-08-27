@@ -3,15 +3,12 @@
 import "/variables.css";
 import "./globals.css";
 import "@mantine/core/styles.css";
-import type { Metadata } from "next";
-import { Inter } from "next/font/google";
 import NavBar from "../components/Navigation/Navbar";
 import Footer from "../components/Navigation/Footer";
 import "@mantine/carousel/styles.css";
 import "@mantine/core/styles.css";
 import React from "react";
 import { MantineProvider, ColorSchemeScript } from "@mantine/core";
-import { theme } from "../theme";
 import { AppShell, Burger } from "@mantine/core";
 import { useDisclosure } from "@mantine/hooks";
 
