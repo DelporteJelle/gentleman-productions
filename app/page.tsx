@@ -113,7 +113,7 @@ export default function Home() {
   }
 
   return (
-    <main className={`${styles.main} ${styles[`background${currentIndex}`]}`}>
+    <div className={`${styles.main} ${styles[`background${currentIndex}`]}`}>
       {pulseVisible && (
         <div className={styles.pulse_indicator}>
           <div className={styles.ring}></div>
@@ -181,6 +181,6 @@ export default function Home() {
             ))}
         </Stack>
       </Stack>
-    </main>
+    </div>
   );
 }
