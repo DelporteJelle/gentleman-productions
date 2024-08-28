@@ -3,18 +3,24 @@
 // import Image from "next/image";
 import styles from "./styles.module.css";
 import Socials from "./Socials";
-import { Image } from "@mantine/core";
-import { usePathname } from "next/navigation";
+import { Burger, Group, Image } from "@mantine/core";
+import { usePathname, useRouter } from "next/navigation";
 
 export default function NavBar() {
   const pathname = usePathname();
-  console.log(pathname);
+  const router = useRouter();
+
   return (
     <div className={styles.navbar}>
-      <div className={styles.logo}>
+      <div
+        className={styles.logo}
+        onClick={() => {
+          router.push("/");
+        }}
+      >
         <Image src={"/GP-name.svg"} alt="/home/" width={200} height={45} />
       </div>
-      <div className={styles.navigation}>
+      {/* <Group className={styles.navigation} visibleFrom="sm">
         <a href="/" className={pathname === "/" ? "active" : ""}>
           Home
         </a>
@@ -29,7 +35,7 @@ export default function NavBar() {
         >
           Pictures
         </a>
-      </div>
+      </Group> */}
       <Socials white={true} />
     </div>
   );

@@ -108,9 +108,6 @@ export default function ExpandedTicketCard({ ticket, setActiveCard }: props) {
         <Group justify="center" mt={20}>
           <button
             className="btn-red"
-            // onClick={() => {
-            //   window.open(ticket.external_link, "_blank");
-            // }}
             onClick={() => {
               const targetElementId = "mage_event_submit"; // Replace with the actual id of the target element
               const urlWithHash = `${ticket.external_link}#${targetElementId}`;

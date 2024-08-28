@@ -1,3 +1,5 @@
+/** NAVBAR */
+
 .navbar {
   height: 40px;
   display: flex;
@@ -8,7 +10,6 @@
 }
 
 .navigation {
-  width: 200px;
   display: flex;
   flex-direction: row;
   justify-content: space-between;
@@ -16,13 +17,24 @@
 }
 .logo {
   width: 200px;
-  padding-left: 0px;
+  cursor: pointer;
 }
 .socials {
   width: 200px;
   display: flex;
   justify-content: right;
 }
+
+@media screen and (max-width: 800px) {
+  .logo {
+    margin-left: 30px;
+  }
+  .socials {
+    width: min-content;
+  }
+}
+/** FOOTER */
+
 .a {
   text-decoration: none;
   color: var(--text-color);
@@ -30,8 +42,10 @@
 }
 
 .footer {
+  font-size: 14px;
+  color: var(--gray-800);
   background-color: var(--white);
-  height: 80px;
+  height: 65px;
   display: flex;
   flex-direction: row;
   justify-content: space-between;
