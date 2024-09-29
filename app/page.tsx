@@ -16,7 +16,7 @@ gsap.registerPlugin(useGSAP, ScrollTrigger, ScrollToPlugin);
 const mockdata = {
   mainHighlight: {
     title: "End of the line",
-    dates: [new Date(2024, 10, 30), new Date(2024, 11, 1)],
+    dates: [new Date("2024-10-31T18:00:00"), new Date("2024-11-01T18:00:00")],
   },
   // Events: [
   //   {
