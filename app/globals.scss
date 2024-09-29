@@ -8,6 +8,17 @@ main {
 
 .root {
   background-color: var(--background-color);
+  background: radial-gradient(
+    circle,
+    var(--background-color),
+    rgba(0, 0, 0, 0.8) 25%,
+    rgba(0, 0, 0, 0.6) 50%,
+    rgba(0, 0, 0, 0.4) 75%
+  );
+  background-attachment: fixed;
+  background-position: center;
+  background-repeat: no-repeat;
+  background-size: cover;
   // background: radial-gradient(
   //   circle,
   //   rgba(12, 12, 12, 1) 68%,

@@ -13,7 +13,7 @@ const mockdata: Event[] = [
       },
     ],
     description: "Hoe het allemaal begon: charmant, sexy en stijlvol.",
-    mainImage: "/Event_16.jpeg",
+    mainImage: "/event1_the_gentleman/Event_15.jpeg",
     images: [
       "/event1_the_gentleman/Event_1.jpg",
       "/event1_the_gentleman/Event_11.jpg",
@@ -46,7 +46,7 @@ const mockdata: Event[] = [
     ],
     description:
       "The Gentleman keert terug naar Merelbeke met een nieuw fris verhaal vol drama en zottigheid. \nEchter, deze keer loopt het niet van een leien dakje, er is storm op komst en de oorzaak is ongekend. \nKom kijken en beleef mee wat Damon en Jowie in petto hebben.",
-    mainImage: "/Event_2.jpeg",
+    mainImage: "/event2_deal_no_deal/Event_2.jpeg",
     images: [
       "/event2_deal_no_deal/_EM17047.jpg",
       "/event2_deal_no_deal/_EM17063.jpg",
@@ -81,8 +81,8 @@ const mockdata: Event[] = [
     ],
     description:
       "Het is niet al goud wat blinkt. Loopt alles goed af met Damon, Jowie en de vriendengroep? \nKom kijken, ontdek en geniet van het laatste deel van onze trilogie. \nEen spannend verhaal vol humor, straffe choreo en bekende muziek.\n\nHeb je het 1e en 2e deel niet gezien? Geen probleem, wij nemen je mee in een uniek verhaal waarin alles duidelijk wordt, zelf zonder voorkennis.",
-    mainImage: "/end-of-the-line.PNG",
-    images: ["/event3_end_of_the_line/Event_31.jpg"],
+    mainImage: "/event3_end_of_the_line/Event_3.jpg",
+    images: ["/event3_end_of_the_line/Event_3.jpg"],
     location: {
       country: "Belgium",
       city: "Merelbeke",

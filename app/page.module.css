@@ -40,10 +40,18 @@
 /* Hightlight style **/
 .hightlight {
   color: var(--white);
-  max-width: 500px;
+  max-width: 700px;
   height: calc(100vh - 60px);
-  padding-top: 200px;
+  padding-top: 80px;
+  padding-left: 200px;
 }
+
+@media screen and (max-width: 1000px) {
+  .hightlight {
+    padding-left: 0px;
+  }
+}
+
 .line {
   height: 5px;
   width: 60%;

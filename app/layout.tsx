@@ -37,12 +37,12 @@ const RootLayout: React.FC<React.PropsWithChildren> = ({ children }) => {
               <NavBar />
             </header>
             <main className="main">
-              <Burger
+              {/* <Burger
                 style={{ zIndex: 1000, position: "fixed", top: 10, left: 10 }}
                 opened={opened}
                 onClick={toggle}
                 hiddenFrom="sm"
-              />
+              /> */}
 
               {children}
             </main>
