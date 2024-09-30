@@ -70,7 +70,7 @@ export default function Home() {
 
     const intervalId = setInterval(() => {
       setCurrentIndex((prevIndex) => (prevIndex + 1) % images.length);
-    }, 30000);
+    }, 60000);
 
     return () => clearInterval(intervalId);
   }, [setEvents]);
