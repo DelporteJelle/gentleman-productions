@@ -19,8 +19,8 @@ const mockdata: Event[] = [
       "/event1_the_gentleman/Event_11.jpg",
       "/event1_the_gentleman/Event_12.jpg",
       "/event1_the_gentleman/Event_13.jpg",
-      "/event1_the_gentleman/Event_14.jpg",
-      "/event1_the_gentleman/Event_15.jpg",
+      "/event1_the_gentleman/Event_14.jpeg",
+      "/event1_the_gentleman/Event_15.jpeg",
     ],
     location: {
       country: "Belgium",

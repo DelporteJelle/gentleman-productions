@@ -9,7 +9,6 @@
   display: flex;
   color: var(--white);
   flex-direction: column;
-  margin: 50px;
 }
 
 .main::before {
