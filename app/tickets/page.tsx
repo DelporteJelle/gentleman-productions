@@ -8,7 +8,7 @@ const mockdata = {
     {
       uuid: crypto.randomUUID(),
       start: new Date("2024-10-31T18:00:00"),
-      end: new Date("2024-10-31T24:00:00"),
+      end: new Date("2024-11-01T24:00:00"),
       imgSrc: "/event3_end_of_the_line/Event_3.jpg",
       title: "End of the line",
       price: 28,

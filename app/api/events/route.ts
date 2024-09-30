@@ -39,8 +39,8 @@ const mockdata: Event[] = [
         price: 28,
       },
       {
-        start: new Date("2024-11-01T18:00:00"),
-        end: new Date("2024-10-31T24:00:00"),
+        start: new Date("2023-11-03T18:00:00"),
+        end: new Date("2023-11-04T24:00:00"),
         price: 28,
       },
     ],
@@ -66,14 +66,14 @@ const mockdata: Event[] = [
     dates: [
       {
         start: new Date("2024-10-31T18:00:00"),
-        end: new Date("2024-11-02T24:00:00"),
+        end: new Date("2024-11-01T24:00:00"),
         price: 28,
         external_link:
           "https://dreamdance.be/new/event/the-gentleman-end-of-the-line-1/",
       },
       {
         start: new Date("2024-11-01T18:00:00"),
-        end: new Date("2024-10-31T24:00:00"),
+        end: new Date("2024-11-02T24:00:00"),
         price: 28,
         external_link:
           "https://dreamdance.be/new/event/the-gentleman-end-of-the-line-2/",

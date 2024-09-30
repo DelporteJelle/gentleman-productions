@@ -145,7 +145,7 @@ export default function Home() {
             router.push("/tickets");
           }}
         >
-          Buy tickets
+          Ticket info
         </button>
       </div>
       {/* anouncements section */}
