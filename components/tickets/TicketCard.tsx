@@ -1,5 +1,5 @@
 "use client";
-
+import { Event, EventDateEntry, EventLocation } from "@/types";
 import styles from "./TicketCard.module.css";
 import { Group, Image } from "@mantine/core";
 import {
@@ -10,60 +10,65 @@ import {
 import ExpandedTicketCard from "./ExpandedTicketCard/ExpandedTicketCard";
 
 type props = {
-  ticket: any;
+  date: EventDateEntry;
+  event: Event;
   activeCard: string | undefined;
   setActiveCard: React.Dispatch<React.SetStateAction<string | undefined>>;
 };
 
 export default function TicketCard({
-  ticket,
+  date,
+  event,
   activeCard,
   setActiveCard,
 }: props) {
-  if (ticket.uuid === activeCard) {
-    return <ExpandedTicketCard ticket={ticket} setActiveCard={setActiveCard} />;
+  if (date.uuid === activeCard) {
+    return <ExpandedTicketCard date={date} event={event} setActiveCard={setActiveCard} />;
   }
   return (
     <div
       // className={styles.card}
       className={`${styles.card} ${activeCard ? styles.inactive : ""}`}
       onClick={() => {
-        setActiveCard(ticket.uuid);
+        setActiveCard(date.uuid);
       }}
     >
       <Image
-        src={ticket.imgSrc}
-        alt={ticket.title}
+        src={event.mainImage}
+        alt={event.title}
         width={500}
         height={300}
         style={{ objectFit: "cover" }}
       />
       <div className={styles.content}>
         <Group justify="space-between">
-          <div className="subheader bold">{ticket.title}</div>
-          <div className={styles.price}>
-            <IconCurrencyEuro />
-            {ticket.price}
-          </div>
+          <h2 >{event.title}</h2>
+          {date.price && (
+            <div className={styles.price}>
+              <IconCurrencyEuro />
+              {date.price}
+            </div>
+          )}
         </Group>
-        <div className="date d-flex my-2 ">
-          <IconCalendarFilled className="me-2" />
-          <span className="mx-1">
-            {ticket.start.toLocaleDateString("nl-BE", {
+        <div className="date">
+          <IconCalendarFilled  />
+          <span>
+            {new Date(date.start).toLocaleDateString("nl-BE", {
               day: "numeric",
               month: "long",
               year: "numeric",
             })}
           </span>
-          <span className="mx-1">
-            {ticket.start.toLocaleTimeString("nl-BE", {
+          {" - "}
+          <span>
+            {new Date(date.start).toLocaleTimeString("nl-BE", {
               hour: "numeric",
               minute: "numeric",
             })}
           </span>
           {"-"}
-          <span className="mx-1">
-            {ticket.end.toLocaleTimeString("nl-BE", {
+          <span>
+            {new Date(date.end).toLocaleTimeString("nl-BE", {
               hour: "numeric",
               minute: "numeric",
             })}
@@ -71,7 +76,7 @@ export default function TicketCard({
         </div>
         <div className="d-flex">
           <IconMapPinFilled className="me-2" />
-          {ticket.place.location}
+          {event.eventLocation?.location}
         </div>
       </div>
     </div>
