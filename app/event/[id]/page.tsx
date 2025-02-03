@@ -67,7 +67,7 @@ const EventPage = () => {
         loop
         withIndicators
       >
-        {data.images.map((image, index) => (
+        {data.images?.map((image, index) => (
           <Carousel.Slide key={index}>
             <Image
               src={image}
