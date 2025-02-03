@@ -15,17 +15,22 @@ export interface EventLocation {
   location?: string; // Name of the venue
 }
 
-
 export interface EventDateEntry {
   uuid: string; // Unique identifier for each date entry
   start: string; // ISO date string
   end: string; // ISO date string
   timeLine: TimeLineEntry[];
   price?: number; //undefined if free
-  external_link?: string; 
+  external_link?: string;
 }
 
-export interface TimeLineEntry{
+export interface TimeLineEntry {
   time: string;
   description: string;
+}
+
+export interface EventHighlight {
+  uuid: string;
+  event_uuid: string;
+  valid_date: string;
 }

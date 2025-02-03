@@ -90,8 +90,8 @@
     "dates": [
       {
         "uuid": "1",
-        "start": "2024-10-31T18:00:00",
-        "end": "2024-11-02T24:00:00",
+        "start": "2025-10-31T18:00:00",
+        "end": "2025-11-02T24:00:00",
         "price": 28,
         "ticket_link": "https://dreamdance.be/new/event/the-gentleman-end-of-the-line-1/",
         "timeLine": [
@@ -124,8 +124,11 @@
       }
     ],
     "description": "Het is niet al goud wat blinkt. Loopt alles goed af met Damon, Jowie en de vriendengroep? Kom kijken, ontdek en geniet van het laatste deel van onze trilogie. Een spannend verhaal vol humor, straffe choreo en bekende muziek.\n\nHeb je het 1e en 2e deel niet gezien? Geen probleem, wij nemen je mee in een uniek verhaal waarin alles duidelijk wordt, zelf zonder voorkennis.",
-    "mainImage": "/event3_end_of_the_line/end-of-the-line.PNG",
-    "images": ["/event3_end_of_the_line/Event_31.jpg"],
+    "mainImage": "/event3_end_of_the_line/Event_3.jpg",
+    "images": [
+      "/event3_end_of_the_line/Event_3.jpg",
+      "/event3_end_of_the_line/Event_31.jpg"
+    ],
     "eventLocation": {
       "country": "Belgium",
       "city": "Merelbeke",
