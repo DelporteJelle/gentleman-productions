@@ -1,8 +1,6 @@
 import { Event } from "@/types";
 import { NextResponse } from "next/server";
-import mockdata from '@/mockdata/events.json';
-
-
+import mockdata from "@/mockdata/events.json";
 
 export async function GET(request: Request) {
   const url = new URL(request.url);
