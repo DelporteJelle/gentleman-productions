@@ -30,25 +30,6 @@ const EventPage = () => {
 
   return (
     <div className={styles.main}>
-      <Carousel
-        className={styles.carousel}
-        slideSize="70%"
-        slideGap="md"
-        loop
-        withIndicators
-      >
-        {data.images.map((image, index) => (
-          <Carousel.Slide key={index}>
-            <Image
-              src={image}
-              alt={data.title}
-              height={window.innerHeight - 200}
-              style={{ objectFit: "contain" }}
-            />
-          </Carousel.Slide>
-        ))}
-      </Carousel>
-
       <div className={styles.text}>
         <div className="title" style={{ fontSize: "32px" }}>
           {data.title} <div className={styles.line} />
@@ -78,6 +59,25 @@ const EventPage = () => {
           </button>
         )}
       </div>
+
+      <Carousel
+        className={styles.carousel}
+        slideSize="70%"
+        slideGap="md"
+        loop
+        withIndicators
+      >
+        {data.images.map((image, index) => (
+          <Carousel.Slide key={index}>
+            <Image
+              src={image}
+              alt={data.title}
+              height={window.innerHeight - 200}
+              style={{ objectFit: "contain" }}
+            />
+          </Carousel.Slide>
+        ))}
+      </Carousel>
     </div>
   );
 };
