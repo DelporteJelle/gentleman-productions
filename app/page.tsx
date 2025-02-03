@@ -13,34 +13,6 @@ import { Stack } from "@mantine/core";
 
 gsap.registerPlugin(useGSAP, ScrollTrigger, ScrollToPlugin);
 
-const mockdata = {
-  mainHighlight: {
-    title: "End of the line",
-    dates: [new Date(2024, 10, 30), new Date(2024, 11, 1)],
-  },
-  // Events: [
-  //   {
-  //     title: "Deal or No Deal?",
-  //     text: "The Gentleman keert terug naar Merelbeke met een nieuw fris verhaal vol drama en zottigheid. \nEchter, deze keer loopt het niet van een leien dakje, er is storm op komst en de oorzaak is ongekend. \nKom kijken en beleef mee wat Damon en Jowie in petto hebben.",
-  //     dates: [new Date(2023, 11, 2), new Date(2023, 11, 3)],
-  //     imageSrc: "/Event_2.jpeg",
-  //   },
-  //   {
-  //     title: "The Gentleman, Welcome to the upper class",
-  //     text: "Hoe het allemaal begon: charmant, sexy en stijlvol.",
-  //     dates: [new Date(2022, 12, 27)],
-  //     imageSrc: "/Event_16.jpeg",
-  //   },
-
-  //   {
-  //     title: "End of the line",
-  //     text: "Het is niet al goud wat blinkt. Loopt alles goed af met Damon, Jowie en de vriendengroep? \nKom kijken, ontdek en geniet van het laatste deel van onze trilogie. \nEen spannend verhaal vol humor, straffe choreo en bekende muziek.\n\nHeb je het 1e en 2e deel niet gezien? Geen probleem, wij nemen je mee in een uniek verhaal waarin alles duidelijk wordt, zelf zonder voorkennis.",
-  //     dates: [new Date(2024, 10, 31), new Date(2024, 11, 1)],
-  //     imageSrc: "/Event_3.jpg  ",
-  //   },
-  // ],
-};
-
 const images = [
   "/Banner_1.jpg",
   "/Banner_2.jpg",
@@ -61,12 +33,21 @@ export default function Home() {
   const [currentIndex, setCurrentIndex] = useState(
     Math.floor(Math.random() * images.length),
   );
-  // Fetch data
+
+  const [highlight, setHighlight] = useState<{uuid: string, event_uuid: string} | undefined>(undefined);
+  const [highlightEvent, setHighlightEvent] = useState<Event | undefined>(undefined);
+
+    // Fetch data
   useEffect(() => {
     fetch("/api/events")
       .then((response) => response.json())
       .then((data) => setEvents(data))
       .catch((error) => console.error("Error fetching data:", error));
+
+      fetch("/api/highlight")
+      .then((response) => response.json())
+      .then((data) => setHighlight(data))
+      .catch((error) => console.error("Error fetching highlight:", error));
 
     const intervalId = setInterval(() => {
       setCurrentIndex((prevIndex) => (prevIndex + 1) % images.length);
@@ -74,6 +55,13 @@ export default function Home() {
 
     return () => clearInterval(intervalId);
   }, [setEvents]);
+
+  useEffect(() => {
+    if (highlight && events) {
+      const highlightedEvent = events.find(event => event.uuid === highlight.event_uuid);
+      setHighlightEvent(highlightedEvent);
+    }
+  }, [highlight, events]);
 
   // Scroll effect to clarify page is scrollable
   const [pulseVisible, setPulseVisible] = useState(false);
@@ -108,7 +96,7 @@ export default function Home() {
     };
   }, [hasScrolled]);
 
-  if (!events) {
+  if (!events || !highlightEvent) {
     return <div>Loading...</div>;
   }
 
@@ -123,14 +111,14 @@ export default function Home() {
       )}
       <div className={styles.hightlight}>
         <div className={"title"}>
-          {mockdata.mainHighlight.title}
+          {highlightEvent.title}
           <div className={styles.line}></div>
         </div>
         <div className="bold">SAVE THE DATE</div>
         <div className={styles.date}>
-          {mockdata.mainHighlight.dates.map((date, index) => (
+          {highlightEvent.dates.map((date, index) => (
             <span key={index}>
-              {date.toLocaleDateString("nl-BE", {
+              {new Date(date.start).toLocaleDateString("nl-BE", {
                 day: "numeric",
                 month: "long",
                 year: "numeric",
@@ -142,7 +130,7 @@ export default function Home() {
         <button
           className="btn-red"
           onClick={() => {
-            router.push("/tickets");
+            router.push("/event/" + highlightEvent.uuid + "/ticket");
           }}
         >
           Buy tickets
@@ -151,30 +139,31 @@ export default function Home() {
       {/* anouncements section */}
       <Stack align="center" justify="center">
         {/* Upcomming events */}
-
-        <Stack align="center" justify="center">
-          <div className="header">Upcoming events</div>
+        {events.filter((event) => new Date(event.dates[0].start) > new Date()).length > 0 && (
+          <Stack align="center" justify="center">
+            <h1>Upcoming events</h1>
           {events
             .filter((event) => new Date(event.dates[0].start) > new Date())
             .sort(
               (a, b) =>
-                new Date(a.dates[0].start).getTime() -
-                new Date(b.dates[0].start).getTime(),
+                new Date(b.dates[0].start).getTime() -
+              new Date(a.dates[0].start).getTime(),
             )
             .map((event, index) => (
               <EventCard key={index} event={event} index={index} />
             ))}
         </Stack>
+        )}
         {/* past events */}
 
         <Stack align="center" justify="center">
-          <div className="header">Past events</div>
+          <h1>Past events</h1>
           {events
-            .filter((event) => new Date(event.dates[0].start) < new Date())
+              .filter((event) => new Date(event.dates[0].start) < new Date())
             .sort(
               (a, b) =>
-                new Date(a.dates[0].start).getTime() -
-                new Date(b.dates[0].start).getTime(),
+                new Date(b.dates[0].start).getTime() -
+                new Date(a.dates[0].start).getTime(),
             )
             .map((event, index) => (
               <EventCard key={index} event={event} index={index} />
