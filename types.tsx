@@ -1,3 +1,4 @@
+//Event types
 export interface Event {
   uuid: string; // Unique identifier for each event
   title: string; // Title of the event
@@ -29,8 +30,30 @@ export interface TimeLineEntry {
   description: string;
 }
 
+//Highlight type
 export interface EventHighlight {
   uuid: string;
   event_uuid: string;
   valid_date: string;
+}
+
+//About types
+export interface TeamMember {
+  uuid: string;
+  name: string;
+  role: string;
+  image: string;
+  email?: string;
+  linkedin?: string;
+  instagram?: string;
+  facebook?: string;
+  twitter?: string;
+  website?: string;
+}
+
+export interface Partner {
+  uuid: string;
+  name: string;
+  logo: string;
+  description: string;
 }

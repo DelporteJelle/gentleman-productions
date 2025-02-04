@@ -18,19 +18,20 @@ main {
 }
 
 a {
+  font-family: "Poppins", sans-serif;
   text-decoration: none; /* Removes the underline */
   cursor: pointer; /* Optional: Ensures it still looks clickable */
   color: var(--white);
 }
 
 a:hover {
+  transition: color 0.3s ease, transform 0.3s ease;
+  transform: scale(1.1);
   color: var(--primary-red) !important;
-  text-decoration: underline;
 }
 
 a.active {
   color: var(--primary-red) !important;
-  text-decoration: underline;
 }
 
 .btn-red {
@@ -92,9 +93,8 @@ h2 {
 }
 
 h3 {
-  font-size: 18px;
-  font-weight: 500;
-  text-decoration: underline;
+  font-size: 20px;
+  font-weight: 600;
   font-family: "Poppins", sans-serif;
 }
 
@@ -111,18 +111,6 @@ h3 {
 
 .underline {
   text-decoration: underline;
-}
-
-.white {
-  color: var(--white);
-}
-
-.gray-200 {
-  color: var(--gray-200);
-}
-
-.gray-300 {
-  color: var(--gray-400);
 }
 
 .upper {

@@ -81,6 +81,7 @@ const EventPage = () => {
               style={{ objectFit: "contain", cursor: "pointer" }}
               width={"100%"}
               height={"100%"}
+              radius="10px"
               onClick={() => {
                 const overlay = document.createElement("div");
                 overlay.style.cssText = `

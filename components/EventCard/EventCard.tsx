@@ -111,9 +111,7 @@ export default function ImageTextCard({ event, index }: props) {
           />
         </div>
         <div className={styles.card_txt}>
-          <h2 ref={titleRef}>
-            {event.title}
-          </h2>
+          <h2 ref={titleRef}>{event.title}</h2>
 
           <div className="date mt-4" ref={dateRef}>
             {event.dates.map((date: any, index: number) => (
@@ -132,7 +130,7 @@ export default function ImageTextCard({ event, index }: props) {
             }}
             style={{ opacity: 0 }}
           >
-            More info
+            View event
           </button>
           {/* )} */}
         </div>
