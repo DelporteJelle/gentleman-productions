@@ -10,6 +10,9 @@ import EventCard from "@/components/EventCard/EventCard";
 import { useEffect, useRef, useState } from "react";
 import { Event, EventHighlight } from "@/types";
 import { Stack } from "@mantine/core";
+import { createRoot } from "react-dom/client";
+import { Canvas } from "@react-three/fiber";
+import CanvasBackground from "@/components/Background/CanvasBackground";
 
 gsap.registerPlugin(useGSAP, ScrollTrigger, ScrollToPlugin);
 
@@ -141,7 +144,7 @@ export default function Home() {
           <div className={styles.ring}></div>
         </div>
       )}
-
+      <CanvasBackground />
       {/**Hightlight */}
       <div className={styles.hightlight}>
         {highlight?.valid_date &&
