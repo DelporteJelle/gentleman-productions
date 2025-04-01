@@ -17,16 +17,12 @@ import CanvasBackground from "@/components/Background/CanvasBackground";
 gsap.registerPlugin(useGSAP, ScrollTrigger, ScrollToPlugin);
 
 const images = [
-  "Banner_1.jpg",
   "Banner_2.jpg",
-  "Banner_3.jpg",
   "Banner_4.jpg",
-  "Banner_5.jpg",
   "Banner_6.jpg",
   "Banner_7.jpg",
   "Banner_8.jpg",
   "Banner_9.jpg",
-  "Banner_10.jpg",
   "Banner_11.jpg",
 ];
 
