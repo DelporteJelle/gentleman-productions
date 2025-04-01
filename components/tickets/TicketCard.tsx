@@ -23,7 +23,13 @@ export default function TicketCard({
   setActiveCard,
 }: props) {
   if (date.uuid === activeCard) {
-    return <ExpandedTicketCard date={date} event={event} setActiveCard={setActiveCard} />;
+    return (
+      <ExpandedTicketCard
+        date={date}
+        event={event}
+        setActiveCard={setActiveCard}
+      />
+    );
   }
   return (
     <div
@@ -34,7 +40,7 @@ export default function TicketCard({
       }}
     >
       <Image
-        src={event.mainImage}
+        src={`/api/images/${event.mainImage}`}
         alt={event.title}
         width={500}
         height={300}
@@ -42,7 +48,7 @@ export default function TicketCard({
       />
       <div className={styles.content}>
         <Group justify="space-between">
-          <h2 >{event.title}</h2>
+          <h2>{event.title}</h2>
           {date.price && (
             <div className={styles.price}>
               <IconCurrencyEuro />
@@ -51,7 +57,7 @@ export default function TicketCard({
           )}
         </Group>
         <div className="date">
-          <IconCalendarFilled  />
+          <IconCalendarFilled />
           <span>
             {new Date(date.start).toLocaleDateString("nl-BE", {
               day: "numeric",

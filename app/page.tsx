@@ -9,7 +9,7 @@ import { ScrollToPlugin } from "gsap/ScrollToPlugin";
 import EventCard from "@/components/EventCard/EventCard";
 import { useEffect, useRef, useState } from "react";
 import { Event, EventHighlight } from "@/types";
-import { Stack } from "@mantine/core";
+import { Image, Stack } from "@mantine/core";
 import { createRoot } from "react-dom/client";
 import { Canvas } from "@react-three/fiber";
 import CanvasBackground from "@/components/Background/CanvasBackground";
@@ -17,46 +17,20 @@ import CanvasBackground from "@/components/Background/CanvasBackground";
 gsap.registerPlugin(useGSAP, ScrollTrigger, ScrollToPlugin);
 
 const images = [
-  "/Banner_1.jpg",
-  "/Banner_2.jpg",
-  "/Banner_3.jpg",
-  "/Banner_4.jpg",
-  "/Banner_5.jpg",
-  "/Banner_6.jpg",
-  "/Banner_7.jpg",
-  "/Banner_8.jpg",
-  "/Banner_9.jpg",
-  "/Banner_10.jpg",
-  "/Banner_11.jpg",
+  "Banner_1.jpg",
+  "Banner_2.jpg",
+  "Banner_3.jpg",
+  "Banner_4.jpg",
+  "Banner_5.jpg",
+  "Banner_6.jpg",
+  "Banner_7.jpg",
+  "Banner_8.jpg",
+  "Banner_9.jpg",
+  "Banner_10.jpg",
+  "Banner_11.jpg",
 ];
 
 export default function Home() {
-  const [fogPosition, setFogPosition] = useState({ x: 0, y: 0 });
-
-  // Handle fog movement based on mouse position
-  const handleMouseMove = (e: React.MouseEvent) => {
-    const x = (e.clientX / window.innerWidth) * 100;
-    const y = (e.clientY / window.innerHeight) * 100;
-    setFogPosition({ x, y });
-  };
-
-  // Add fog effect styles
-  const fogStyle = {
-    position: "fixed" as const,
-    top: 0,
-    left: 0,
-    width: "100%",
-    height: "100%",
-    background: `radial-gradient(
-      circle at ${fogPosition.x}% ${fogPosition.y}%,
-      rgba(0, 0, 0, 0.1) 0%,
-      rgba(0, 0, 0, 0.3) 40%,
-      rgba(0, 0, 0, 0.7) 80%
-    )`,
-    pointerEvents: "none" as const,
-    zIndex: 1,
-    transition: "background 0.3s ease-out",
-  };
   const router = useRouter();
   const [events, setEvents] = useState<Event[] | undefined>(undefined);
   const [currentIndex, setCurrentIndex] = useState(
@@ -131,62 +105,144 @@ export default function Home() {
     };
   }, [hasScrolled]);
 
+  //Adjust CanvasBackground position based on scroll direction
+  const [canvasInFront, setCanvasInFront] = useState(false); // Track if CanvasBackground should move in front
+  const [scrollY, setScrollY] = useState(0); // Track the current scroll position
+  const [scrollDirection, setScrollDirection] = useState<"up" | "down" | null>(
+    null,
+  ); // Track scroll direction
+
+  useEffect(() => {
+    const handleScroll = () => {
+      const currentScrollY = window.scrollY;
+
+      // Determine scroll direction
+      if (currentScrollY > scrollY) {
+        setScrollDirection("down");
+      } else if (currentScrollY < scrollY) {
+        setScrollDirection("up");
+      }
+
+      setScrollY(currentScrollY);
+
+      setCanvasInFront(currentScrollY > 500); // Adjust the threshold as needed
+    };
+
+    window.addEventListener("scroll", handleScroll);
+    return () => window.removeEventListener("scroll", handleScroll);
+  }, [scrollY]);
+
   if (!events || !highlightEvent) {
     return <div>Loading...</div>;
   }
 
   return (
-    <div className={`${styles.main} ${styles[`background${currentIndex}`]}`}>
-      {pulseVisible && (
-        <div className={styles.pulse_indicator}>
-          <div className={styles.ring}></div>
-          <div className={styles.ring}></div>
-          <div className={styles.ring}></div>
-        </div>
-      )}
-      <CanvasBackground />
-      {/**Hightlight */}
-      <div className={styles.hightlight}>
-        {highlight?.valid_date &&
-          new Date(highlight.valid_date) > new Date() && (
-            <>
-              <div className={"title"}>
-                {highlightEvent.title}
-                <div className={styles.line}></div>
-              </div>
-              <div className="bold">SAVE THE DATE</div>
-              <div className={styles.date}>
-                {highlightEvent.dates.map((date, index) => (
-                  <span key={index}>
-                    {new Date(date.start).toLocaleDateString("nl-BE", {
-                      day: "numeric",
-                      month: "long",
-                      year: "numeric",
-                    })}
-                    {index === 0 ? " - " : ""}
-                  </span>
-                ))}
-              </div>
-              <button
-                className="btn-red"
-                onClick={() => {
-                  router.push("/event/" + highlightEvent.uuid + "/ticket");
-                }}
-              >
-                Ticket info
-              </button>
-            </>
-          )}
+    <div className={`${styles.main}`}>
+      {/*Background Image*/}
+      <Image
+        src={`/api/images/${images[currentIndex]}`}
+        alt={"highlight"}
+        style={{
+          objectFit: "cover",
+          position: "fixed",
+          top: 0,
+          left: 0,
+          height: "100vh",
+          width: "100%",
+          zIndex: -2,
+        }}
+      />
+      {/* Canvas Background */}
+      <div
+        style={{
+          position: "fixed",
+          top: 0,
+          left: 0,
+          width: "100%",
+          height: "100%",
+          zIndex: -1, // Keep it above the background image
+          transform: canvasInFront
+            ? "translateY(0)" // Fully visible when scrolled down
+            : scrollDirection === "up"
+              ? "translateY(100%)" // Move up when scrolling up
+              : "translateY(100%)", // Move down when scrolling down
+          transition: "transform 0.5s ease", // Smooth transition for movement
+        }}
+      >
+        <CanvasBackground />
       </div>
-      {/* anouncements section */}
-      <Stack align="center" justify="center">
-        {/* Upcomming events */}
-        {events.filter((event) => new Date(event.dates[0].start) > new Date())
-          .length > 0 && (
+      {/* Main Content */}
+      <div
+        style={{
+          position: "relative",
+          zIndex: 3, // Ensure content is always above both the background and CanvasBackground
+        }}
+      >
+        {pulseVisible && (
+          <div className={styles.pulse_indicator}>
+            <div className={styles.ring}></div>
+            <div className={styles.ring}></div>
+            <div className={styles.ring}></div>
+          </div>
+        )}
+        {/**Hightlight */}
+        <div className={styles.hightlight}>
+          {highlight?.valid_date &&
+            new Date(highlight.valid_date) > new Date() && (
+              <>
+                <div className={"title"}>
+                  {highlightEvent.title}
+                  <div className={styles.line}></div>
+                </div>
+                <div className="bold">SAVE THE DATE</div>
+                <div className={styles.date}>
+                  {highlightEvent.dates.map((date, index) => (
+                    <span key={index}>
+                      {new Date(date.start).toLocaleDateString("nl-BE", {
+                        day: "numeric",
+                        month: "long",
+                        year: "numeric",
+                      })}
+                      {index === 0 ? " - " : ""}
+                    </span>
+                  ))}
+                </div>
+                <button
+                  className="btn-red"
+                  onClick={() => {
+                    router.push("/event/" + highlightEvent.uuid + "/ticket");
+                  }}
+                >
+                  Ticket info
+                </button>
+              </>
+            )}
+        </div>
+        {/* anouncements section */}
+        <Stack align="center" justify="center">
+          {/* Upcomming events */}
+          {events.filter((event) => new Date(event.dates[0].start) > new Date())
+            .length > 0 && (
+            <Stack align="center" justify="center">
+              <h1>Upcoming events</h1>
+              {events
+                .filter((event) => new Date(event.dates[0].start) > new Date())
+                .sort(
+                  (a, b) =>
+                    new Date(b.dates[0].start).getTime() -
+                    new Date(a.dates[0].start).getTime(),
+                )
+                .map((event, index) => (
+                  <EventCard key={index} event={event} index={index} />
+                ))}
+            </Stack>
+          )}
+          {/* past events */}
+
           <Stack align="center" justify="center">
-            <h1>Upcoming events</h1>
+            <h1>Past events</h1>
             {events
-              .filter((event) => new Date(event.dates[0].start) > new Date())
+              .filter((event) => new Date(event.dates[0].start) < new Date())
               .sort(
                 (a, b) =>
                   new Date(b.dates[0].start).getTime() -
@@ -196,23 +252,8 @@ export default function Home() {
                 <EventCard key={index} event={event} index={index} />
               ))}
           </Stack>
-        )}
-        {/* past events */}
-
-        <Stack align="center" justify="center">
-          <h1>Past events</h1>
-          {events
-            .filter((event) => new Date(event.dates[0].start) < new Date())
-            .sort(
-              (a, b) =>
-                new Date(b.dates[0].start).getTime() -
-                new Date(a.dates[0].start).getTime(),
-            )
-            .map((event, index) => (
-              <EventCard key={index} event={event} index={index} />
-            ))}
         </Stack>
-      </Stack>
+      </div>
     </div>
   );
 }

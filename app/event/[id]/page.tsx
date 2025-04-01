@@ -76,7 +76,7 @@ const EventPage = () => {
           {data.images?.map((image) => (
             <Image
               key={image}
-              src={image}
+              src={`/api/images/${image}`}
               alt={data.title}
               style={{ objectFit: "contain", cursor: "pointer" }}
               width={"100%"}
@@ -99,7 +99,7 @@ const EventPage = () => {
                 `;
 
                 const img = document.createElement("img");
-                img.src = image;
+                img.src = `/api/images/${image}`;
                 img.style.cssText = `
                   max-width: 90%;
                   max-height: 90%;

@@ -19,7 +19,11 @@ type props = {
   setActiveCard: React.Dispatch<React.SetStateAction<string | undefined>>;
 };
 
-export default function ExpandedTicketCard({ event, date, setActiveCard }: props) {
+export default function ExpandedTicketCard({
+  event,
+  date,
+  setActiveCard,
+}: props) {
   return (
     <div
       className={styles.card}
@@ -28,7 +32,7 @@ export default function ExpandedTicketCard({ event, date, setActiveCard }: props
       }}
     >
       <Image
-        src={event.mainImage}
+        src={`/api/images/${event.mainImage}`}
         alt={event.title}
         width={800}
         height={300}
@@ -53,7 +57,7 @@ export default function ExpandedTicketCard({ event, date, setActiveCard }: props
         <Group justify="space-around" mt={20}>
           {/* Event timeline */}
           <Stack justify="flex-start">
-            <h3 >Event timeline</h3>
+            <h3>Event timeline</h3>
             <Timeline bulletSize={30} autoContrast active={10} color="yellow">
               <Timeline.Item
                 bullet={<IconCalendarFilled color="white" />}
@@ -67,15 +71,18 @@ export default function ExpandedTicketCard({ event, date, setActiveCard }: props
                   })}
                 </Text>
               </Timeline.Item>
-              {date.timeLine && date.timeLine.map((t) => (
-                <Timeline.Item
-                  key={t.time}
-                  title={t.time}
-                  bullet={<IconClockFilled color="white" />}
-                >
-                  <Text c="white" size="sm">{t.description}</Text>
-                </Timeline.Item>
-              ))}
+              {date.timeLine &&
+                date.timeLine.map((t) => (
+                  <Timeline.Item
+                    key={t.time}
+                    title={t.time}
+                    bullet={<IconClockFilled color="white" />}
+                  >
+                    <Text c="white" size="sm">
+                      {t.description}
+                    </Text>
+                  </Timeline.Item>
+                ))}
             </Timeline>
           </Stack>
           {/* Event location */}
@@ -88,17 +95,18 @@ export default function ExpandedTicketCard({ event, date, setActiveCard }: props
               active={10}
               color="yellow"
             >
-              {event.eventLocation && Object.entries(event.eventLocation).map(([key, value]) => (
-                <Timeline.Item
-                  bullet={<IconArrowBadgeRightFilled color="white" />}
-                  key={key}
-                  title={key.charAt(0).toUpperCase() + key.slice(1)}
-                >
-                  <Text c="white" size="sm">
-                    {value as string}
-                  </Text>
-                </Timeline.Item>
-              ))}
+              {event.eventLocation &&
+                Object.entries(event.eventLocation).map(([key, value]) => (
+                  <Timeline.Item
+                    bullet={<IconArrowBadgeRightFilled color="white" />}
+                    key={key}
+                    title={key.charAt(0).toUpperCase() + key.slice(1)}
+                  >
+                    <Text c="white" size="sm">
+                      {value as string}
+                    </Text>
+                  </Timeline.Item>
+                ))}
             </Timeline>
           </Stack>
         </Group>

@@ -1,12 +1,10 @@
 import React, { useEffect, useRef } from "react";
 import * as THREE from "three";
-import { GUI } from "dat.gui";
 
 const CanvasBackground: React.FC = () => {
   const mountRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
-    const gui = new GUI();
     const world = {
       plane: {
         width: 400,
@@ -53,9 +51,6 @@ const CanvasBackground: React.FC = () => {
     const pointLight = new THREE.PointLight(0xff0000, 1000, 0); // Increased intensity and added distance
     pointLight.position.set(0, -1, 1); // Adjust the position
     scene.add(pointLight);
-
-    const pointLightHelper = new THREE.PointLightHelper(pointLight, 5);
-    scene.add(pointLightHelper);
 
     camera.position.z = 50;
 
@@ -104,11 +99,6 @@ const CanvasBackground: React.FC = () => {
       );
     };
 
-    gui.add(world.plane, "width", 1, 500).onChange(generatePlane);
-    gui.add(world.plane, "height", 1, 500).onChange(generatePlane);
-    gui.add(world.plane, "widthSegments", 1, 100).onChange(generatePlane);
-    gui.add(world.plane, "heightSegments", 1, 100).onChange(generatePlane);
-
     generatePlane();
 
     const mouse = { x: 0, y: 0 };
@@ -156,24 +146,11 @@ const CanvasBackground: React.FC = () => {
     animate();
 
     return () => {
-      gui.destroy();
       mountRef.current?.removeChild(renderer.domElement);
     };
   }, []);
 
-  return (
-    <div
-      ref={mountRef}
-      style={{
-        position: "absolute",
-        top: "calc(100vh - 18px)",
-        left: 0,
-        width: "100%",
-        height: "100%",
-        zIndex: -2,
-      }}
-    />
-  );
+  return <div ref={mountRef} />;
 };
 
 export default CanvasBackground;
