@@ -9,10 +9,11 @@ import { ScrollToPlugin } from "gsap/ScrollToPlugin";
 import EventCard from "@/components/EventCard/EventCard";
 import { useEffect, useRef, useState } from "react";
 import { Event, EventHighlight } from "@/types";
-import { Image, Stack } from "@mantine/core";
+import { Group, Image, Stack, Text } from "@mantine/core";
 import { createRoot } from "react-dom/client";
 import { Canvas } from "@react-three/fiber";
 import CanvasBackground from "@/components/Background/CanvasBackground";
+import { IconCalendarWeek } from "@tabler/icons-react";
 
 gsap.registerPlugin(useGSAP, ScrollTrigger, ScrollToPlugin);
 
@@ -184,68 +185,93 @@ export default function Home() {
         {/**Hightlight */}
         <div className={styles.hightlight}>
           {highlight?.valid_date &&
-            new Date(highlight.valid_date) > new Date() && (
-              <>
-                <div className={"title"}>
-                  {highlightEvent.title}
-                  <div className={styles.line}></div>
-                </div>
-                <div className="bold">SAVE THE DATE</div>
-                <div className={styles.date}>
-                  {highlightEvent.dates.map((date, index) => (
-                    <span key={index}>
-                      {new Date(date.start).toLocaleDateString("nl-BE", {
-                        day: "numeric",
-                        month: "long",
-                        year: "numeric",
-                      })}
-                      {index === 0 ? " - " : ""}
-                    </span>
-                  ))}
-                </div>
-                <button
-                  className="btn-red"
-                  onClick={() => {
-                    router.push("/event/" + highlightEvent.uuid + "/ticket");
-                  }}
-                >
-                  Ticket info
-                </button>
-              </>
-            )}
+          new Date(highlight.valid_date) > new Date() ? (
+            <>
+              <div className={"title"}>
+                {highlightEvent.title}
+                <div className={styles.line}></div>
+              </div>
+              <div className="bold">SAVE THE DATE</div>
+              <div className={styles.date}>
+                {highlightEvent.dates.map((date, index) => (
+                  <span key={index}>
+                    {new Date(date.start).toLocaleDateString("nl-BE", {
+                      day: "numeric",
+                      month: "long",
+                      year: "numeric",
+                    })}
+                    {index === 0 ? " - " : ""}
+                  </span>
+                ))}
+              </div>
+              <button
+                className="btn-red"
+                onClick={() => {
+                  router.push("/event/" + highlightEvent.uuid + "/ticket");
+                }}
+              >
+                Ticket info
+              </button>
+            </>
+          ) : (
+            <div className={"title"}>
+              The gentleman
+              <div className={styles.line}></div>
+            </div>
+          )}
         </div>
         {/* anouncements section */}
         <Stack align="center" justify="center">
-          {/* Upcomming events */}
-          {events.filter((event) => new Date(event.dates[0].start) > new Date())
-            .length > 0 && (
-            <Stack align="center" justify="center">
-              <h1>Upcoming events</h1>
-              {events
-                .filter((event) => new Date(event.dates[0].start) > new Date())
-                .sort(
-                  (a, b) =>
-                    new Date(b.dates[0].start).getTime() -
-                    new Date(a.dates[0].start).getTime(),
-                )
-                .map((event, index) => (
-                  <EventCard key={index} event={event} index={index} />
-                ))}
-            </Stack>
-          )}
-          {/* past events */}
+          {/*events */}
 
           <Stack align="center" justify="center">
-            <h1>Past events</h1>
             {events
-              .filter((event) => new Date(event.dates[0].start) < new Date())
               .sort(
                 (a, b) =>
                   new Date(b.dates[0].start).getTime() -
                   new Date(a.dates[0].start).getTime(),
               )
               .map((event, index) => (
-                <EventCard key={index} event={event} index={index} />
+                <div key={event.uuid}>
+                  <Group
+                    justify={"center"}
+                    style={{ position: "relative", right: "60px" }}
+                  >
+                    <Group
+                      style={{
+                        position: "relative",
+                        top: index == 0 ? "0px" : "60px",
+                      }}
+                    >
+                      <IconCalendarWeek size={25} />
+
+                      <div>
+                        <div className="gray-600">Posted at</div>
+                        <div className="date fs14">
+                          {new Date(event.dates[0].start).toLocaleDateString(
+                            "nl-BE",
+                            {
+                              day: "numeric",
+                              month: "long",
+                              year: "numeric",
+                            },
+                          )}
+                        </div>
+                      </div>
+                    </Group>
+                    {index != 0 && (
+                      <div
+                        style={{
+                          height: "200px",
+                          width: "4px",
+                          backgroundColor: "var(--gray-400)",
+                          borderRadius: "2px",
+                        }}
+                      ></div>
+                    )}
+                  </Group>
+                  <EventCard event={event} index={index} />
+                </div>
               ))}
           </Stack>
         </Stack>
