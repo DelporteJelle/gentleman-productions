@@ -8,12 +8,14 @@ import { Partner, TeamMember } from "@/types";
 const team = [
   {
     uuid: "1",
+    created_at: "2023-10-01T12:00:00Z",
     name: "John Doe",
     role: "Testingg",
     image: "/Placeholders/Person.jpg",
   },
   {
     uuid: "2",
+    created_at: "2023-10-01T12:00:00Z",
     name: "John Doe",
     role: "Founder",
     image: "/Placeholders/Person.jpg",
@@ -21,6 +23,7 @@ const team = [
 
   {
     uuid: "3",
+    created_at: "2023-10-01T12:00:00Z",
     name: "John Doe",
     role: "Founder",
     image: "/Placeholders/Person.jpg",
@@ -28,6 +31,7 @@ const team = [
 
   {
     uuid: "4",
+    created_at: "2023-10-01T12:00:00Z",
     name: "John Doe",
     role: "Founder",
     image: "/Placeholders/Person.jpg",
@@ -35,6 +39,7 @@ const team = [
 
   {
     uuid: "5",
+    created_at: "2023-10-01T12:00:00Z",
     name: "John Doe",
     role: "Founder",
     image: "/Placeholders/Person.jpg",
@@ -42,6 +47,7 @@ const team = [
 
   {
     uuid: "6",
+    created_at: "2023-10-01T12:00:00Z",
     name: "John Doe",
     role: "Founder",
     image: "/Placeholders/Person.jpg",
@@ -49,6 +55,7 @@ const team = [
 
   {
     uuid: "7",
+    created_at: "2023-10-01T12:00:00Z",
     name: "John Doe",
     role: "Founder",
     image: "/Placeholders/Person.jpg",
@@ -56,6 +63,7 @@ const team = [
 
   {
     uuid: "8",
+    created_at: "2023-10-01T12:00:00Z",
     name: "John Doe",
     role: "Founder",
     image: "/Placeholders/Person.jpg",
@@ -63,6 +71,7 @@ const team = [
 
   {
     uuid: "9",
+    created_at: "2023-10-01T12:00:00Z",
     name: "John Doe",
     role: "Founder",
     image: "/Placeholders/Person.jpg",
@@ -72,30 +81,35 @@ const team = [
 const partners = [
   {
     uuid: "1",
+    created_at: "2023-10-01T12:00:00Z",
     name: "Studio Regie",
     logo: "/Placeholders/Logo.svg",
     description: "Lorem ipsum dolor sit amet, consectetur adipiscing elit.",
   },
   {
     uuid: "2",
+    created_at: "2023-10-01T12:00:00Z",
     name: "Studio Regie",
     logo: "/Placeholders/Logo.svg",
     description: "Lorem ipsum dolor sit amet, consectetur adipiscing elit.",
   },
   {
     uuid: "3",
+    created_at: "2023-10-01T12:00:00Z",
     name: "Studio Regie",
     logo: "/Placeholders/Logo.svg",
     description: "Lorem ipsum dolor sit amet, consectetur adipiscing elit.",
   },
   {
     uuid: "4",
+    created_at: "2023-10-01T12:00:00Z",
     name: "Studio Regie",
     logo: "/Placeholders/Logo.svg",
     description: "Lorem ipsum dolor sit amet, consectetur adipiscing elit.",
   },
   {
     uuid: "5",
+    created_at: "2023-10-01T12:00:00Z",
     name: "Studio Regie",
     logo: "/Placeholders/Logo.svg",
     description: "Lorem ipsum dolor sit amet, consectetur adipiscing elit.",

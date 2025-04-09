@@ -104,7 +104,7 @@ export default function ImageTextCard({ event, index }: props) {
       >
         <div className={styles.card_img}>
           <Image
-            src={event.mainImage}
+            src={`/api/images/${event.mainImage}`}
             alt={event.title}
             height={450}
             style={{ objectFit: "cover" }}

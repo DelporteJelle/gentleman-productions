@@ -11,31 +11,6 @@
   flex-direction: column;
 }
 
-.main::before {
-  content: "";
-  position: absolute;
-  top: 0;
-  left: 0;
-  right: 0;
-  bottom: 0;
-  background-size: cover;
-  background-attachment: fixed;
-
-  z-index: -2;
-}
-
-.main::after {
-  content: "";
-  position: absolute;
-  top: 0;
-  left: 0;
-  right: 0;
-  bottom: 0;
-  background: radial-gradient(circle, transparent, rgba(0, 0, 0, 1));
-  pointer-events: none;
-  z-index: -1;
-}
-
 /* Hightlight style **/
 .hightlight {
   color: var(--white);
@@ -111,49 +86,4 @@
 }
 .ring:nth-child(3) {
   animation-delay: 1s;
-}
-
-/* Background Images **/
-.background0::before {
-  background-image: url("/Banner_1.jpg");
-}
-
-.background1::before {
-  background-image: url("/Banner_2.jpg");
-}
-
-.background2::before {
-  background-image: url("/Banner_3.jpg");
-}
-
-.background3::before {
-  background-image: url("/Banner_4.jpg");
-}
-
-.background4::before {
-  background-image: url("/Banner_5.jpg");
-}
-
-.background5::before {
-  background-image: url("/Banner_6.jpg");
-}
-
-.background6::before {
-  background-image: url("/Banner_7.jpg");
-}
-
-.background7::before {
-  background-image: url("/Banner_8.jpg");
-}
-
-.background8::before {
-  background-image: url("/Banner_9.jpg");
-}
-
-.background9::before {
-  background-image: url("/Banner_10.jpg");
-}
-
-.background10::before {
-  background-image: url("/Banner_11.jpg");
 }
