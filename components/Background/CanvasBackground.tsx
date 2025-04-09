@@ -40,12 +40,15 @@ const CanvasBackground: React.FC = () => {
     const planeMesh = new THREE.Mesh(planeGeometry, planeMaterial);
     scene.add(planeMesh);
 
-    const light = new THREE.DirectionalLight(0xffffff, 1);
-    light.position.set(0, -1, 1);
+    // const light = new THREE.DirectionalLight(0xffffff, 1);
+    // light.position.set(0, -1, 2);
+    // scene.add(light);
+    const light = new THREE.DirectionalLight(0xffffff, 2);
+    light.position.set(-1, 1, 0.3);
     scene.add(light);
 
-    const backLight = new THREE.DirectionalLight(0xffffff, 1);
-    backLight.position.set(0, 0, -1);
+    const backLight = new THREE.DirectionalLight(0xff0000, 2);
+    backLight.position.set(1, -1, 0.3);
     scene.add(backLight);
 
     const pointLight = new THREE.PointLight(0xff0000, 1000, 0); // Increased intensity and added distance
@@ -89,8 +92,8 @@ const CanvasBackground: React.FC = () => {
 
       const colors = [];
       for (let i = 0; i < planeMesh.geometry.attributes.position.count; i++) {
-        // colors.push(0, 0.19, 0.4);
         colors.push(0.01, 0.01, 0.01);
+        // colors.push(0.01, 0.01, 0.01);
       }
 
       planeMesh.geometry.setAttribute(

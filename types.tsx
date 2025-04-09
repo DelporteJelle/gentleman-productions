@@ -3,13 +3,16 @@ export interface DbObject {
   created_at: string; // Date of the object creation
   updated_at?: string; //Date of last update
   created_by?: string; // User who created the object
-  type: string; // Type of the object (e.g., event, post, etc.)
+}
+
+export interface Post extends DbObject {
+  title: string; // Title of the event
+  type: DbObjectType; // Type of the object (e.g., event, post, etc.)
+  description: string; // Event description
 }
 
 //Event types
-export interface Event extends DbObject {
-  title: string; // Title of the event
-  description: string; // Event description
+export interface Event extends Post {
   mainImage: string; // Main image for the event
   images?: string[]; // Additional images for the event
   dates: EventDateEntry[]; // List of date entries
@@ -61,4 +64,8 @@ export interface Partner extends DbObject {
   name: string;
   logo: string;
   description: string;
+}
+
+export enum DbObjectType {
+  EVENT = "event",
 }

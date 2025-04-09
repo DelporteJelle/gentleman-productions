@@ -8,8 +8,12 @@ import {
   Stack,
   Stepper,
   NumberInput,
+  Paper,
+  CloseButton,
+  Badge,
 } from "@mantine/core";
-import { Event } from "@/types";
+import { DbObjectType, Event } from "@/types";
+import { formRootRule, isNotEmpty, useForm } from "@mantine/form";
 
 interface CreateEventModalProps {
   opened: boolean;
@@ -25,9 +29,22 @@ export default function CreateEventModal({
   const [newEvent, setNewEvent] = useState<Event>({
     uuid: "",
     created_at: new Date().toISOString(),
-    type: "event",
+    type: DbObjectType.EVENT,
     title: "",
-    dates: [],
+    dates: [
+      {
+        uuid: crypto.randomUUID(),
+        start: "",
+        end: "",
+        timeLine: [
+          {
+            time: "",
+            description: "Starting time",
+          },
+        ],
+        price: 0,
+      },
+    ],
     description: "",
     mainImage: "",
     images: [],
@@ -39,15 +56,78 @@ export default function CreateEventModal({
     },
   });
 
-  const [active, setActive] = useState(1);
-  const nextStep = () =>
-    setActive((current) => (current < 3 ? current + 1 : current));
+  const form = useForm({
+    mode: "uncontrolled",
+    initialValues: {
+      title: "",
+      description: "",
+      mainImage: "",
+      eventLocation: {
+        country: "",
+        city: "",
+        street: "",
+        location: "",
+      },
+      dates: [],
+    },
+    validate: (values) => {
+      if (active === 0) {
+        return {
+          title: values.title.trim() ? null : "Title is required",
+          description: values.description.trim()
+            ? null
+            : "Description is required",
+          mainImage: values.mainImage.trim() ? null : "Image URL is required",
+        };
+      }
+      if (active === 1) {
+        return {
+          // eventLocation: {
+          // [formRootRule]: isNotEmpty("At least one employee is required"),
+          // country: values.eventLocation.country.trim()
+          //   ? null
+          //   : "Country is required",
+          // city: values.eventLocation.city.trim() ? null : "City is required",
+          // street: values.eventLocation.street.trim()
+          //   ? null
+          //   : "Street is required",
+          // location: values.eventLocation.location.trim()
+          //   ? null
+          //   : "Location is required",
+          // },
+          // country: values.eventLocation.country.trim()
+          //   ? null
+          //   : "Country is required",
+        };
+      }
+      if (active === 2) {
+        return {};
+      }
+
+      return {};
+    },
+  });
+
+  const [active, setActive] = useState(0);
+  const nextStep = () => {
+    console.log(form.errors);
+    // setActive((current) => current + 1);
+    setActive((current) => {
+      if (form.validate().hasErrors) {
+        return current;
+      }
+      return current < 2 ? current + 1 : current;
+    });
+  };
   const prevStep = () =>
     setActive((current) => (current > 0 ? current - 1 : current));
 
   const handleCreate = () => {
-    onCreate(newEvent); // Pass the new event to the parent component
-    onClose(); // Close the modal
+    form.validate();
+    if (form.isValid()) {
+      // onCreate(form.values);
+      onClose();
+    }
   };
 
   return (
@@ -60,6 +140,7 @@ export default function CreateEventModal({
       <Stepper active={active} onStepClick={setActive}>
         {/* ====================== Event info ==================== */}
         <Stepper.Step
+          color="yellow"
           label="Event info"
           description="Give the title, content and a display image."
         >
@@ -67,114 +148,78 @@ export default function CreateEventModal({
             <TextInput
               label="Title"
               placeholder="Enter event title"
-              value={newEvent.title}
-              onChange={(e) =>
-                setNewEvent((prev) => ({ ...prev, title: e.target.value }))
-              }
+              key={form.key("title")}
+              {...form.getInputProps("title")}
             />
             <Textarea
               label="Description"
               placeholder="Enter event description"
-              value={newEvent.description}
-              onChange={(e) =>
-                setNewEvent((prev) => ({
-                  ...prev,
-                  description: e.target.value,
-                }))
-              }
+              key={form.key("description")}
+              {...form.getInputProps("description")}
             />
             <TextInput
               label="Image URL"
               placeholder="Enter display image URL"
-              value={newEvent.mainImage}
-              onChange={(e) =>
-                setNewEvent((prev) => ({ ...prev, mainImage: e.target.value }))
-              }
+              key={form.key("mainImage")}
+              {...form.getInputProps("mainImage")}
             />
           </Stack>
         </Stepper.Step>
 
         {/* ====================== Event location ==================== */}
 
-        <Stepper.Step label="Location" description="Set the event location">
+        <Stepper.Step
+          color="yellow"
+          label="Location"
+          description="Set the event location"
+        >
           <Stack>
             <TextInput
               label="Country"
               placeholder="Enter country"
-              value={newEvent.eventLocation?.country || ""}
-              onChange={(e) =>
-                //   setNewEvent((prev) => ({
-                //     ...prev,
-                //     eventLocation: {
-                //       ...prev.eventLocation,
-                //       country: e.target.value,
-                //     },
-                //   }))
-                console.log(e)
-              }
+              key={form.key("eventLocation.country")}
+              {...form.getInputProps("eventLocation.country")}
             />
             <TextInput
               label="City"
               placeholder="Enter city"
-              value={newEvent.eventLocation?.city || ""}
-              onChange={(e) =>
-                //   setNewEvent((prev) => ({
-                //     ...prev,
-                //     eventLocation: {
-                //       ...prev.eventLocation,
-                //       city: e.target.value,
-                //     },
-                //   }))
-                console.log(e)
-              }
+              key={form.key("eventLocation.city")}
+              {...form.getInputProps("eventLocation.city")}
             />
             <TextInput
               label="Street"
               placeholder="Enter street address"
-              value={newEvent.eventLocation?.street || ""}
-              onChange={(e) =>
-                // setNewEvent((prev) => ({
-                //   ...prev,
-                //   eventLocation: {
-                //     ...prev.eventLocation,
-                //     street: e.target.value,
-                //   },
-                // }))
-                console.log(e)
-              }
+              key={form.key("eventLocation.street")}
+              {...form.getInputProps("eventLocation.street")}
             />
             <TextInput
               label="Location"
               placeholder="Enter event building or location"
-              value={newEvent.eventLocation?.street || ""}
-              onChange={(e) =>
-                // setNewEvent((prev) => ({
-                //   ...prev,
-                //   eventLocation: {
-                //     ...prev.eventLocation,
-                //     street: e.target.value,
-                //   },
-                // }))
-                console.log(e)
-              }
+              key={form.key("eventLocation.location")}
+              {...form.getInputProps("eventLocation.location")}
             />
           </Stack>
         </Stepper.Step>
 
         {/* ====================== Event dates ==================== */}
 
-        <Stepper.Step label="Set the date" description="Set the event date(s)">
+        <Stepper.Step
+          color="yellow"
+          label="Set the date"
+          description="Set the event date(s)"
+        >
           <Stack>
             {newEvent.dates.map((dateEntry, index) => (
-              <div
-                key={dateEntry.uuid}
-                style={{
-                  border: "1px solid #ccc",
-                  padding: "10px",
-                  borderRadius: "5px",
-                  marginBottom: "10px",
-                }}
-              >
+              <Paper key={dateEntry.uuid} p={"10"} radius="md" withBorder>
+                <CloseButton
+                  color="red"
+                  onClick={() =>
+                    setNewEvent((prev) => ({
+                      ...prev,
+                      dates: prev.dates.filter((_, i) => i !== index),
+                    }))
+                  }
+                />
                 <Group grow>
                   <TextInput
                     label="Start Date"
@@ -210,20 +255,82 @@ export default function CreateEventModal({
                     console.log(e)
                   }
                 />
+
+                <Group>
+                  {dateEntry.timeLine.map((timeLineEntry, timeIndex) => (
+                    <Paper
+                      key={timeLineEntry.time}
+                      p={"10"}
+                      radius="md"
+                      withBorder
+                      w={150}
+                    >
+                      <CloseButton
+                        color="red"
+                        onClick={() =>
+                          setNewEvent((prev) => {
+                            const updatedDates = [...prev.dates];
+                            updatedDates[index].timeLine.splice(timeIndex, 1);
+                            return { ...prev, dates: updatedDates };
+                          })
+                        }
+                      />
+                      <TextInput
+                        label="Time"
+                        type="time"
+                        value={timeLineEntry.time}
+                        onChange={(e) =>
+                          setNewEvent((prev) => {
+                            const updatedDates = [...prev.dates];
+                            updatedDates[index].timeLine[timeIndex].time =
+                              e.target.value;
+                            return { ...prev, dates: updatedDates };
+                          })
+                        }
+                      />
+                      <TextInput
+                        label="Description"
+                        placeholder="Enter description"
+                        value={timeLineEntry.description}
+                        onChange={(e) =>
+                          setNewEvent((prev) => {
+                            const updatedDates = [...prev.dates];
+                            updatedDates[index].timeLine[
+                              timeIndex
+                            ].description = e.target.value;
+                            return { ...prev, dates: updatedDates };
+                          })
+                        }
+                      />
+                    </Paper>
+                  ))}
+                </Group>
                 <Button
-                  color="red"
+                  variant="default"
                   onClick={() =>
                     setNewEvent((prev) => ({
                       ...prev,
-                      dates: prev.dates.filter((_, i) => i !== index),
+                      dates: prev.dates.map((date, i) => {
+                        if (i === index) {
+                          return {
+                            ...date,
+                            timeLine: [
+                              ...date.timeLine,
+                              { time: "", description: "" },
+                            ],
+                          };
+                        }
+                        return date;
+                      }),
                     }))
                   }
                 >
-                  Remove Date Entry
+                  Add timeline entry
                 </Button>
-              </div>
+              </Paper>
             ))}
             <Button
+              color="yellow"
               onClick={() =>
                 setNewEvent((prev) => ({
                   ...prev,
@@ -243,6 +350,8 @@ export default function CreateEventModal({
             >
               Add Date Entry
             </Button>
+
+            {!form.isValid() && <Badge color="red">{form.errors.dates}</Badge>}
           </Stack>
         </Stepper.Step>
         <Stepper.Completed>
@@ -254,7 +363,9 @@ export default function CreateEventModal({
         <Button variant="default" onClick={prevStep}>
           Back
         </Button>
-        <Button onClick={nextStep}>Next step</Button>
+        <Button color="red" onClick={active === 3 ? handleCreate : nextStep}>
+          {active === 3 ? "Create Event" : "Next step"}
+        </Button>
       </Group>
     </Modal>
   );

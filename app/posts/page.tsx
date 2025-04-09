@@ -2,13 +2,13 @@
 
 import { useEffect, useState } from "react";
 import EventCard from "@/components/EventCard/EventCard"; // Adjust the path to your EventCard component
-import { DbObject, Event } from "@/types";
+import { DbObjectType, Event, Post } from "@/types";
 import { Button, Stack } from "@mantine/core";
 import CreateEventModal from "@/components/Modals/CreateEventModal";
 
 export default function PostsPage() {
-  const [posts, setPosts] = useState<DbObject[]>([]);
-  const [type, setType] = useState(""); // Filter type
+  const [posts, setPosts] = useState<Post[]>([]);
+  const [type, setType] = useState<DbObjectType | undefined>(); // Filter type
   const [page, setPage] = useState(1); // Current page
   const [total, setTotal] = useState(0); // Total posts
   const [limit] = useState(10); // Posts per page
@@ -18,7 +18,7 @@ export default function PostsPage() {
     // Fetch posts from the API
     const fetchPosts = async () => {
       const response = await fetch(
-        `/api/posts?type=${type}&page=${page}&limit=${limit}`,
+        `/api/posts?type=${type ?? ""}&page=${page}&limit=${limit}`,
       );
       const data = await response.json();
       setPosts(data.data);
@@ -46,12 +46,16 @@ export default function PostsPage() {
           id="type"
           value={type}
           onChange={(e) => {
-            setType(e.target.value);
+            setType(e.target.value as DbObjectType);
             setPage(1);
           }}
         >
           <option value="">All</option>
-          <option value="event">Event</option>
+          {Object.values(DbObjectType).map((type) => (
+            <option key={type} value={type}>
+              {type}
+            </option>
+          ))}
           {/* Add more types here */}
         </select>
       </div>
@@ -59,18 +63,18 @@ export default function PostsPage() {
       {/* Posts */}
       <div>
         {posts.map((post, index) => {
-          if (post.type === "event") {
+          if (post.type === DbObjectType.EVENT) {
             return (
               <EventCard key={post.uuid} index={index} event={post as Event} />
             );
           }
-
-          return <></>;
         })}
       </div>
 
       {/* Create Post Button */}
-      <Button onClick={() => setModalOpened(true)}>Create New Post</Button>
+      <Button color="red" onClick={() => setModalOpened(true)}>
+        Create New Post
+      </Button>
 
       {/* Create Event Modal */}
       <CreateEventModal

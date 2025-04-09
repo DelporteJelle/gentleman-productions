@@ -13,7 +13,8 @@ export async function GET(request: Request) {
   let filteredPosts = mockDb;
 
   // Filter by type if provided
-  if (type) {
+  if (type != undefined && type !== "") {
+    console.log("Filtering by type:", type);
     filteredPosts = filteredPosts.filter((post) => post.type === type);
   }
 
