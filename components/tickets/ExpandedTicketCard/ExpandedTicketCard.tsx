@@ -24,6 +24,7 @@ export default function ExpandedTicketCard({
   date,
   setActiveCard,
 }: props) {
+  console.log(event);
   return (
     <div
       className={styles.card}
@@ -32,7 +33,7 @@ export default function ExpandedTicketCard({
       }}
     >
       <Image
-        src={`/api/images/${event.mainImage}`}
+        src={event.display_image}
         alt={event.title}
         width={800}
         height={300}
@@ -64,7 +65,7 @@ export default function ExpandedTicketCard({
                 title="Start datum"
               >
                 <Text c="white" size="sm">
-                  {new Date(date.start).toLocaleDateString("en-GB", {
+                  {new Date(date.start_time).toLocaleDateString("en-GB", {
                     day: "2-digit",
                     month: "2-digit",
                     year: "numeric",
@@ -95,18 +96,20 @@ export default function ExpandedTicketCard({
               active={10}
               color="yellow"
             >
-              {event.eventLocation &&
-                Object.entries(event.eventLocation).map(([key, value]) => (
-                  <Timeline.Item
-                    bullet={<IconArrowBadgeRightFilled color="white" />}
-                    key={key}
-                    title={key.charAt(0).toUpperCase() + key.slice(1)}
-                  >
-                    <Text c="white" size="sm">
-                      {value as string}
-                    </Text>
-                  </Timeline.Item>
-                ))}
+              {event.eventlocation &&
+                Object.entries(event.eventlocation)
+                  .filter(([_, value]) => value) // Filter out null, undefined, or empty values
+                  .map(([key, value]) => (
+                    <Timeline.Item
+                      bullet={<IconArrowBadgeRightFilled color="white" />}
+                      key={key}
+                      title={key.charAt(0).toUpperCase() + key.slice(1)} // Capitalize the key
+                    >
+                      <Text c="white" size="sm">
+                        {value as string}
+                      </Text>
+                    </Timeline.Item>
+                  ))}
             </Timeline>
           </Stack>
         </Group>

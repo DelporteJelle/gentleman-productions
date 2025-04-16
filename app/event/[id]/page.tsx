@@ -4,7 +4,6 @@
 import { Event } from "@/types";
 import { useEffect, useState } from "react";
 import { useParams } from "next/navigation";
-import { Carousel } from "@mantine/carousel";
 import { Group, Image, px, Stack } from "@mantine/core";
 import { useRouter } from "next/navigation";
 import Masonry, { ResponsiveMasonry } from "react-responsive-masonry";
@@ -52,7 +51,7 @@ const EventPage = () => {
             <div className="date">
               {data.dates.map((date: any, index: number) => (
                 <span key={index}>
-                  {new Date(date.start).toLocaleDateString("nl-BE", {
+                  {new Date(date.start_time).toLocaleDateString("nl-BE", {
                     day: "numeric",
                     month: "long",
                     year: "numeric",
@@ -62,7 +61,7 @@ const EventPage = () => {
               ))}
             </div>
             <div style={{ whiteSpace: "pre-wrap" }}>{data.description}</div>
-            {new Date(data.dates[0].start) > new Date() && (
+            {new Date(data.dates[0].start_time) > new Date() && (
               <button
                 className="btn-red"
                 onClick={() => {
@@ -74,17 +73,25 @@ const EventPage = () => {
             )}{" "}
           </Stack>
           {data.images?.map((image) => (
-            <Image
-              key={image}
-              src={`/api/images/${image}`}
-              alt={data.title}
-              style={{ objectFit: "contain", cursor: "pointer" }}
-              width={"100%"}
-              height={"100%"}
-              radius="10px"
-              onClick={() => {
-                const overlay = document.createElement("div");
-                overlay.style.cssText = `
+            <div key={image}>
+              <Image
+                key={image}
+                src={image}
+                alt={data.title}
+                style={{ objectFit: "contain", cursor: "pointer" }}
+                width={"100%"}
+                height={"100%"}
+                radius="10px"
+                onError={(e) => {
+                  // Remove the parent <div> if the image fails to load
+                  const parent = (e.target as HTMLImageElement).parentElement;
+                  if (parent) {
+                    parent.style.display = "none";
+                  }
+                }}
+                onClick={() => {
+                  const overlay = document.createElement("div");
+                  overlay.style.cssText = `
                   position: fixed;
                   top: 0;
                   left: 0;
@@ -98,19 +105,20 @@ const EventPage = () => {
                   cursor: pointer;
                 `;
 
-                const img = document.createElement("img");
-                img.src = `/api/images/${image}`;
-                img.style.cssText = `
+                  const img = document.createElement("img");
+                  img.src = image;
+                  img.style.cssText = `
                   max-width: 90%;
                   max-height: 90%;
                   object-fit: contain;
                 `;
 
-                overlay.appendChild(img);
-                overlay.onclick = () => document.body.removeChild(overlay);
-                document.body.appendChild(overlay);
-              }}
-            />
+                  overlay.appendChild(img);
+                  overlay.onclick = () => document.body.removeChild(overlay);
+                  document.body.appendChild(overlay);
+                }}
+              />
+            </div>
           ))}
         </Masonry>
       </ResponsiveMasonry>{" "}

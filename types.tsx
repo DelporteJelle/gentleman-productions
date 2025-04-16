@@ -7,16 +7,16 @@ export interface DbObject {
 
 export interface Post extends DbObject {
   title: string; // Title of the event
-  type: DbObjectType; // Type of the object (e.g., event, post, etc.)
+  post_type: DbObjectType; // Type of the object (e.g., event, post, etc.)
   description: string; // Event description
 }
 
 //Event types
 export interface Event extends Post {
-  mainImage: string; // Main image for the event
+  display_image: string; // Main image for the event
   images?: string[]; // Additional images for the event
   dates: EventDateEntry[]; // List of date entries
-  eventLocation?: EventLocation; // Location details of the event
+  eventlocation?: EventLocation; // Location details of the event
 }
 
 export interface EventLocation {
@@ -27,9 +27,9 @@ export interface EventLocation {
 }
 
 export interface EventDateEntry {
-  uuid: string; // Unique identifier for each date entry
-  start: string; // ISO date string
-  end: string; // ISO date string
+  uuid: string; // UUID of the date entry
+  start_time: string; // ISO date string
+  end_time: string; // ISO date string
   timeLine: TimeLineEntry[];
   price?: number; //undefined if free
   external_link?: string;
@@ -67,5 +67,5 @@ export interface Partner extends DbObject {
 }
 
 export enum DbObjectType {
-  EVENT = "event",
+  EVENT = "EVENT",
 }

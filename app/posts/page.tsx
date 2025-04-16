@@ -3,8 +3,10 @@
 import { useEffect, useState } from "react";
 import EventCard from "@/components/EventCard/EventCard"; // Adjust the path to your EventCard component
 import { DbObjectType, Event, Post } from "@/types";
-import { Button, Stack } from "@mantine/core";
+import { Button, Group, Stack } from "@mantine/core";
 import CreateEventModal from "@/components/Modals/CreateEventModal";
+import { DateTimePicker } from "@mantine/dates";
+import BasicPostCard from "@/components/EventCard/BasicPostCard";
 
 export default function PostsPage() {
   const [posts, setPosts] = useState<Post[]>([]);
@@ -28,11 +30,51 @@ export default function PostsPage() {
     fetchPosts();
   }, [type, page, limit]);
 
+  const handleEdit = (uuid: string) => {
+    console.log("Edit clicked");
+  };
+
+  const handleRemove = async (uuid: string) => {
+    if (confirm("Are you sure you want to delete this post?")) {
+      try {
+        const response = await fetch(`/api/posts?uuid=${uuid}`, {
+          method: "DELETE",
+        });
+
+        if (response.ok) {
+          // Remove the deleted post from the local state
+          setPosts((prevPosts) =>
+            prevPosts.filter((post) => post.uuid !== uuid),
+          );
+          alert("Post deleted successfully.");
+        } else {
+          const errorData = await response.json();
+          console.error("Error deleting post:", errorData.error);
+          alert("Failed to delete the post.");
+        }
+      } catch (error) {
+        console.error("Error deleting post:", error);
+        alert("An error occurred while deleting the post.");
+      }
+    }
+  };
+
   const totalPages = Math.ceil(total / limit);
 
-  const handleCreateEvent = (newEvent: Event) => {
-    // Add the new event to the database (mocked here)
-    setPosts((prev) => [newEvent, ...prev]); // Add the new event to the list
+  const handleCreateEvent = async (newEvent: Event) => {
+    // Add the new event to the database (mocked here)\
+    console.log(newEvent);
+
+    const response = await fetch("/api/events", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify(newEvent),
+    });
+    console.log(response);
+
+    // setPosts((prev) => [newEvent, ...prev]); // Add the new event to the list
   };
 
   return (
@@ -62,13 +104,19 @@ export default function PostsPage() {
 
       {/* Posts */}
       <div>
-        {posts.map((post, index) => {
-          if (post.type === DbObjectType.EVENT) {
-            return (
-              <EventCard key={post.uuid} index={index} event={post as Event} />
-            );
-          }
-        })}
+        <Group justify="center">
+          {posts &&
+            posts.map((post, index) => {
+              return (
+                <BasicPostCard
+                  key={post.uuid}
+                  post={post}
+                  onEdit={handleEdit}
+                  onRemove={handleRemove}
+                />
+              );
+            })}
+        </Group>
       </div>
 
       {/* Create Post Button */}

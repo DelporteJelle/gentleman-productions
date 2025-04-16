@@ -3,16 +3,18 @@
 import "/variables.css";
 import "./globals.css";
 import "@mantine/core/styles.css";
+import "@mantine/dates/styles.css";
+import "@mantine/core/styles.css";
+
 import NavBar from "../components/Navigation/Navbar";
 import Footer from "../components/Navigation/Footer";
-import "@mantine/carousel/styles.css";
-import "@mantine/core/styles.css";
 import React from "react";
+import Navbar from "../components/Navigation/Navbar";
+import Navigation from "@/components/Navigation/Navigation";
+
 import { MantineProvider, ColorSchemeScript, Stack } from "@mantine/core";
 import { AppShell, Burger } from "@mantine/core";
 import { useDisclosure } from "@mantine/hooks";
-import Navbar from "../components/Navigation/Navbar";
-import Navigation from "@/components/Navigation/Navigation";
 
 const RootLayout: React.FC<React.PropsWithChildren> = ({ children }) => {
   const [opened, { toggle }] = useDisclosure(false);

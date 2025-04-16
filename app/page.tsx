@@ -129,26 +129,28 @@ export default function Home() {
     return () => window.removeEventListener("scroll", handleScroll);
   }, [scrollY]);
 
-  if (!events || !highlightEvent) {
-    return <div>Loading...</div>;
-  }
+  // if (events == undefined || highlightEvent == undefined) {
+  //   return <div>Loading...</div>;
+  // }
 
   return (
     <div className={`${styles.main}`}>
       {/*Background Image*/}
-      <Image
-        src={`/api/images/${images[currentIndex]}`}
-        alt={"highlight"}
-        style={{
-          objectFit: "cover",
-          position: "fixed",
-          top: 0,
-          left: 0,
-          height: "100vh",
-          width: "100%",
-          zIndex: -2,
-        }}
-      />
+      <div className={styles.imageContainer}>
+        <Image
+          src={`/api/images/${images[currentIndex]}`}
+          alt={"highlight"}
+          style={{
+            objectFit: "cover",
+            position: "fixed",
+            top: 0,
+            left: 0,
+            height: "100vh",
+            width: "100%",
+            zIndex: -2,
+          }}
+        />
+      </div>
       {/* Canvas Background */}
       <div
         style={{
@@ -184,95 +186,91 @@ export default function Home() {
         )}
         {/**Hightlight */}
         <div className={styles.hightlight}>
-          {highlight?.valid_date &&
-          new Date(highlight.valid_date) > new Date() ? (
-            <>
+          <div className={styles.glass}>
+            {highlight &&
+            highlightEvent &&
+            highlight?.valid_date &&
+            new Date(highlight.valid_date) > new Date() ? (
+              <>
+                <div className={"title"}>
+                  {highlightEvent.title}
+                  <div className={styles.line}></div>
+                </div>
+                <div className="bold">SAVE THE DATE</div>
+                <div className={styles.date}>
+                  {highlightEvent.dates.map((date, index) => (
+                    <span key={index}>
+                      {new Date(date.start_time).toLocaleDateString("nl-BE", {
+                        day: "numeric",
+                        month: "long",
+                        year: "numeric",
+                      })}
+                      {index === 0 ? " - " : ""}
+                    </span>
+                  ))}
+                </div>
+                <button
+                  className="btn-red"
+                  onClick={() => {
+                    router.push("/event/" + highlightEvent.uuid + "/ticket");
+                  }}
+                >
+                  Ticket info
+                </button>
+              </>
+            ) : (
               <div className={"title"}>
-                {highlightEvent.title}
+                Gentlemen Productions
                 <div className={styles.line}></div>
               </div>
-              <div className="bold">SAVE THE DATE</div>
-              <div className={styles.date}>
-                {highlightEvent.dates.map((date, index) => (
-                  <span key={index}>
-                    {new Date(date.start).toLocaleDateString("nl-BE", {
-                      day: "numeric",
-                      month: "long",
-                      year: "numeric",
-                    })}
-                    {index === 0 ? " - " : ""}
-                  </span>
-                ))}
-              </div>
-              <button
-                className="btn-red"
-                onClick={() => {
-                  router.push("/event/" + highlightEvent.uuid + "/ticket");
-                }}
-              >
-                Ticket info
-              </button>
-            </>
-          ) : (
-            <div className={"title"}>
-              The gentleman
-              <div className={styles.line}></div>
-            </div>
-          )}
+            )}
+          </div>
         </div>
         {/* anouncements section */}
         <Stack align="center" justify="center">
           {/*events */}
 
           <Stack align="center" justify="center">
-            {events
-              .sort(
-                (a, b) =>
-                  new Date(b.dates[0].start).getTime() -
-                  new Date(a.dates[0].start).getTime(),
-              )
-              .map((event, index) => (
-                <div key={event.uuid}>
-                  <Group
-                    justify={"center"}
-                    style={{ position: "relative", right: "60px" }}
-                  >
+            {events &&
+              events
+                .sort(
+                  (a, b) =>
+                    new Date(b.dates[0].start_time).getTime() -
+                    new Date(a.dates[0].start_time).getTime(),
+                )
+                .map((event, index) => (
+                  <div key={event.uuid}>
                     <Group
-                      style={{
-                        position: "relative",
-                        top: index == 0 ? "0px" : "60px",
-                      }}
+                      justify={"center"}
+                      mt={200}
+                      style={{ position: "relative" }}
                     >
-                      <IconCalendarWeek size={25} />
-
-                      <div>
-                        <div className="gray-600">Posted at</div>
-                        <div className="date fs14">
-                          {new Date(event.dates[0].start).toLocaleDateString(
-                            "nl-BE",
-                            {
-                              day: "numeric",
-                              month: "long",
-                              year: "numeric",
-                            },
-                          )}
-                        </div>
-                      </div>
-                    </Group>
-                    {index != 0 && (
-                      <div
+                      <Group
                         style={{
-                          height: "200px",
-                          width: "4px",
-                          backgroundColor: "var(--gray-400)",
-                          borderRadius: "2px",
+                          position: "relative",
+                          top: "0px",
                         }}
-                      ></div>
-                    )}
-                  </Group>
-                  <EventCard event={event} index={index} />
-                </div>
-              ))}
+                      >
+                        <IconCalendarWeek size={25} />
+
+                        <div>
+                          <div className="gray-600">Posted at</div>
+                          <div className="date fs14">
+                            {new Date(event.created_at).toLocaleDateString(
+                              "nl-BE",
+                              {
+                                day: "numeric",
+                                month: "long",
+                                year: "numeric",
+                              },
+                            )}
+                          </div>
+                        </div>
+                      </Group>
+                    </Group>
+                    <EventCard event={event} index={index} />
+                  </div>
+                ))}
           </Stack>
         </Stack>
       </div>
