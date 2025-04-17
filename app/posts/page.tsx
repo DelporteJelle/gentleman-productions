@@ -7,28 +7,16 @@ import { Button, Group, Stack } from "@mantine/core";
 import CreateEventModal from "@/components/Modals/CreateEventModal";
 import { DateTimePicker } from "@mantine/dates";
 import BasicPostCard from "@/components/EventCard/BasicPostCard";
+import { usePosts } from "../contexts/PostsContext";
 
 export default function PostsPage() {
-  const [posts, setPosts] = useState<Post[]>([]);
   const [type, setType] = useState<DbObjectType | undefined>(); // Filter type
   const [page, setPage] = useState(1); // Current page
   const [total, setTotal] = useState(0); // Total posts
   const [limit] = useState(10); // Posts per page
   const [modalOpened, setModalOpened] = useState(false); // Modal state
 
-  useEffect(() => {
-    // Fetch posts from the API
-    const fetchPosts = async () => {
-      const response = await fetch(
-        `/api/posts?type=${type ?? ""}&page=${page}&limit=${limit}`,
-      );
-      const data = await response.json();
-      setPosts(data.data);
-      setTotal(data.total);
-    };
-
-    fetchPosts();
-  }, [type, page, limit]);
+  const { posts, loading, error, setPosts } = usePosts();
 
   const handleEdit = (uuid: string) => {
     console.log("Edit clicked");
@@ -73,9 +61,10 @@ export default function PostsPage() {
       body: JSON.stringify(newEvent),
     });
     console.log(response);
-
-    // setPosts((prev) => [newEvent, ...prev]); // Add the new event to the list
   };
+
+  if (loading) return <p>Loading...</p>;
+  if (error) return <p>Error: {error}</p>;
 
   return (
     <Stack align="center">

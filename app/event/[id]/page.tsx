@@ -1,31 +1,33 @@
 "use client";
 
 // Import necessary modules
-import { Event } from "@/types";
+import { DbObjectType, Event } from "@/types";
 import { useEffect, useState } from "react";
 import { useParams } from "next/navigation";
 import { Group, Image, px, Stack } from "@mantine/core";
 import { useRouter } from "next/navigation";
 import Masonry, { ResponsiveMasonry } from "react-responsive-masonry";
+import { usePosts } from "@/app/contexts/PostsContext";
 
 // Define the page component
 const EventPage = () => {
   const router = useRouter();
   const { id } = useParams();
-  const [data, setData] = useState<Event | undefined>(undefined);
+  const { fetchEventById, loading, error } = usePosts();
+  const [event, setEvent] = useState<Event | null>(null);
 
   useEffect(() => {
-    if (id) {
-      fetch(`/api/events/${id}`)
-        .then((response) => response.json())
-        .then((data) => setData(data))
-        .catch((error) => console.error("Error fetching data:", error));
-    }
-  }, [id]);
+    const fetchPost = async () => {
+      const fetchedPost = await fetchEventById(id as string);
+      setEvent(fetchedPost as Event);
+    };
 
-  if (!data) {
-    return <div>Loading...</div>;
-  }
+    fetchPost();
+  }, [id, fetchEventById, router]);
+
+  if (loading) return <p>Loading...</p>;
+  if (error) return <p>Error: {error}</p>;
+  if (!event) return <p>Post not found</p>;
 
   return (
     <div>
@@ -39,7 +41,7 @@ const EventPage = () => {
             p={20}
           >
             <h2>
-              {data.title}{" "}
+              {event.title}{" "}
               <div
                 style={{
                   height: "3px",
@@ -49,19 +51,19 @@ const EventPage = () => {
               />
             </h2>
             <div className="date">
-              {data.dates.map((date: any, index: number) => (
+              {event.dates.map((date: any, index: number) => (
                 <span key={index}>
                   {new Date(date.start_time).toLocaleDateString("nl-BE", {
                     day: "numeric",
                     month: "long",
                     year: "numeric",
                   })}
-                  {index === 0 && data.dates.length > 1 ? " - " : ""}
+                  {index === 0 && event.dates.length > 1 ? " - " : ""}
                 </span>
               ))}
             </div>
-            <div style={{ whiteSpace: "pre-wrap" }}>{data.description}</div>
-            {new Date(data.dates[0].start_time) > new Date() && (
+            <div style={{ whiteSpace: "pre-wrap" }}>{event.description}</div>
+            {new Date(event.dates[0].start_time) > new Date() && (
               <button
                 className="btn-red"
                 onClick={() => {
@@ -72,12 +74,12 @@ const EventPage = () => {
               </button>
             )}{" "}
           </Stack>
-          {data.images?.map((image) => (
+          {event.images?.map((image) => (
             <div key={image}>
               <Image
                 key={image}
                 src={image}
-                alt={data.title}
+                alt={event.title}
                 style={{ objectFit: "contain", cursor: "pointer" }}
                 width={"100%"}
                 height={"100%"}

@@ -8,12 +8,13 @@ import { ScrollTrigger } from "gsap/ScrollTrigger";
 import { ScrollToPlugin } from "gsap/ScrollToPlugin";
 import EventCard from "@/components/EventCard/EventCard";
 import { useEffect, useRef, useState } from "react";
-import { Event, EventHighlight } from "@/types";
+import { DbObjectType, Event, EventHighlight, Post } from "@/types";
 import { Group, Image, Stack, Text } from "@mantine/core";
 import { createRoot } from "react-dom/client";
 import { Canvas } from "@react-three/fiber";
 import CanvasBackground from "@/components/Background/CanvasBackground";
 import { IconCalendarWeek } from "@tabler/icons-react";
+import { usePosts } from "./contexts/PostsContext";
 
 gsap.registerPlugin(useGSAP, ScrollTrigger, ScrollToPlugin);
 
@@ -29,7 +30,8 @@ const images = [
 
 export default function Home() {
   const router = useRouter();
-  const [events, setEvents] = useState<Event[] | undefined>(undefined);
+  const { posts, loading, error, fetchPosts } = usePosts();
+
   const [currentIndex, setCurrentIndex] = useState(
     Math.floor(Math.random() * images.length),
   );
@@ -37,16 +39,16 @@ export default function Home() {
   const [highlight, setHighlight] = useState<EventHighlight | undefined>(
     undefined,
   );
-  const [highlightEvent, setHighlightEvent] = useState<Event | undefined>(
+  const [highlightEvent, setHighlightEvent] = useState<Post | undefined>(
     undefined,
   );
 
   // Fetch data
   useEffect(() => {
-    fetch("/api/events")
-      .then((response) => response.json())
-      .then((data) => setEvents(data))
-      .catch((error) => console.error("Error fetching data:", error));
+    // fetch("/api/events")
+    //   .then((response) => response.json())
+    //   .then((data) => setEvents(data))
+    //   .catch((error) => console.error("Error fetching data:", error));
 
     fetch("/api/highlight")
       .then((response) => response.json())
@@ -58,16 +60,16 @@ export default function Home() {
     }, 60000);
 
     return () => clearInterval(intervalId);
-  }, [setEvents]);
+  }, []);
 
   useEffect(() => {
-    if (highlight && events) {
-      const highlightedEvent = events.find(
-        (event) => event.uuid === highlight.event_uuid,
+    if (highlight && posts) {
+      const highlightedEvent = posts.find(
+        (event: Post) => event.uuid === highlight.event_uuid,
       );
       setHighlightEvent(highlightedEvent);
     }
-  }, [highlight, events]);
+  }, [highlight, posts]);
 
   // Scroll effect to clarify page is scrollable
   const [pulseVisible, setPulseVisible] = useState(false);
@@ -129,9 +131,8 @@ export default function Home() {
     return () => window.removeEventListener("scroll", handleScroll);
   }, [scrollY]);
 
-  // if (events == undefined || highlightEvent == undefined) {
-  //   return <div>Loading...</div>;
-  // }
+  if (loading) return <p>Loading events...</p>;
+  if (error) return <p>Error: {error}</p>;
 
   return (
     <div className={`${styles.main}`}>
@@ -198,16 +199,17 @@ export default function Home() {
                 </div>
                 <div className="bold">SAVE THE DATE</div>
                 <div className={styles.date}>
-                  {highlightEvent.dates.map((date, index) => (
-                    <span key={index}>
-                      {new Date(date.start_time).toLocaleDateString("nl-BE", {
-                        day: "numeric",
-                        month: "long",
-                        year: "numeric",
-                      })}
-                      {index === 0 ? " - " : ""}
-                    </span>
-                  ))}
+                  {highlightEvent.post_type === DbObjectType.EVENT &&
+                    (highlightEvent as Event).dates.map((date, index) => (
+                      <span key={index}>
+                        {new Date(date.start_time).toLocaleDateString("nl-BE", {
+                          day: "numeric",
+                          month: "long",
+                          year: "numeric",
+                        })}
+                        {index === 0 ? " - " : ""}
+                      </span>
+                    ))}
                 </div>
                 <button
                   className="btn-red"
@@ -231,15 +233,15 @@ export default function Home() {
           {/*events */}
 
           <Stack align="center" justify="center">
-            {events &&
-              events
+            {posts &&
+              posts
                 .sort(
-                  (a, b) =>
-                    new Date(b.dates[0].start_time).getTime() -
-                    new Date(a.dates[0].start_time).getTime(),
+                  (a: Post, b: Post) =>
+                    new Date(b.created_at).getTime() -
+                    new Date(a.created_at).getTime(),
                 )
-                .map((event, index) => (
-                  <div key={event.uuid}>
+                .map((post: Post, index: number) => (
+                  <div key={post.uuid}>
                     <Group
                       justify={"center"}
                       mt={200}
@@ -256,7 +258,7 @@ export default function Home() {
                         <div>
                           <div className="gray-600">Posted at</div>
                           <div className="date fs14">
-                            {new Date(event.created_at).toLocaleDateString(
+                            {new Date(post.created_at).toLocaleDateString(
                               "nl-BE",
                               {
                                 day: "numeric",
@@ -268,7 +270,9 @@ export default function Home() {
                         </div>
                       </Group>
                     </Group>
-                    <EventCard event={event} index={index} />
+                    {post.post_type === DbObjectType.EVENT && (
+                      <EventCard event={post as Event} index={index} />
+                    )}
                   </div>
                 ))}
           </Stack>

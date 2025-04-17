@@ -15,6 +15,7 @@ import Navigation from "@/components/Navigation/Navigation";
 import { MantineProvider, ColorSchemeScript, Stack } from "@mantine/core";
 import { AppShell, Burger } from "@mantine/core";
 import { useDisclosure } from "@mantine/hooks";
+import { PostsProvider } from "./contexts/PostsContext";
 
 const RootLayout: React.FC<React.PropsWithChildren> = ({ children }) => {
   const [opened, { toggle }] = useDisclosure(false);
@@ -26,38 +27,40 @@ const RootLayout: React.FC<React.PropsWithChildren> = ({ children }) => {
       </head>
       <body className={"root"}>
         <MantineProvider defaultColorScheme="dark">
-          <AppShell
-            layout="alt"
-            navbar={{
-              width: 300,
-              breakpoint: "sm",
-              collapsed: { desktop: !opened, mobile: !opened },
-            }}
-            padding="md"
-          >
-            <AppShell.Navbar>
-              <Stack m={40}>
-                <Navigation />
-              </Stack>
-            </AppShell.Navbar>
+          <PostsProvider>
+            <AppShell
+              layout="alt"
+              navbar={{
+                width: 300,
+                breakpoint: "sm",
+                collapsed: { desktop: !opened, mobile: !opened },
+              }}
+              padding="md"
+            >
+              <AppShell.Navbar>
+                <Stack m={40}>
+                  <Navigation />
+                </Stack>
+              </AppShell.Navbar>
 
-            <header>
-              <NavBar />
-            </header>
-            <main className="main">
-              <Burger
-                style={{ zIndex: 1000, position: "fixed", top: 10, left: 10 }}
-                opened={opened}
-                onClick={toggle}
-                hiddenFrom="sm"
-              />
+              <header>
+                <NavBar />
+              </header>
+              <main className="main">
+                <Burger
+                  style={{ zIndex: 1000, position: "fixed", top: 10, left: 10 }}
+                  opened={opened}
+                  onClick={toggle}
+                  hiddenFrom="sm"
+                />
 
-              {children}
-            </main>
-            <footer>
-              <Footer />
-            </footer>
-          </AppShell>
+                {children}
+              </main>
+              <footer>
+                <Footer />
+              </footer>
+            </AppShell>
+          </PostsProvider>
         </MantineProvider>
       </body>
     </html>
