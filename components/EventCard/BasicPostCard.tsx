@@ -29,6 +29,9 @@ const BasicPostCard: React.FC<BasicPostCardProps> = ({
         <Button color="yellow" size="xs" onClick={() => onRemove(post.uuid)}>
           Edit
         </Button>
+        <Button size="xs" color="yellow">
+          Set as highlight
+        </Button>
       </Group>
     </Card>
   );

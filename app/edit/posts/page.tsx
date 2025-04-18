@@ -7,7 +7,7 @@ import { Button, Group, Stack } from "@mantine/core";
 import CreateEventModal from "@/components/Modals/CreateEventModal";
 import { DateTimePicker } from "@mantine/dates";
 import BasicPostCard from "@/components/EventCard/BasicPostCard";
-import { usePosts } from "../contexts/PostsContext";
+import { usePosts } from "@/app/contexts/PostsContext";
 
 export default function PostsPage() {
   const [type, setType] = useState<DbObjectType | undefined>(); // Filter type

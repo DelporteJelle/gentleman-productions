@@ -2,58 +2,16 @@ import { Event } from "@/types";
 import { NextResponse } from "next/server";
 import { neon } from "@neondatabase/serverless";
 
-const cache: { [key: string]: { value: any; expiry: number } } = {};
-
-// Utility functions for in-memory cache with expiry
-function setWithExpiry(key: string, value: any, ttl: number) {
-  const now = new Date();
-  cache[key] = {
-    value: value,
-    expiry: now.getTime() + ttl, // Current time + time-to-live (in milliseconds)
-  };
-}
-
-function getWithExpiry(key: string) {
-  const cachedItem = cache[key];
-  if (!cachedItem) {
-    return null;
-  }
-
-  const now = new Date();
-
-  // Check if the item has expired
-  if (now.getTime() > cachedItem.expiry) {
-    delete cache[key]; // Remove expired item
-    return null;
-  }
-
-  return cachedItem.value;
-}
-
 export async function GET() {
+  console.log("Fetching events from database");
   const sql = neon(process.env.DATABASE_URL!);
 
   try {
-    const storageKey = "events_all";
-    const oneWeekInMs = 7 * 24 * 60 * 60 * 1000; // 1 week in milliseconds
-
-    // Check if data is already stored in Web Storage and not expired
-    const storedData = getWithExpiry(storageKey);
-
-    if (storedData) {
-      console.log("Returning events from Web Storage");
-      return NextResponse.json(storedData);
-    }
-
     // Fetch events from the database
     const events = await sql`
       SELECT * FROM events;
     `;
 
-    // Store the fetched data in Web Storage with a 1-week expiry
-    setWithExpiry(storageKey, events, oneWeekInMs);
-
-    console.log("Returning events from database");
     return NextResponse.json(events);
   } catch (error) {
     console.error("Error fetching events:", error);
@@ -111,14 +69,6 @@ export async function POST(request: Request) {
         ${JSON.stringify(body.dates)}
       );
     `;
-
-    const storageKey = "events_all";
-    delete cache[storageKey];
-
-    // Clear Web Storage to ensure stale data is not used
-    if (typeof window !== "undefined") {
-      localStorage.removeItem("events_all");
-    }
 
     return NextResponse.json(
       { message: "Event created successfully" },

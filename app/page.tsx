@@ -30,46 +30,19 @@ const images = [
 
 export default function Home() {
   const router = useRouter();
-  const { posts, loading, error, fetchPosts } = usePosts();
+  const { posts, loading, error, highlightPost } = usePosts();
 
   const [currentIndex, setCurrentIndex] = useState(
     Math.floor(Math.random() * images.length),
   );
 
-  const [highlight, setHighlight] = useState<EventHighlight | undefined>(
-    undefined,
-  );
-  const [highlightEvent, setHighlightEvent] = useState<Post | undefined>(
-    undefined,
-  );
-
-  // Fetch data
   useEffect(() => {
-    // fetch("/api/events")
-    //   .then((response) => response.json())
-    //   .then((data) => setEvents(data))
-    //   .catch((error) => console.error("Error fetching data:", error));
-
-    fetch("/api/highlight")
-      .then((response) => response.json())
-      .then((data) => setHighlight(data))
-      .catch((error) => console.error("Error fetching highlight:", error));
-
     const intervalId = setInterval(() => {
       setCurrentIndex((prevIndex) => (prevIndex + 1) % images.length);
     }, 60000);
 
     return () => clearInterval(intervalId);
   }, []);
-
-  useEffect(() => {
-    if (highlight && posts) {
-      const highlightedEvent = posts.find(
-        (event: Post) => event.uuid === highlight.event_uuid,
-      );
-      setHighlightEvent(highlightedEvent);
-    }
-  }, [highlight, posts]);
 
   // Scroll effect to clarify page is scrollable
   const [pulseVisible, setPulseVisible] = useState(false);
@@ -188,19 +161,19 @@ export default function Home() {
         {/**Hightlight */}
         <div className={styles.hightlight}>
           <div className={styles.glass}>
-            {highlight &&
-            highlightEvent &&
-            highlight?.valid_date &&
-            new Date(highlight.valid_date) > new Date() ? (
+            {highlightPost &&
+            highlightPost.post_type === DbObjectType.EVENT &&
+            highlightPost.valid_date &&
+            new Date(highlightPost.valid_date) > new Date() ? (
               <>
                 <div className={"title"}>
-                  {highlightEvent.title}
+                  {highlightPost.title}
                   <div className={styles.line}></div>
                 </div>
                 <div className="bold">SAVE THE DATE</div>
                 <div className={styles.date}>
-                  {highlightEvent.post_type === DbObjectType.EVENT &&
-                    (highlightEvent as Event).dates.map((date, index) => (
+                  {highlightPost.post_type === DbObjectType.EVENT &&
+                    (highlightPost as Event).dates.map((date, index) => (
                       <span key={index}>
                         {new Date(date.start_time).toLocaleDateString("nl-BE", {
                           day: "numeric",
@@ -214,7 +187,7 @@ export default function Home() {
                 <button
                   className="btn-red"
                   onClick={() => {
-                    router.push("/event/" + highlightEvent.uuid + "/ticket");
+                    router.push("/event/" + highlightPost.uuid + "/ticket");
                   }}
                 >
                   Ticket info

@@ -8,7 +8,6 @@ export default function PartnerCard({ partner }: props) {
   return (
     <Stack
       align="center"
-      m={30}
       gap={0}
       p={5}
       style={{
@@ -18,8 +17,8 @@ export default function PartnerCard({ partner }: props) {
         borderRadius: "10px",
       }}
     >
-      <Image src={partner.logo} alt={partner.name} h="150px" />
-      <h3 style={{ margin: "0" }}>{partner.name}</h3>
+      <Image src={partner.logo} alt={partner.partner_name} h="150px" />
+      <h3 style={{ margin: "0" }}>{partner.partner_name}</h3>
 
       <Text>{partner.description}</Text>
     </Stack>

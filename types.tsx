@@ -49,9 +49,9 @@ export interface EventHighlight {
 
 //About types
 export interface TeamMember extends DbObject {
-  name: string;
-  role: string;
-  image: string;
+  member_name: string;
+  member_role: string;
+  image?: string;
   email?: string;
   linkedin?: string;
   instagram?: string;
@@ -61,7 +61,7 @@ export interface TeamMember extends DbObject {
 }
 
 export interface Partner extends DbObject {
-  name: string;
+  partner_name: string;
   logo: string;
   description: string;
 }
