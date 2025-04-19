@@ -2,7 +2,7 @@
 
 import Image from "next/image";
 import styles from "./page.module.css";
-import { Flex, Stack } from "@mantine/core";
+import { Flex, Group, Stack } from "@mantine/core";
 import MemberCard from "@/components/About/MemberCard";
 import PartnerCard from "@/components/About/PartnerCard";
 import { Partner, TeamMember } from "@/types";
@@ -21,7 +21,9 @@ export default function About() {
       <Flex wrap="wrap" justify="center" maw={1200}>
         {teamMembers &&
           teamMembers.map((member: TeamMember) => (
-            <MemberCard key={member.uuid} member={member} />
+            <Group key={member.uuid} m={20}>
+              <MemberCard member={member} />
+            </Group>
           ))}
       </Flex>
 

@@ -18,7 +18,7 @@ export default function NavBar() {
           router.push("/");
         }}
       >
-        <Image src={"/GP-name.svg"} alt="/home/" width={200} height={45} />
+        <Image src={"/GP-name.svg"} alt="/home/" width={200} height={50} />
       </div>
       <Group className={styles.navigation} visibleFrom="sm">
         <Navigation />

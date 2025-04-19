@@ -195,7 +195,7 @@ export default function Home() {
               </>
             ) : (
               <div className={"title"}>
-                Gentlemen Productions
+                Gentleman Productions
                 <div className={styles.line}></div>
               </div>
             )}

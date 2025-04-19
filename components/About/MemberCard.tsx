@@ -15,13 +15,18 @@ export default function MemerCard({ member }: MemberCardProps) {
         height: "310px",
         backgroundColor: "var(--gray-800)",
         borderRadius: "10px",
+        overflow: "hidden",
       }}
     >
-      <Image
-        src={member.image ?? "/Placeholders/Person.jpg"}
-        alt={member.member_name}
-        h="220px"
-        radius="5"
+      <div
+        style={{
+          width: "100%",
+          height: "220px",
+          backgroundImage: `url(${member.image ?? "/Placeholders/Person.jpg"})`,
+          backgroundSize: "cover",
+          backgroundPosition: "center",
+          borderRadius: "5px",
+        }}
       />
       <h3 style={{ margin: "0" }}>{member.member_name}</h3>
 
