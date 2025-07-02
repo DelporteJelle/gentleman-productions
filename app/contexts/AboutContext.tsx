@@ -23,6 +23,8 @@ interface AboutContextProps {
 }
 
 const AboutContext = createContext<AboutContextProps | undefined>(undefined);
+const TEAM_MEMBER_KEY = "teamMembers";
+const PARTNERS_KEY = "partners";
 
 export const AboutProvider: React.FC<{ children: React.ReactNode }> = ({
   children,
@@ -69,8 +71,8 @@ export const AboutProvider: React.FC<{ children: React.ReactNode }> = ({
 
     try {
       // Try to load team members from localStorage
-      const cachedTeamMembers = loadFromLocalStorage("teamMembers");
-      const cachedPartners = loadFromLocalStorage("partners");
+      const cachedTeamMembers = loadFromLocalStorage(TEAM_MEMBER_KEY);
+      const cachedPartners = loadFromLocalStorage(PARTNERS_KEY);
 
       if (cachedTeamMembers) {
         setTeamMembers(cachedTeamMembers);
@@ -101,7 +103,7 @@ export const AboutProvider: React.FC<{ children: React.ReactNode }> = ({
 
         const partnerData = await response.json();
         setPartners(partnerData);
-        saveToLocalStorage("partners", partnerData);
+        saveToLocalStorage(PARTNERS_KEY, partnerData);
       }
     } catch (err: any) {
       setError(err.message || "An error occurred");
@@ -138,7 +140,7 @@ export const AboutProvider: React.FC<{ children: React.ReactNode }> = ({
       setError(err.message || "An error occurred");
     } finally {
       //remove localStorage data to force a refetch
-      localStorage.removeItem("teamMembers");
+      localStorage.removeItem(TEAM_MEMBER_KEY);
       setLoading(false);
     }
   };
@@ -171,7 +173,7 @@ export const AboutProvider: React.FC<{ children: React.ReactNode }> = ({
       setError(err.message || "An error occurred");
     } finally {
       //remove localStorage data to force a refetch
-      localStorage.removeItem("partners");
+      localStorage.removeItem(PARTNERS_KEY);
       setLoading(false);
     }
   };

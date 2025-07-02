@@ -24,7 +24,6 @@ export default function ExpandedTicketCard({
   date,
   setActiveCard,
 }: props) {
-  console.log(event);
   return (
     <div
       className={styles.card}
@@ -114,17 +113,19 @@ export default function ExpandedTicketCard({
           </Stack>
         </Group>
 
-        <Group justify="center" mt={20}>
-          <button
-            className="btn-red"
-            onClick={() => {
-              const urlWithHash = `${date.external_link}`;
-              window.open(urlWithHash, "_blank");
-            }}
-          >
-            {date.price ? "Buy tickets here" : "More info"}
-          </button>
-        </Group>
+        {date.price && (
+          <Group justify="center" mt={20}>
+            <button
+              className="btn-red"
+              onClick={() => {
+                const urlWithHash = `${date.external_link}`;
+                window.open(urlWithHash, "_blank");
+              }}
+            >
+              Buy tickets
+            </button>
+          </Group>
+        )}
       </div>
     </div>
   );

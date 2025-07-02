@@ -104,8 +104,11 @@ export default function Home() {
     return () => window.removeEventListener("scroll", handleScroll);
   }, [scrollY]);
 
+  useEffect(() => {
+    console.log(highlightPost);
+  }, [highlightPost]);
+
   if (loading) return <p>Loading events...</p>;
-  if (error) return <p>Error: {error}</p>;
 
   return (
     <div className={`${styles.main}`}>
@@ -180,7 +183,9 @@ export default function Home() {
                           month: "long",
                           year: "numeric",
                         })}
-                        {index === 0 ? " - " : ""}
+                        {index === 0 && index != highlightPost.dates.length - 1
+                          ? " - "
+                          : ""}
                       </span>
                     ))}
                 </div>
@@ -190,7 +195,7 @@ export default function Home() {
                     router.push("/event/" + highlightPost.uuid + "/ticket");
                   }}
                 >
-                  Ticket info
+                  More Info
                 </button>
               </>
             ) : (

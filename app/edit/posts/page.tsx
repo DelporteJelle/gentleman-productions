@@ -3,11 +3,12 @@
 import { useEffect, useState } from "react";
 import EventCard from "@/components/EventCard/EventCard"; // Adjust the path to your EventCard component
 import { DbObjectType, Event, Post } from "@/types";
-import { Button, Group, Stack } from "@mantine/core";
+import { Button, Group, Stack, ActionIcon } from "@mantine/core";
 import CreateEventModal from "@/components/Modals/CreateEventModal";
 import { DateTimePicker } from "@mantine/dates";
 import BasicPostCard from "@/components/EventCard/BasicPostCard";
 import { usePosts } from "@/app/contexts/PostsContext";
+import { IconTrash, IconEdit, IconFlagStar } from "@tabler/icons-react";
 
 export default function PostsPage() {
   const [type, setType] = useState<DbObjectType | undefined>(); // Filter type
@@ -16,62 +17,23 @@ export default function PostsPage() {
   const [limit] = useState(10); // Posts per page
   const [modalOpened, setModalOpened] = useState(false); // Modal state
 
-  const { posts, loading, error, setPosts } = usePosts();
+  const { posts, loading, error, setPosts, editHighlight, removePost } =
+    usePosts();
 
   const handleEdit = (uuid: string) => {
     console.log("Edit clicked");
   };
 
-  const handleRemove = async (uuid: string) => {
-    if (confirm("Are you sure you want to delete this post?")) {
-      try {
-        const response = await fetch(`/api/posts?uuid=${uuid}`, {
-          method: "DELETE",
-        });
-
-        if (response.ok) {
-          // Remove the deleted post from the local state
-          setPosts((prevPosts) =>
-            prevPosts.filter((post) => post.uuid !== uuid),
-          );
-          alert("Post deleted successfully.");
-        } else {
-          const errorData = await response.json();
-          console.error("Error deleting post:", errorData.error);
-          alert("Failed to delete the post.");
-        }
-      } catch (error) {
-        console.error("Error deleting post:", error);
-        alert("An error occurred while deleting the post.");
-      }
-    }
-  };
-
-  const totalPages = Math.ceil(total / limit);
-
-  const handleCreateEvent = async (newEvent: Event) => {
-    // Add the new event to the database (mocked here)\
-    console.log(newEvent);
-
-    const response = await fetch("/api/events", {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-      },
-      body: JSON.stringify(newEvent),
-    });
-    console.log(response);
-  };
+  const totalPages = Math.ceil(total / limit) + 1;
 
   if (loading) return <p>Loading...</p>;
-  if (error) return <p>Error: {error}</p>;
 
   return (
     <Stack align="center">
       <h1>Posts</h1>
 
       {/* Filter */}
-      <div>
+      {/* <div>
         <label htmlFor="type">Filter by Type:</label>
         <select
           id="type"
@@ -87,22 +49,20 @@ export default function PostsPage() {
               {type}
             </option>
           ))}
-          {/* Add more types here */}
         </select>
-      </div>
+      </div> */}
 
       {/* Posts */}
       <div>
         <Group justify="center">
           {posts &&
             posts.map((post, index) => {
-              return (
-                <BasicPostCard
-                  key={post.uuid}
-                  post={post}
-                  onEdit={handleEdit}
-                  onRemove={handleRemove}
-                />
+              return postWrapper(
+                post,
+                handleEdit,
+                removePost,
+                editHighlight,
+                index,
               );
             })}
         </Group>
@@ -117,7 +77,6 @@ export default function PostsPage() {
       <CreateEventModal
         opened={modalOpened}
         onClose={() => setModalOpened(false)}
-        onCreate={handleCreateEvent}
       />
 
       {/* Pagination */}
@@ -141,3 +100,53 @@ export default function PostsPage() {
     </Stack>
   );
 }
+
+const postWrapper = (
+  post: Post,
+  onEdit: (uuid: string) => void,
+  onRemove: (uuid: string) => void,
+  editHighlight: (uuid: string, value: any) => void,
+  index: number,
+) => {
+  return (
+    <div key={post.uuid} style={{ position: "relative", margin: 8 }}>
+      <div
+        style={{
+          position: "absolute",
+          top: 20,
+          right: 8,
+          zIndex: 2,
+          display: "flex",
+          gap: 8,
+        }}
+      >
+        <ActionIcon
+          color="blue"
+          variant="light"
+          onClick={() => editHighlight(post.uuid, undefined)}
+        >
+          <IconFlagStar size={20} />
+        </ActionIcon>
+        <ActionIcon
+          color="yellow"
+          variant="light"
+          onClick={() => onEdit(post.uuid)}
+        >
+          <IconEdit size={20} />
+        </ActionIcon>
+        <ActionIcon
+          color="red"
+          variant="light"
+          onClick={() => onRemove(post.uuid)}
+        >
+          <IconTrash size={20} />
+        </ActionIcon>
+      </div>
+      {post.post_type === DbObjectType.EVENT ? (
+        <EventCard event={post as Event} index={index} />
+      ) : (
+        <BasicPostCard post={post as Post} />
+      )}
+    </div>
+  );
+};

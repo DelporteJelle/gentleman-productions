@@ -8,17 +8,9 @@ export async function GET() {
   console.log("Fetching highlight");
   try {
     const highlightWithEvent = await sql`
-      SELECT 
-        Highlight.uuid AS highlight_uuid,
-        Highlight.valid_date,
-        Events.uuid AS event_uuid,
-        Events.title,
-        Events.description,
-        Events.display_image,
-        Events.eventLocation,
-        Events.dates
-      FROM Highlight
-      JOIN Events ON Highlight.event_uuid = Events.uuid;
+      SELECT Events.*, Highlight.valid_date
+      FROM Events
+      INNER JOIN Highlight ON Events.uuid = Highlight.event_uuid;
     `;
     return NextResponse.json(highlightWithEvent);
   } catch (error) {
@@ -30,40 +22,58 @@ export async function GET() {
   }
 }
 
+export async function DELETE() {
+  try {
+    // Delete the existing highlight
+    await sql`
+      DELETE FROM Highlight;
+    `;
+
+    return NextResponse.json(
+      { message: "Highlight deleted successfully" },
+      {
+        status: 200,
+      },
+    );
+  } catch (error) {
+    console.error("Error deleting highlight:", error);
+    return NextResponse.json(
+      { error: "Failed to delete highlight" },
+      { status: 500 },
+    );
+  }
+}
+
 // PUT: Update an existing highlight
 export async function PUT(request: Request) {
   try {
     const body = await request.json();
 
     // Validate the request body
-    if (!body.uuid || !body.event_uuid || !body.valid_date) {
+    if (!body.event_uuid || !body.valid_date) {
       return NextResponse.json(
         { error: "UUID, event UUID, and valid date are required" },
         { status: 400 },
       );
     }
 
-    const updatedHighlight = await sql`
-      UPDATE Highlight
-      SET 
-        event_uuid = ${body.event_uuid},
-        valid_date = ${body.valid_date}
-      WHERE uuid = ${body.uuid}
+    // Delete the existing highlight
+    await sql`
+      DELETE FROM Highlight;
+    `;
+
+    // Create a new highlight
+    const newHighlight = await sql`
+      INSERT INTO Highlight (uuid, event_uuid, valid_date)
+      VALUES (${crypto.randomUUID()}, ${body.event_uuid}, ${body.valid_date})
       RETURNING *;
     `;
 
-    if (updatedHighlight.length === 0) {
-      return NextResponse.json(
-        { error: "Highlight not found" },
-        { status: 404 },
-      );
-    }
-
-    return NextResponse.json(updatedHighlight[0], { status: 200 });
+    return NextResponse.json(newHighlight[0], { status: 200 });
   } catch (error) {
-    console.error("Error updating highlight:", error);
+    console.error("Error replacing highlight:", error);
     return NextResponse.json(
-      { error: "Failed to update highlight" },
+      { error: "Failed to replace highlight" },
       { status: 500 },
     );
   }

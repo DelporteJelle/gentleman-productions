@@ -15,18 +15,19 @@ import {
 import { DbObjectType, Event } from "@/types";
 import { formRootRule, isNotEmpty, useForm } from "@mantine/form";
 import { DateInput, TimeInput } from "@mantine/dates";
+import { usePosts } from "@/app/contexts/PostsContext";
 
 interface CreateEventModalProps {
   opened: boolean;
   onClose: () => void;
-  onCreate: (event: Event) => void;
 }
 
 export default function CreateEventModal({
   opened,
   onClose,
-  onCreate,
 }: CreateEventModalProps) {
+  const { createEvent } = usePosts();
+
   const form = useForm({
     mode: "uncontrolled",
     initialValues: {
@@ -137,9 +138,10 @@ export default function CreateEventModal({
   const handleCreate = () => {
     form.validate();
     if (form.isValid()) {
-      onCreate({
+      createEvent({
         ...form.values,
-        uuid: crypto.randomUUID(),
+        eventlocation: form.values.eventLocation,
+        uuid: crypto.randomUUID() as string,
         created_at: new Date().toISOString(),
         updated_at: new Date().toISOString(),
         post_type: DbObjectType.EVENT,
@@ -150,7 +152,6 @@ export default function CreateEventModal({
             .map(Number);
           const startDate = new Date(date.date);
           const endDate = new Date(date.date);
-          console.log(date.timeLine);
           startDate.setHours(startTime[0], startTime[1]);
           endDate.setHours(endTime[0], endTime[1]);
 
@@ -263,13 +264,6 @@ export default function CreateEventModal({
               key={form.key("description")}
               {...form.getInputProps("description")}
             />
-            <TextInput
-              required
-              label="Image URL"
-              placeholder="Enter display image URL"
-              key={form.key("display_image")}
-              {...form.getInputProps("display_image")}
-            />
           </Stack>
         </Stepper.Step>
 
@@ -341,6 +335,45 @@ export default function CreateEventModal({
             </Button>
           </Stack>
         </Stepper.Step>
+
+        {/* ====================== Event images ==================== */}
+
+        <Stepper.Step
+          color="yellow"
+          label="Event images"
+          description="Add display image and additional images"
+        >
+          <Stack>
+            <TextInput
+              required
+              label="Image URL"
+              placeholder="Enter display image URL"
+              key={form.key("display_image")}
+              {...form.getInputProps("display_image")}
+            />
+            {form.getValues().images.map((image, index) => (
+              <Group key={index}>
+                <TextInput
+                  label={`Image URL ${index + 1}`}
+                  placeholder="Enter image URL"
+                  key={form.key(`images.${index}`)}
+                  {...form.getInputProps(`images.${index}`)}
+                />
+                <CloseButton
+                  color="red"
+                  onClick={() => form.removeListItem("images", index)}
+                />
+              </Group>
+            ))}
+            <Button
+              variant="default"
+              onClick={() => form.insertListItem("images", "")}
+            >
+              Add Image URL
+            </Button>
+          </Stack>
+        </Stepper.Step>
+
         <Stepper.Completed>
           {/* {!form.isValid() && } */}
           {Object.keys(form.errors).length > 0 && (
@@ -359,8 +392,8 @@ export default function CreateEventModal({
         <Button variant="default" onClick={prevStep}>
           Back
         </Button>
-        <Button color="red" onClick={active === 3 ? handleCreate : nextStep}>
-          {active === 3 ? "Create Event" : "Next step"}
+        <Button color="red" onClick={active === 4 ? handleCreate : nextStep}>
+          {active === 4 ? "Create Event" : "Next step"}
         </Button>
       </Group>
     </Modal>
