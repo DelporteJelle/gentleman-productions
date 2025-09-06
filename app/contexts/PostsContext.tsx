@@ -19,6 +19,7 @@ interface PostsContextProps {
   loading: boolean;
   error: string | null;
   createEvent: (newEvent: Event) => Promise<void>;
+  editEvent: (uuid: string, event: Event) => Promise<void>;
   removePost: (uuid: string) => Promise<void>;
 }
 
@@ -268,6 +269,44 @@ export const PostsProvider: React.FC<{ children: React.ReactNode }> = ({
     [setPosts],
   );
 
+  const editEvent = useCallback(
+    async (uuid: string, event: Event) => {
+      setLoading(true);
+      setError(null);
+      console.log(event);
+      try {
+        const response = await fetch("/api/events", {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify(event),
+        });
+
+        if (!response.ok) {
+          throw new Error("Failed to create event");
+        }
+
+        const createdEvent = await response.json();
+
+        // Update posts state with the new event
+        setPosts((prevPosts) => [...prevPosts, createdEvent]);
+
+        showNotification({
+          title: "Success",
+          message: "Event created successfully",
+          color: "green",
+        });
+      } catch (err: any) {
+        setError(err.message || "An error occurred");
+      } finally {
+        localStorage.removeItem(POSTS_KEY);
+        setLoading(false);
+      }
+    },
+    [setPosts],
+  );
+
   const removePost = useCallback(
     async (uuid: string) => {
       setLoading(true);
@@ -328,6 +367,7 @@ export const PostsProvider: React.FC<{ children: React.ReactNode }> = ({
         editHighlight,
         deleteHighlight,
         createEvent,
+        editEvent,
         removePost,
       }}
     >

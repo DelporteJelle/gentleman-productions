@@ -9,6 +9,7 @@ import { DateTimePicker } from "@mantine/dates";
 import BasicPostCard from "@/components/EventCard/BasicPostCard";
 import { usePosts } from "@/app/contexts/PostsContext";
 import { IconTrash, IconEdit, IconFlagStar } from "@tabler/icons-react";
+import { Tooltip } from "@mantine/core";
 
 export default function PostsPage() {
   const [type, setType] = useState<DbObjectType | undefined>(); // Filter type
@@ -120,27 +121,33 @@ const postWrapper = (
           gap: 8,
         }}
       >
-        <ActionIcon
-          color="blue"
-          variant="light"
-          onClick={() => editHighlight(post.uuid, undefined)}
-        >
-          <IconFlagStar size={20} />
-        </ActionIcon>
-        <ActionIcon
-          color="yellow"
-          variant="light"
-          onClick={() => onEdit(post.uuid)}
-        >
-          <IconEdit size={20} />
-        </ActionIcon>
-        <ActionIcon
-          color="red"
-          variant="light"
-          onClick={() => onRemove(post.uuid)}
-        >
-          <IconTrash size={20} />
-        </ActionIcon>
+        <Tooltip label="Set this post as highlight" position="top" withArrow>
+          <ActionIcon
+            color="blue"
+            variant="light"
+            onClick={() => editHighlight(post.uuid, undefined)}
+          >
+            <IconFlagStar size={20} />
+          </ActionIcon>
+        </Tooltip>
+        <Tooltip label="Edit post" position="top" withArrow>
+          <ActionIcon
+            color="yellow"
+            variant="light"
+            onClick={() => onEdit(post.uuid)}
+          >
+            <IconEdit size={20} />
+          </ActionIcon>
+        </Tooltip>
+        <Tooltip label="Delete post" position="top" withArrow>
+          <ActionIcon
+            color="red"
+            variant="light"
+            onClick={() => onRemove(post.uuid)}
+          >
+            <IconTrash size={20} />
+          </ActionIcon>
+        </Tooltip>
       </div>
       {post.post_type === DbObjectType.EVENT ? (
         <EventCard event={post as Event} index={index} />

@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import {
   Modal,
   TextInput,
@@ -20,13 +20,15 @@ import { usePosts } from "@/app/contexts/PostsContext";
 interface CreateEventModalProps {
   opened: boolean;
   onClose: () => void;
+  event?: Event;
 }
 
 export default function CreateEventModal({
   opened,
   onClose,
+  event,
 }: CreateEventModalProps) {
-  const { createEvent } = usePosts();
+  const { createEvent, editEvent } = usePosts();
 
   const form = useForm({
     mode: "uncontrolled",
@@ -44,7 +46,10 @@ export default function CreateEventModal({
         {
           uuid: crypto.randomUUID(),
           date: "",
-          timeLine: [{ time: "00:00", description: "Start" }],
+          timeLine: [
+            { time: "18:00", description: "Start" },
+            { time: "22:00", description: "End" },
+          ],
           price: undefined,
         },
       ],
@@ -122,6 +127,37 @@ export default function CreateEventModal({
     // },
   });
 
+  // Populate form with event data when editing
+  // useEffect(() => {
+  //   if (event) {
+  //     form.setValues({
+  //       title: event.title,
+  //       description: event.description,
+  //       display_image: event.display_image,
+  //       eventLocation: event.eventlocation
+  //         ? {
+  //             ...event.eventlocation,
+  //             location: event.eventlocation.location,
+  //           }
+  //         : {
+  //             country: "",
+  //             city: "",
+  //             street: "",
+  //             location: undefined,
+  //           },
+  //       dates: event.dates.map((date) => ({
+  //         uuid: date.uuid,
+  //         date: new Date(date.start_time).toISOString().split("T")[0],
+  //         timeLine: date.timeLine,
+  //         price: date.price,
+  //       })),
+  //       images: event.images || [""],
+  //     });
+  //   } else {
+  //     form.reset();
+  //   }
+  // }, [event, form]);
+
   const [active, setActive] = useState(0);
   const nextStep = () => {
     setActive((current) => current + 1);
@@ -135,35 +171,41 @@ export default function CreateEventModal({
   const prevStep = () =>
     setActive((current) => (current > 0 ? current - 1 : current));
 
-  const handleCreate = () => {
+  const handleSubmit = () => {
     form.validate();
-    if (form.isValid()) {
-      createEvent({
-        ...form.values,
-        eventlocation: form.values.eventLocation,
-        uuid: crypto.randomUUID() as string,
-        created_at: new Date().toISOString(),
-        updated_at: new Date().toISOString(),
-        post_type: DbObjectType.EVENT,
-        dates: form.values.dates.map((date) => {
-          const startTime = date.timeLine[0].time.split(":").map(Number);
-          const endTime = date.timeLine[date.timeLine.length - 1].time
-            .split(":")
-            .map(Number);
-          const startDate = new Date(date.date);
-          const endDate = new Date(date.date);
-          startDate.setHours(startTime[0], startTime[1]);
-          endDate.setHours(endTime[0], endTime[1]);
+    if (!form.isValid()) return;
 
-          return {
-            ...date,
-            start_time: startDate.toISOString(),
-            end_time: endDate.toISOString(),
-          };
-        }),
-      });
-      onClose();
+    const eventData = {
+      ...form.values,
+      eventlocation: form.values.eventLocation,
+      uuid: crypto.randomUUID() as string,
+      created_at: new Date().toISOString(),
+      updated_at: new Date().toISOString(),
+      post_type: DbObjectType.EVENT,
+      dates: form.values.dates.map((date) => {
+        const startTime = date.timeLine[0].time.split(":").map(Number);
+        const endTime = date.timeLine[date.timeLine.length - 1].time
+          .split(":")
+          .map(Number);
+        const startDate = new Date(date.date);
+        const endDate = new Date(date.date);
+        startDate.setHours(startTime[0], startTime[1]);
+        endDate.setHours(endTime[0], endTime[1]);
+
+        return {
+          ...date,
+          start_time: startDate.toISOString(),
+          end_time: endDate.toISOString(),
+        };
+      }),
+    };
+
+    if (event) {
+      editEvent(event.uuid, { ...eventData });
+    } else {
+      createEvent(eventData);
     }
+    onClose();
   };
 
   const dates = form.getValues().dates.map((date, index) => (
@@ -206,6 +248,10 @@ export default function CreateEventModal({
                 {...form.getInputProps(
                   `dates.${index}.timeLine.${timeIndex}.time`,
                 )}
+                onChange={(e) =>
+                  (form.values.dates[index].timeLine[timeIndex].time =
+                    e.target.value)
+                }
               />
               <TextInput
                 required
@@ -217,6 +263,10 @@ export default function CreateEventModal({
                 {...form.getInputProps(
                   `dates.${index}.timeLine.${timeIndex}.description`,
                 )}
+                onChange={(e) =>
+                  (form.values.dates[index].timeLine[timeIndex].description =
+                    e.target.value)
+                }
               />
             </Paper>
           ))}
@@ -392,7 +442,7 @@ export default function CreateEventModal({
         <Button variant="default" onClick={prevStep}>
           Back
         </Button>
-        <Button color="red" onClick={active === 4 ? handleCreate : nextStep}>
+        <Button color="red" onClick={active === 4 ? handleSubmit : nextStep}>
           {active === 4 ? "Create Event" : "Next step"}
         </Button>
       </Group>
