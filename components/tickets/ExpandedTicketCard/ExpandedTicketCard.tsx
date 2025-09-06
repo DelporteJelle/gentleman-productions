@@ -54,7 +54,7 @@ export default function ExpandedTicketCard({
           <Text c="white">{event.description}</Text>
         </div>
 
-        <Group justify="space-around" mt={20}>
+        <Group justify="space-around" align="start" mt={20}>
           {/* Event timeline */}
           <Stack justify="flex-start">
             <h3>Event timeline</h3>

@@ -17,12 +17,17 @@ export default function PostsPage() {
   const [total, setTotal] = useState(0); // Total posts
   const [limit] = useState(10); // Posts per page
   const [modalOpened, setModalOpened] = useState(false); // Modal state
+  const [eventToEdit, setEventToEdit] = useState<Event | undefined>(undefined); // Event to edit
 
   const { posts, loading, error, setPosts, editHighlight, removePost } =
     usePosts();
 
   const handleEdit = (uuid: string) => {
-    console.log("Edit clicked");
+    const event = posts.find((post) => post.uuid === uuid) as Event;
+    if (event) {
+      setEventToEdit(event);
+      setModalOpened(true);
+    }
   };
 
   const totalPages = Math.ceil(total / limit) + 1;
@@ -77,7 +82,11 @@ export default function PostsPage() {
       {/* Create Event Modal */}
       <CreateEventModal
         opened={modalOpened}
-        onClose={() => setModalOpened(false)}
+        onClose={() => {
+          setModalOpened(false);
+          setEventToEdit(undefined);
+        }}
+        event={eventToEdit}
       />
 
       {/* Pagination */}

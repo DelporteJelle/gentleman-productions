@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import {
   Modal,
   TextInput,
@@ -20,7 +20,7 @@ import { usePosts } from "@/app/contexts/PostsContext";
 interface CreateEventModalProps {
   opened: boolean;
   onClose: () => void;
-  event?: Event;
+  event: Event | undefined;
 }
 
 export default function CreateEventModal({
@@ -30,13 +30,28 @@ export default function CreateEventModal({
 }: CreateEventModalProps) {
   const { createEvent, editEvent } = usePosts();
 
-  const form = useForm({
-    mode: "uncontrolled",
-    initialValues: {
+  const getInitialValues = useCallback(() => {
+    if (event) {
+      // Convert string dates to Date objects for editing
+      return {
+        ...event,
+        dates: event.dates.map((date) => ({
+          ...date,
+          start_time: date.start_time ? new Date(date.start_time) : "",
+          end_time: date.end_time ? new Date(date.end_time) : "",
+        })),
+      };
+      // return event;
+    }
+    return {
+      uuid: crypto.randomUUID() as string,
+      created_at: new Date().toISOString(),
+      updated_at: undefined,
+      post_type: DbObjectType.EVENT,
       title: "",
       description: "",
       display_image: "",
-      eventLocation: {
+      eventlocation: {
         country: "België",
         city: "",
         street: "",
@@ -45,7 +60,7 @@ export default function CreateEventModal({
       dates: [
         {
           uuid: crypto.randomUUID(),
-          date: "",
+          start_time: new Date(),
           timeLine: [
             { time: "18:00", description: "Start" },
             { time: "22:00", description: "End" },
@@ -54,23 +69,28 @@ export default function CreateEventModal({
         },
       ],
       images: [""],
-    },
+    };
+  }, [event]);
+
+  const form = useForm({
+    mode: "uncontrolled",
+    initialValues: getInitialValues(),
     validate: {
       title: (value) => (value.trim() ? null : "Title is required"),
       description: (value) => (value.trim() ? null : "Description is required"),
       display_image: (value) =>
         value.trim() ? null : "Display image URL is required",
-      eventLocation: {
+      eventlocation: {
         country: (value) => (value.trim() ? null : "Country is required"),
         city: (value) => (value.trim() ? null : "City is required"),
         street: (value) => (value.trim() ? null : "Street address is required"),
       },
-      dates: (value) => {
+      dates: (value: any) => {
         if (value.length === 0) {
           return "At least one date entry is required";
         }
         for (const date of value) {
-          if (!date.date) {
+          if (!date.start_time) {
             return "Date value is required";
           }
           if (date.timeLine.length < 2) {
@@ -127,38 +147,16 @@ export default function CreateEventModal({
     // },
   });
 
-  // Populate form with event data when editing
-  // useEffect(() => {
-  //   if (event) {
-  //     form.setValues({
-  //       title: event.title,
-  //       description: event.description,
-  //       display_image: event.display_image,
-  //       eventLocation: event.eventlocation
-  //         ? {
-  //             ...event.eventlocation,
-  //             location: event.eventlocation.location,
-  //           }
-  //         : {
-  //             country: "",
-  //             city: "",
-  //             street: "",
-  //             location: undefined,
-  //           },
-  //       dates: event.dates.map((date) => ({
-  //         uuid: date.uuid,
-  //         date: new Date(date.start_time).toISOString().split("T")[0],
-  //         timeLine: date.timeLine,
-  //         price: date.price,
-  //       })),
-  //       images: event.images || [""],
-  //     });
-  //   } else {
-  //     form.reset();
-  //   }
-  // }, [event, form]);
-
   const [active, setActive] = useState(0);
+
+  // Reset form and stepper when modal opens/closes or event changes
+  useEffect(() => {
+    if (opened) {
+      form.setValues(getInitialValues());
+      setActive(0);
+    }
+  }, [opened, event?.uuid]); // eslint-disable-line react-hooks/exhaustive-deps
+
   const nextStep = () => {
     setActive((current) => current + 1);
     // setActive((current) => {
@@ -171,24 +169,21 @@ export default function CreateEventModal({
   const prevStep = () =>
     setActive((current) => (current > 0 ? current - 1 : current));
 
-  const handleSubmit = () => {
+  const handleSubmit = useCallback(() => {
+    console.log(form.values);
     form.validate();
     if (!form.isValid()) return;
 
     const eventData = {
       ...form.values,
-      eventlocation: form.values.eventLocation,
-      uuid: crypto.randomUUID() as string,
-      created_at: new Date().toISOString(),
       updated_at: new Date().toISOString(),
-      post_type: DbObjectType.EVENT,
       dates: form.values.dates.map((date) => {
         const startTime = date.timeLine[0].time.split(":").map(Number);
         const endTime = date.timeLine[date.timeLine.length - 1].time
           .split(":")
           .map(Number);
-        const startDate = new Date(date.date);
-        const endDate = new Date(date.date);
+        const startDate = new Date(date.start_time);
+        const endDate = new Date(date.start_time);
         startDate.setHours(startTime[0], startTime[1]);
         endDate.setHours(endTime[0], endTime[1]);
 
@@ -206,7 +201,7 @@ export default function CreateEventModal({
       createEvent(eventData);
     }
     onClose();
-  };
+  }, [form, event, createEvent, editEvent, onClose]);
 
   const dates = form.getValues().dates.map((date, index) => (
     <Paper key={date.uuid} p={"10"} radius="md" withBorder>
@@ -218,8 +213,8 @@ export default function CreateEventModal({
         <DateInput
           required
           label="Date"
-          key={form.key(`dates.${index}.date`)}
-          {...form.getInputProps(`dates.${index}.date`)}
+          key={form.key(`dates.${index}.start_time`)}
+          {...form.getInputProps(`dates.${index}.start_time`)}
         />
         <NumberInput
           label="price"
@@ -289,7 +284,7 @@ export default function CreateEventModal({
     <Modal
       opened={opened}
       onClose={onClose}
-      title="Create New Event"
+      title={event ? "Edit Event" : "Create New Event"}
       size={"auto"}
     >
       <Stepper active={active} onStepClick={setActive}>
@@ -329,28 +324,28 @@ export default function CreateEventModal({
               required
               label="Country"
               placeholder="Enter country"
-              key={form.key("eventLocation.country")}
-              {...form.getInputProps("eventLocation.country")}
+              key={form.key("eventlocation.country")}
+              {...form.getInputProps("eventlocation.country")}
             />
             <TextInput
               required
               label="City"
               placeholder="Enter city"
-              key={form.key("eventLocation.city")}
-              {...form.getInputProps("eventLocation.city")}
+              key={form.key("eventlocation.city")}
+              {...form.getInputProps("eventlocation.city")}
             />
             <TextInput
               required
               label="Street"
               placeholder="Enter street address"
-              key={form.key("eventLocation.street")}
-              {...form.getInputProps("eventLocation.street")}
+              key={form.key("eventlocation.street")}
+              {...form.getInputProps("eventlocation.street")}
             />
             <TextInput
               label="Location"
               placeholder="Enter event building or location"
-              key={form.key("eventLocation.location")}
-              {...form.getInputProps("eventLocation.location")}
+              key={form.key("eventlocation.location")}
+              {...form.getInputProps("eventlocation.location")}
             />
           </Stack>
         </Stepper.Step>
@@ -369,8 +364,8 @@ export default function CreateEventModal({
               onClick={() => {
                 form.insertListItem("dates", {
                   uuid: crypto.randomUUID(),
-                  start: "",
-                  end: "",
+                  start_time: "",
+                  end_time: "",
                   timeLine: [
                     {
                       time: "",
@@ -401,7 +396,7 @@ export default function CreateEventModal({
               key={form.key("display_image")}
               {...form.getInputProps("display_image")}
             />
-            {form.getValues().images.map((image, index) => (
+            {form.getValues().images?.map((image, index) => (
               <Group key={index}>
                 <TextInput
                   label={`Image URL ${index + 1}`}
@@ -443,7 +438,11 @@ export default function CreateEventModal({
           Back
         </Button>
         <Button color="red" onClick={active === 4 ? handleSubmit : nextStep}>
-          {active === 4 ? "Create Event" : "Next step"}
+          {active === 4
+            ? event
+              ? "Update Event"
+              : "Create Event"
+            : "Next step"}
         </Button>
       </Group>
     </Modal>

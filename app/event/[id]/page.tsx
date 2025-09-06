@@ -37,7 +37,7 @@ const EventPage = () => {
         <Masonry>
           <Stack
             bg="var(--gray-800)"
-            style={{ borderRadius: "10px", color: "white" }}
+            style={{ borderRadius: "10px", color: "white", width: "100%" }}
             p={20}
           >
             <h2>

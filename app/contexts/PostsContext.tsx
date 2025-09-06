@@ -275,8 +275,8 @@ export const PostsProvider: React.FC<{ children: React.ReactNode }> = ({
       setError(null);
       console.log(event);
       try {
-        const response = await fetch("/api/events", {
-          method: "POST",
+        const response = await fetch(`/api/events/${uuid}`, {
+          method: "PUT",
           headers: {
             "Content-Type": "application/json",
           },
@@ -284,21 +284,28 @@ export const PostsProvider: React.FC<{ children: React.ReactNode }> = ({
         });
 
         if (!response.ok) {
-          throw new Error("Failed to create event");
+          throw new Error("Failed to update event");
         }
 
-        const createdEvent = await response.json();
+        const updatedEvent = await response.json();
 
-        // Update posts state with the new event
-        setPosts((prevPosts) => [...prevPosts, createdEvent]);
+        // Update posts state with the updated event
+        setPosts((prevPosts) =>
+          prevPosts.map((post) => (post.uuid === uuid ? updatedEvent : post)),
+        );
 
         showNotification({
           title: "Success",
-          message: "Event created successfully",
+          message: "Event updated successfully",
           color: "green",
         });
       } catch (err: any) {
         setError(err.message || "An error occurred");
+        showNotification({
+          title: "Error",
+          message: err.message || "Failed to update event",
+          color: "red",
+        });
       } finally {
         localStorage.removeItem(POSTS_KEY);
         setLoading(false);
