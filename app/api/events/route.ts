@@ -1,6 +1,7 @@
 import { Event } from "@/types";
 import { NextResponse } from "next/server";
 import { neon } from "@neondatabase/serverless";
+import jwt from "jsonwebtoken";
 
 export async function GET() {
   console.log("Fetching events from database");
@@ -26,6 +27,18 @@ export async function POST(request: Request) {
   console.log("Creating event in database");
 
   const sql = neon(process.env.DATABASE_URL!);
+
+  // Check JWT in cookie
+  const cookieHeader = request.headers.get("cookie");
+  const token = cookieHeader?.split("token=")[1]?.split(";")[0];
+  if (!token) {
+    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  }
+  try {
+    jwt.verify(token, process.env.JWT_SECRET!);
+  } catch {
+    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  }
 
   try {
     const body: Event = await request.json();

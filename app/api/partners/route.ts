@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 import { neon } from "@neondatabase/serverless";
-
+import jwt from "jsonwebtoken";
 const sql = neon(process.env.DATABASE_URL!);
 
 // GET: Fetch all partners
@@ -22,6 +22,18 @@ export async function GET() {
 
 // POST: Create a new partner
 export async function POST(request: Request) {
+  // Check JWT in cookie
+  const cookieHeader = request.headers.get("cookie");
+  const token = cookieHeader?.split("token=")[1]?.split(";")[0];
+  if (!token) {
+    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  }
+  try {
+    jwt.verify(token, process.env.JWT_SECRET!);
+  } catch {
+    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  }
+
   console.log("Creating partner in database");
   try {
     const body = await request.json();
@@ -67,6 +79,18 @@ export async function POST(request: Request) {
 
 // PUT: Update an existing partner
 export async function PUT(request: Request) {
+  // Check JWT in cookie
+  const cookieHeader = request.headers.get("cookie");
+  const token = cookieHeader?.split("token=")[1]?.split(";")[0];
+  if (!token) {
+    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  }
+  try {
+    jwt.verify(token, process.env.JWT_SECRET!);
+  } catch {
+    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  }
+
   console.log("Updating partner in database");
   try {
     const body = await request.json();
@@ -107,6 +131,18 @@ export async function PUT(request: Request) {
 
 // DELETE: Remove a partner
 export async function DELETE(request: Request) {
+  // Check JWT in cookie
+  const cookieHeader = request.headers.get("cookie");
+  const token = cookieHeader?.split("token=")[1]?.split(";")[0];
+  if (!token) {
+    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  }
+  try {
+    jwt.verify(token, process.env.JWT_SECRET!);
+  } catch {
+    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  }
+
   console.log("Deleting partner from database");
   try {
     const { searchParams } = new URL(request.url);

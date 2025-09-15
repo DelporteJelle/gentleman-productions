@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { neon } from "@neondatabase/serverless";
+import jwt from "jsonwebtoken";
 
 const sql = neon(process.env.DATABASE_URL!);
 
@@ -22,6 +23,18 @@ export async function GET() {
 
 // POST: Create a new team member
 export async function POST(request: Request) {
+  // Check JWT in cookie
+  const cookieHeader = request.headers.get("cookie");
+  const token = cookieHeader?.split("token=")[1]?.split(";")[0];
+  if (!token) {
+    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  }
+  try {
+    jwt.verify(token, process.env.JWT_SECRET!);
+  } catch {
+    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  }
+
   console.log("Creating team member in database");
   try {
     const body = await request.json();
@@ -60,6 +73,18 @@ export async function POST(request: Request) {
 
 // PUT: Update an existing team member
 export async function PUT(request: Request) {
+  // Check JWT in cookie
+  const cookieHeader = request.headers.get("cookie");
+  const token = cookieHeader?.split("token=")[1]?.split(";")[0];
+  if (!token) {
+    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  }
+  try {
+    jwt.verify(token, process.env.JWT_SECRET!);
+  } catch {
+    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  }
+
   console.log("Updating team member in database");
   try {
     const body = await request.json();
@@ -108,6 +133,18 @@ export async function PUT(request: Request) {
 
 // DELETE: Remove a team member
 export async function DELETE(request: Request) {
+  // Check JWT in cookie
+  const cookieHeader = request.headers.get("cookie");
+  const token = cookieHeader?.split("token=")[1]?.split(";")[0];
+  if (!token) {
+    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  }
+  try {
+    jwt.verify(token, process.env.JWT_SECRET!);
+  } catch {
+    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  }
+
   console.log("Deleting team member from database");
   try {
     const { searchParams } = new URL(request.url);

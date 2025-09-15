@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { neon } from "@neondatabase/serverless";
+import jwt from "jsonwebtoken";
 
 const sql = neon(process.env.DATABASE_URL!);
 
@@ -22,7 +23,19 @@ export async function GET() {
   }
 }
 
-export async function DELETE() {
+export async function DELETE(request: Request) {
+  // Check JWT in cookie
+  const cookieHeader = request.headers.get("cookie");
+  const token = cookieHeader?.split("token=")[1]?.split(";")[0];
+  if (!token) {
+    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  }
+  try {
+    jwt.verify(token, process.env.JWT_SECRET!);
+  } catch {
+    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  }
+
   try {
     // Delete the existing highlight
     await sql`
@@ -46,6 +59,18 @@ export async function DELETE() {
 
 // PUT: Update an existing highlight
 export async function PUT(request: Request) {
+  // Check JWT in cookie
+  const cookieHeader = request.headers.get("cookie");
+  const token = cookieHeader?.split("token=")[1]?.split(";")[0];
+  if (!token) {
+    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  }
+  try {
+    jwt.verify(token, process.env.JWT_SECRET!);
+  } catch {
+    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  }
+
   try {
     const body = await request.json();
 

@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 import { neon } from "@neondatabase/serverless";
-
+import jwt from "jsonwebtoken";
 export async function GET(request: Request) {
   const sql = neon(process.env.DATABASE_URL!);
   const { searchParams } = new URL(request.url);
@@ -61,6 +61,18 @@ export async function GET(request: Request) {
 }
 
 export async function DELETE(request: Request) {
+  // Check JWT in cookie
+  const cookieHeader = request.headers.get("cookie");
+  const token = cookieHeader?.split("token=")[1]?.split(";")[0];
+  if (!token) {
+    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  }
+  try {
+    jwt.verify(token, process.env.JWT_SECRET!);
+  } catch {
+    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  }
+
   console.log("Deleting post from database");
   const sql = neon(process.env.DATABASE_URL!);
 
