@@ -1,11 +1,22 @@
-export interface Event {
-  uuid: string; // Unique identifier for each event
+export interface DbObject {
+  uuid: string;
+  created_at: string; // Date of the object creation
+  updated_at?: string; //Date of last update
+  created_by?: string; // User who created the object
+}
+
+export interface Post extends DbObject {
   title: string; // Title of the event
-  dates: EventDateEntry[]; // List of date entries
+  post_type: DbObjectType; // Type of the object (e.g., event, post, etc.)
   description: string; // Event description
-  mainImage: string; // Main image for the event
+}
+
+//Event types
+export interface Event extends Post {
+  display_image: string; // Main image for the event
   images?: string[]; // Additional images for the event
-  eventLocation?: EventLocation; // Location details of the event
+  dates: EventDateEntry[]; // List of date entries
+  eventlocation?: EventLocation; // Location details of the event
 }
 
 export interface EventLocation {
@@ -15,17 +26,46 @@ export interface EventLocation {
   location?: string; // Name of the venue
 }
 
-
 export interface EventDateEntry {
-  uuid: string; // Unique identifier for each date entry
-  start: string; // ISO date string
-  end: string; // ISO date string
+  uuid: string; // UUID of the date entry
+  start_time: string; // ISO date string
+  end_time: string; // ISO date string
   timeLine: TimeLineEntry[];
   price?: number; //undefined if free
-  external_link?: string; 
+  external_link?: string;
 }
 
-export interface TimeLineEntry{
+export interface TimeLineEntry {
   time: string;
   description: string;
+}
+
+//Highlight type
+export interface EventHighlight {
+  uuid: string;
+  event_uuid: string;
+  valid_date: string;
+}
+
+//About types
+export interface TeamMember extends DbObject {
+  member_name: string;
+  member_role: string;
+  image?: string;
+  email?: string;
+  linkedin?: string;
+  instagram?: string;
+  facebook?: string;
+  twitter?: string;
+  website?: string;
+}
+
+export interface Partner extends DbObject {
+  partner_name: string;
+  logo: string;
+  description: string;
+}
+
+export enum DbObjectType {
+  EVENT = "EVENT",
 }

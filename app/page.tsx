@@ -7,61 +7,42 @@ import { useRouter } from "next/navigation";
 import { ScrollTrigger } from "gsap/ScrollTrigger";
 import { ScrollToPlugin } from "gsap/ScrollToPlugin";
 import EventCard from "@/components/EventCard/EventCard";
-import { useEffect, useState } from "react";
-import { Event } from "@/types";
-import { Stack } from "@mantine/core";
+import { useEffect, useRef, useState } from "react";
+import { DbObjectType, Event, EventHighlight, Post } from "@/types";
+import { Group, Image, Stack, Text } from "@mantine/core";
+import { createRoot } from "react-dom/client";
+import { Canvas } from "@react-three/fiber";
+import CanvasBackground from "@/components/Background/CanvasBackground";
+import { IconCalendarWeek } from "@tabler/icons-react";
+import { usePosts } from "./contexts/PostsContext";
 
 gsap.registerPlugin(useGSAP, ScrollTrigger, ScrollToPlugin);
 
 const images = [
-  "/Banner_1.jpg",
-  "/Banner_2.jpg",
-  "/Banner_3.jpg",
-  "/Banner_4.jpg",
-  "/Banner_5.jpg",
-  "/Banner_6.jpg",
-  "/Banner_7.jpg",
-  "/Banner_8.jpg",
-  "/Banner_9.jpg",
-  "/Banner_10.jpg",
-  "/Banner_11.jpg",
+  "Banner_2.jpg",
+  "Banner_4.jpg",
+  "Banner_6.jpg",
+  "Banner_7.jpg",
+  "Banner_8.jpg",
+  "Banner_9.jpg",
+  "Banner_11.jpg",
 ];
 
 export default function Home() {
   const router = useRouter();
-  const [events, setEvents] = useState<Event[] | undefined>(undefined);
+  const { posts, loading, error, highlightPost } = usePosts();
+
   const [currentIndex, setCurrentIndex] = useState(
     Math.floor(Math.random() * images.length),
   );
 
-  const [highlight, setHighlight] = useState<{uuid: string, event_uuid: string} | undefined>(undefined);
-  const [highlightEvent, setHighlightEvent] = useState<Event | undefined>(undefined);
-
-    // Fetch data
   useEffect(() => {
-    fetch("/api/events")
-      .then((response) => response.json())
-      .then((data) => setEvents(data))
-      .catch((error) => console.error("Error fetching data:", error));
-
-      fetch("/api/highlight")
-      .then((response) => response.json())
-      .then((data) => setHighlight(data))
-      .catch((error) => console.error("Error fetching highlight:", error));
-
     const intervalId = setInterval(() => {
       setCurrentIndex((prevIndex) => (prevIndex + 1) % images.length);
     }, 60000);
 
     return () => clearInterval(intervalId);
-  }, [setEvents]);
-
-  useEffect(() => {
-    if (highlight && events) {
-      const highlightedEvent = events.find(event => event.uuid === highlight.event_uuid);
-      setHighlightEvent(highlightedEvent);
-    }
-  }, [highlight, events]);
+  }, []);
 
   // Scroll effect to clarify page is scrollable
   const [pulseVisible, setPulseVisible] = useState(false);
@@ -89,87 +70,192 @@ export default function Home() {
           });
         },
       });
-    }, 10000);
+    }, 5000);
     return () => {
       clearTimeout(timer);
       window.removeEventListener("scroll", () => {});
     };
   }, [hasScrolled]);
 
-  if (!events || !highlightEvent) {
-    return <div>Loading...</div>;
-  }
+  //Adjust CanvasBackground position based on scroll direction
+  const [canvasInFront, setCanvasInFront] = useState(false); // Track if CanvasBackground should move in front
+  const [scrollY, setScrollY] = useState(0); // Track the current scroll position
+  const [scrollDirection, setScrollDirection] = useState<"up" | "down" | null>(
+    null,
+  ); // Track scroll direction
+
+  useEffect(() => {
+    const handleScroll = () => {
+      const currentScrollY = window.scrollY;
+
+      // Determine scroll direction
+      if (currentScrollY > scrollY) {
+        setScrollDirection("down");
+      } else if (currentScrollY < scrollY) {
+        setScrollDirection("up");
+      }
+
+      setScrollY(currentScrollY);
+
+      setCanvasInFront(currentScrollY > 500); // Adjust the threshold as needed
+    };
+
+    window.addEventListener("scroll", handleScroll);
+    return () => window.removeEventListener("scroll", handleScroll);
+  }, [scrollY]);
+
+  useEffect(() => {
+    console.log(highlightPost);
+  }, [highlightPost]);
+
+  if (loading) return <p>Loading events...</p>;
 
   return (
-    <div className={`${styles.main} ${styles[`background${currentIndex}`]}`}>
-      {pulseVisible && (
-        <div className={styles.pulse_indicator}>
-          <div className={styles.ring}></div>
-          <div className={styles.ring}></div>
-          <div className={styles.ring}></div>
-        </div>
-      )}
-      <div className={styles.hightlight}>
-        <div className={"title"}>
-          {highlightEvent.title}
-          <div className={styles.line}></div>
-        </div>
-        <div className="bold">SAVE THE DATE</div>
-        <div className={styles.date}>
-          {highlightEvent.dates.map((date, index) => (
-            <span key={index}>
-              {new Date(date.start).toLocaleDateString("nl-BE", {
-                day: "numeric",
-                month: "long",
-                year: "numeric",
-              })}
-              {index === 0 ? " - " : ""}
-            </span>
-          ))}
-        </div>
-        <button
-          className="btn-red"
-          onClick={() => {
-            router.push("/event/" + highlightEvent.uuid + "/ticket");
+    <div className={`${styles.main}`}>
+      {/*Background Image*/}
+      <div className={styles.imageContainer}>
+        <Image
+          src={`/api/images/${images[currentIndex]}`}
+          alt={"highlight"}
+          style={{
+            objectFit: "cover",
+            position: "fixed",
+            top: 0,
+            left: 0,
+            height: "100vh",
+            width: "100%",
+            zIndex: -2,
           }}
-        >
-          Ticket info
-        </button>
+        />
       </div>
-      {/* anouncements section */}
-      <Stack align="center" justify="center">
-        {/* Upcomming events */}
-        {events.filter((event) => new Date(event.dates[0].start) > new Date()).length > 0 && (
-          <Stack align="center" justify="center">
-            <h1>Upcoming events</h1>
-          {events
-            .filter((event) => new Date(event.dates[0].start) > new Date())
-            .sort(
-              (a, b) =>
-                new Date(b.dates[0].start).getTime() -
-              new Date(a.dates[0].start).getTime(),
-            )
-            .map((event, index) => (
-              <EventCard key={index} event={event} index={index} />
-            ))}
-        </Stack>
+      {/* Canvas Background */}
+      <div
+        style={{
+          position: "fixed",
+          top: 0,
+          left: 0,
+          width: "100%",
+          height: "100%",
+          zIndex: -1, // Keep it above the background image
+          transform: canvasInFront
+            ? "translateY(0)" // Fully visible when scrolled down
+            : scrollDirection === "up"
+              ? "translateY(100%)" // Move up when scrolling up
+              : "translateY(100%)", // Move down when scrolling down
+          transition: "transform 0.5s ease", // Smooth transition for movement
+        }}
+      >
+        <CanvasBackground />
+      </div>
+      {/* Main Content */}
+      <div
+        style={{
+          position: "relative",
+          zIndex: 3, // Ensure content is always above both the background and CanvasBackground
+        }}
+      >
+        {pulseVisible && (
+          <div className={styles.pulse_indicator}>
+            <div className={styles.ring}></div>
+            <div className={styles.ring}></div>
+            <div className={styles.ring}></div>
+          </div>
         )}
-        {/* past events */}
-
+        {/**Hightlight */}
+        <div className={styles.hightlight}>
+          <div className={styles.glass}>
+            {highlightPost &&
+            highlightPost.post_type === DbObjectType.EVENT &&
+            highlightPost.valid_date &&
+            new Date(highlightPost.valid_date) > new Date() ? (
+              <>
+                <div className={"title"}>
+                  {highlightPost.title}
+                  <div className={styles.line}></div>
+                </div>
+                <div className="bold">SAVE THE DATE</div>
+                <div className={styles.date}>
+                  {highlightPost.post_type === DbObjectType.EVENT &&
+                    (highlightPost as Event).dates.map((date, index) => (
+                      <span key={index}>
+                        {new Date(date.start_time).toLocaleDateString("nl-BE", {
+                          day: "numeric",
+                          month: "long",
+                          year: "numeric",
+                        })}
+                        {index === 0 && index != highlightPost.dates.length - 1
+                          ? " - "
+                          : ""}
+                      </span>
+                    ))}
+                </div>
+                <button
+                  className="btn-red"
+                  onClick={() => {
+                    router.push("/event/" + highlightPost.uuid + "/ticket");
+                  }}
+                >
+                  More Info
+                </button>
+              </>
+            ) : (
+              <div className={"title"}>
+                Gentleman Productions
+                <div className={styles.line}></div>
+              </div>
+            )}
+          </div>
+        </div>
+        {/* anouncements section */}
         <Stack align="center" justify="center">
-          <h1>Past events</h1>
-          {events
-              .filter((event) => new Date(event.dates[0].start) < new Date())
-            .sort(
-              (a, b) =>
-                new Date(b.dates[0].start).getTime() -
-                new Date(a.dates[0].start).getTime(),
-            )
-            .map((event, index) => (
-              <EventCard key={index} event={event} index={index} />
-            ))}
+          {/*events */}
+
+          <Stack align="center" justify="center">
+            {posts &&
+              posts
+                .sort(
+                  (a: Post, b: Post) =>
+                    new Date(b.created_at).getTime() -
+                    new Date(a.created_at).getTime(),
+                )
+                .map((post: Post, index: number) => (
+                  <div key={post.uuid}>
+                    <Group
+                      justify={"center"}
+                      mt={200}
+                      style={{ position: "relative" }}
+                    >
+                      <Group
+                        style={{
+                          position: "relative",
+                          top: "0px",
+                        }}
+                      >
+                        <IconCalendarWeek size={25} />
+
+                        <div>
+                          <div className="gray-600">Posted at</div>
+                          <div className="date fs14">
+                            {new Date(post.created_at).toLocaleDateString(
+                              "nl-BE",
+                              {
+                                day: "numeric",
+                                month: "long",
+                                year: "numeric",
+                              },
+                            )}
+                          </div>
+                        </div>
+                      </Group>
+                    </Group>
+                    {post.post_type === DbObjectType.EVENT && (
+                      <EventCard event={post as Event} index={index} />
+                    )}
+                  </div>
+                ))}
+          </Stack>
         </Stack>
-      </Stack>
+      </div>
     </div>
   );
 }

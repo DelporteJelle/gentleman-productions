@@ -23,7 +23,13 @@ export default function TicketCard({
   setActiveCard,
 }: props) {
   if (date.uuid === activeCard) {
-    return <ExpandedTicketCard date={date} event={event} setActiveCard={setActiveCard} />;
+    return (
+      <ExpandedTicketCard
+        date={date}
+        event={event}
+        setActiveCard={setActiveCard}
+      />
+    );
   }
   return (
     <div
@@ -34,7 +40,7 @@ export default function TicketCard({
       }}
     >
       <Image
-        src={event.mainImage}
+        src={event.display_image}
         alt={event.title}
         width={500}
         height={300}
@@ -42,7 +48,7 @@ export default function TicketCard({
       />
       <div className={styles.content}>
         <Group justify="space-between">
-          <h2 >{event.title}</h2>
+          <h2>{event.title}</h2>
           {date.price && (
             <div className={styles.price}>
               <IconCurrencyEuro />
@@ -51,9 +57,9 @@ export default function TicketCard({
           )}
         </Group>
         <div className="date">
-          <IconCalendarFilled  />
+          <IconCalendarFilled />
           <span>
-            {new Date(date.start).toLocaleDateString("nl-BE", {
+            {new Date(date.start_time).toLocaleDateString("nl-BE", {
               day: "numeric",
               month: "long",
               year: "numeric",
@@ -61,14 +67,14 @@ export default function TicketCard({
           </span>
           {" - "}
           <span>
-            {new Date(date.start).toLocaleTimeString("nl-BE", {
+            {new Date(date.start_time).toLocaleTimeString("nl-BE", {
               hour: "numeric",
               minute: "numeric",
             })}
           </span>
           {"-"}
           <span>
-            {new Date(date.end).toLocaleTimeString("nl-BE", {
+            {new Date(date.end_time).toLocaleTimeString("nl-BE", {
               hour: "numeric",
               minute: "numeric",
             })}
@@ -76,7 +82,7 @@ export default function TicketCard({
         </div>
         <div className="d-flex">
           <IconMapPinFilled className="me-2" />
-          {event.eventLocation?.location}
+          {event.eventlocation?.location}
         </div>
       </div>
     </div>
