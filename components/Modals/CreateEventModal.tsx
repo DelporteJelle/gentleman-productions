@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import {
   Modal,
   TextInput,
@@ -14,64 +14,84 @@ import {
 } from "@mantine/core";
 import { DbObjectType, Event } from "@/types";
 import { formRootRule, isNotEmpty, useForm } from "@mantine/form";
+import { DateInput, TimeInput } from "@mantine/dates";
+import { usePosts } from "@/app/contexts/PostsContext";
 
 interface CreateEventModalProps {
   opened: boolean;
   onClose: () => void;
-  onCreate: (event: Event) => void;
+  event: Event | undefined;
 }
 
 export default function CreateEventModal({
   opened,
   onClose,
-  onCreate,
+  event,
 }: CreateEventModalProps) {
-  const form = useForm({
-    mode: "uncontrolled",
-    initialValues: {
+  const { createEvent, editEvent } = usePosts();
+
+  const getInitialValues = useCallback(() => {
+    if (event) {
+      // Convert string dates to Date objects for editing
+      return {
+        ...event,
+        dates: event.dates.map((date) => ({
+          ...date,
+          start_time: date.start_time ? new Date(date.start_time) : "",
+          end_time: date.end_time ? new Date(date.end_time) : "",
+        })),
+      };
+      // return event;
+    }
+    return {
+      uuid: crypto.randomUUID() as string,
+      created_at: new Date().toISOString(),
+      updated_at: undefined,
+      post_type: DbObjectType.EVENT,
       title: "",
       description: "",
-      mainImage: "",
-      eventLocation: {
-        country: "",
+      display_image: "",
+      eventlocation: {
+        country: "België",
         city: "",
         street: "",
-        location: "",
+        location: undefined,
       },
       dates: [
         {
           uuid: crypto.randomUUID(),
-          start: "",
-          end: "",
-          timeLine: [{ time: "", description: "" }],
+          start_time: new Date(),
+          timeLine: [
+            { time: "18:00", description: "Start" },
+            { time: "22:00", description: "End" },
+          ],
           price: undefined,
         },
       ],
       images: [""],
-    },
+    };
+  }, [event]);
+
+  const form = useForm({
+    mode: "uncontrolled",
+    initialValues: getInitialValues(),
     validate: {
       title: (value) => (value.trim() ? null : "Title is required"),
       description: (value) => (value.trim() ? null : "Description is required"),
-      mainImage: (value) =>
+      display_image: (value) =>
         value.trim() ? null : "Display image URL is required",
-      eventLocation: {
+      eventlocation: {
         country: (value) => (value.trim() ? null : "Country is required"),
         city: (value) => (value.trim() ? null : "City is required"),
         street: (value) => (value.trim() ? null : "Street address is required"),
-        location: (value) =>
-          value.trim() ? null : "Event building or location is required",
       },
-      dates: (value) => {
+      dates: (value: any) => {
         if (value.length === 0) {
           return "At least one date entry is required";
         }
         for (const date of value) {
-          console.log(date);
-          if (!date.start || !date.end) {
-            return "Start and end times are required";
-          }
-          if (new Date(date.start) >= new Date(date.end)) {
-            return "Start date must be before end date";
+          if (!date.start_time) {
+            return "Date value is required";
           }
           if (date.timeLine.length < 2) {
             return "At least 2 timeline entries are required (start and end)";
@@ -79,6 +99,11 @@ export default function CreateEventModal({
           for (const entry of date.timeLine) {
             if (!entry.time || !entry.description) {
               return "Time and description are required for each timeline entry";
+            }
+          }
+          for (let i = 1; i < date.timeLine.length; i++) {
+            if (date.timeLine[i] < date.timeLine[i - 1]) {
+              return "Make sure the timeline entries are in order";
             }
           }
         }
@@ -93,7 +118,7 @@ export default function CreateEventModal({
     //       description: values.description.trim()
     //         ? null
     //         : "Description is required",
-    //       mainImage: values.mainImage.trim()
+    //       display_image: values.display_image.trim()
     //         ? null
     //         : "Display image URL is required",
     //     };
@@ -123,6 +148,15 @@ export default function CreateEventModal({
   });
 
   const [active, setActive] = useState(0);
+
+  // Reset form and stepper when modal opens/closes or event changes
+  useEffect(() => {
+    if (opened) {
+      form.setValues(getInitialValues());
+      setActive(0);
+    }
+  }, [opened, event?.uuid]); // eslint-disable-line react-hooks/exhaustive-deps
+
   const nextStep = () => {
     setActive((current) => current + 1);
     // setActive((current) => {
@@ -135,18 +169,39 @@ export default function CreateEventModal({
   const prevStep = () =>
     setActive((current) => (current > 0 ? current - 1 : current));
 
-  const handleCreate = () => {
+  const handleSubmit = useCallback(() => {
+    console.log(form.values);
     form.validate();
-    if (form.isValid()) {
-      onCreate({
-        ...form.values,
-        uuid: crypto.randomUUID(),
-        created_at: new Date().toISOString(),
-        type: DbObjectType.EVENT,
-      });
-      onClose();
+    if (!form.isValid()) return;
+
+    const eventData = {
+      ...form.values,
+      updated_at: new Date().toISOString(),
+      dates: form.values.dates.map((date) => {
+        const startTime = date.timeLine[0].time.split(":").map(Number);
+        const endTime = date.timeLine[date.timeLine.length - 1].time
+          .split(":")
+          .map(Number);
+        const startDate = new Date(date.start_time);
+        const endDate = new Date(date.start_time);
+        startDate.setHours(startTime[0], startTime[1]);
+        endDate.setHours(endTime[0], endTime[1]);
+
+        return {
+          ...date,
+          start_time: startDate.toISOString(),
+          end_time: endDate.toISOString(),
+        };
+      }),
+    };
+
+    if (event) {
+      editEvent(event.uuid, { ...eventData });
+    } else {
+      createEvent(eventData);
     }
-  };
+    onClose();
+  }, [form, event, createEvent, editEvent, onClose]);
 
   const dates = form.getValues().dates.map((date, index) => (
     <Paper key={date.uuid} p={"10"} radius="md" withBorder>
@@ -155,25 +210,19 @@ export default function CreateEventModal({
         onClick={() => form.removeListItem("dates", index)}
       />
       <Group grow>
-        <TextInput
-          label="Start Time"
-          type="datetime-local"
-          key={form.key(`dates.${index}.start`)}
-          {...form.getInputProps(`dates.${index}.start`)}
+        <DateInput
+          required
+          label="Date"
+          key={form.key(`dates.${index}.start_time`)}
+          {...form.getInputProps(`dates.${index}.start_time`)}
         />
-        <TextInput
-          label="End Time"
-          type="datetime-local"
-          key={form.key(`dates.${index}.end`)}
-          {...form.getInputProps(`dates.${index}.end`)}
+        <NumberInput
+          label="price"
+          placeholder="Enter ticket price"
+          key={form.key(`dates.${index}.price`)}
+          {...form.getInputProps(`dates.${index}.price`)}
         />
       </Group>
-      <NumberInput
-        label="price"
-        placeholder="Enter ticket price"
-        key={form.key(`dates.${index}.price`)}
-        {...form.getInputProps(`dates.${index}.price`)}
-      />
 
       <Group>
         {form
@@ -189,16 +238,30 @@ export default function CreateEventModal({
               <TextInput
                 label="Time"
                 type="time"
+                required
+                key={form.key(`dates.${index}.timeLine.${timeIndex}.time`)}
                 {...form.getInputProps(
                   `dates.${index}.timeLine.${timeIndex}.time`,
                 )}
+                onChange={(e) =>
+                  (form.values.dates[index].timeLine[timeIndex].time =
+                    e.target.value)
+                }
               />
               <TextInput
+                required
                 label="Description"
                 placeholder="Enter description"
+                key={form.key(
+                  `dates.${index}.timeLine.${timeIndex}.description`,
+                )}
                 {...form.getInputProps(
                   `dates.${index}.timeLine.${timeIndex}.description`,
                 )}
+                onChange={(e) =>
+                  (form.values.dates[index].timeLine[timeIndex].description =
+                    e.target.value)
+                }
               />
             </Paper>
           ))}
@@ -208,7 +271,7 @@ export default function CreateEventModal({
         onClick={() => {
           form.insertListItem(`dates.${index}.timeLine`, {
             time: "",
-            description: "Starting time",
+            description: "",
           });
         }}
       >
@@ -221,7 +284,7 @@ export default function CreateEventModal({
     <Modal
       opened={opened}
       onClose={onClose}
-      title="Create New Event"
+      title={event ? "Edit Event" : "Create New Event"}
       size={"auto"}
     >
       <Stepper active={active} onStepClick={setActive}>
@@ -233,22 +296,18 @@ export default function CreateEventModal({
         >
           <Stack>
             <TextInput
+              required
               label="Title"
               placeholder="Enter event title"
               key={form.key("title")}
               {...form.getInputProps("title")}
             />
             <Textarea
+              required
               label="Description"
               placeholder="Enter event description"
               key={form.key("description")}
               {...form.getInputProps("description")}
-            />
-            <TextInput
-              label="Image URL"
-              placeholder="Enter display image URL"
-              key={form.key("mainImage")}
-              {...form.getInputProps("mainImage")}
             />
           </Stack>
         </Stepper.Step>
@@ -262,28 +321,31 @@ export default function CreateEventModal({
         >
           <Stack>
             <TextInput
+              required
               label="Country"
               placeholder="Enter country"
-              key={form.key("eventLocation.country")}
-              {...form.getInputProps("eventLocation.country")}
+              key={form.key("eventlocation.country")}
+              {...form.getInputProps("eventlocation.country")}
             />
             <TextInput
+              required
               label="City"
               placeholder="Enter city"
-              key={form.key("eventLocation.city")}
-              {...form.getInputProps("eventLocation.city")}
+              key={form.key("eventlocation.city")}
+              {...form.getInputProps("eventlocation.city")}
             />
             <TextInput
+              required
               label="Street"
               placeholder="Enter street address"
-              key={form.key("eventLocation.street")}
-              {...form.getInputProps("eventLocation.street")}
+              key={form.key("eventlocation.street")}
+              {...form.getInputProps("eventlocation.street")}
             />
             <TextInput
               label="Location"
               placeholder="Enter event building or location"
-              key={form.key("eventLocation.location")}
-              {...form.getInputProps("eventLocation.location")}
+              key={form.key("eventlocation.location")}
+              {...form.getInputProps("eventlocation.location")}
             />
           </Stack>
         </Stepper.Step>
@@ -302,8 +364,8 @@ export default function CreateEventModal({
               onClick={() => {
                 form.insertListItem("dates", {
                   uuid: crypto.randomUUID(),
-                  start: "",
-                  end: "",
+                  start_time: "",
+                  end_time: "",
                   timeLine: [
                     {
                       time: "",
@@ -318,6 +380,45 @@ export default function CreateEventModal({
             </Button>
           </Stack>
         </Stepper.Step>
+
+        {/* ====================== Event images ==================== */}
+
+        <Stepper.Step
+          color="yellow"
+          label="Event images"
+          description="Add display image and additional images"
+        >
+          <Stack>
+            <TextInput
+              required
+              label="Image URL"
+              placeholder="Enter display image URL"
+              key={form.key("display_image")}
+              {...form.getInputProps("display_image")}
+            />
+            {form.getValues().images?.map((image, index) => (
+              <Group key={index}>
+                <TextInput
+                  label={`Image URL ${index + 1}`}
+                  placeholder="Enter image URL"
+                  key={form.key(`images.${index}`)}
+                  {...form.getInputProps(`images.${index}`)}
+                />
+                <CloseButton
+                  color="red"
+                  onClick={() => form.removeListItem("images", index)}
+                />
+              </Group>
+            ))}
+            <Button
+              variant="default"
+              onClick={() => form.insertListItem("images", "")}
+            >
+              Add Image URL
+            </Button>
+          </Stack>
+        </Stepper.Step>
+
         <Stepper.Completed>
           {/* {!form.isValid() && } */}
           {Object.keys(form.errors).length > 0 && (
@@ -336,8 +437,12 @@ export default function CreateEventModal({
         <Button variant="default" onClick={prevStep}>
           Back
         </Button>
-        <Button color="red" onClick={active === 3 ? handleCreate : nextStep}>
-          {active === 3 ? "Create Event" : "Next step"}
+        <Button color="red" onClick={active === 4 ? handleSubmit : nextStep}>
+          {active === 4
+            ? event
+              ? "Update Event"
+              : "Create Event"
+            : "Next step"}
         </Button>
       </Group>
     </Modal>

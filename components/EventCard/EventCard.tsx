@@ -28,23 +28,6 @@ export default function ImageTextCard({ event, index }: props) {
           entries.forEach((entry) => {
             if (entry.isIntersecting) {
               const tl = gsap.timeline();
-              // tl.from(cardRef.current, { duration: 0.5, autoAlpha: 0 })
-              // tl.from(
-              //   titleRef.current,
-              //   { duration: 0.5, autoAlpha: 0, text: "" },
-              //   "+=0.1",
-              // )
-              //   .from(
-              //     dateRef.current,
-              //     { duration: 0.5, autoAlpha: 0, text: "" },
-              //     "+=0.1",
-              //   )
-              //   .from(
-              //     descriptionRef.current,
-              //     { duration: 0.5, autoAlpha: 0 },
-              //     "+=0.1",
-              //   )
-              //   .from(btnRef.current, { duration: 0.5, autoAlpha: 0 }, "+=0.1");
               tl.to(cardRef.current, { duration: 1, opacity: 1, width: "100%" }) // Expand the card
                 .to(
                   titleRef.current,
@@ -57,7 +40,7 @@ export default function ImageTextCard({ event, index }: props) {
                     duration: 2,
                     text: event.dates
                       .map((date: any) =>
-                        new Date(date.start).toLocaleDateString("nl-BE", {
+                        new Date(date.start_time).toLocaleDateString("nl-BE", {
                           day: "numeric",
                           month: "long",
                           year: "numeric",
@@ -104,7 +87,7 @@ export default function ImageTextCard({ event, index }: props) {
       >
         <div className={styles.card_img}>
           <Image
-            src={`/api/images/${event.mainImage}`}
+            src={event.display_image}
             alt={event.title}
             height={450}
             style={{ objectFit: "cover" }}

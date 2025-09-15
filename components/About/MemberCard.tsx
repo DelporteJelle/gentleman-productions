@@ -8,7 +8,6 @@ export default function MemerCard({ member }: MemberCardProps) {
   return (
     <Stack
       align="center"
-      m={30}
       gap={0}
       p={5}
       style={{
@@ -16,12 +15,22 @@ export default function MemerCard({ member }: MemberCardProps) {
         height: "310px",
         backgroundColor: "var(--gray-800)",
         borderRadius: "10px",
+        overflow: "hidden",
       }}
     >
-      <Image src={member.image} alt={member.name} h="220px" radius="5" />
-      <h3 style={{ margin: "0" }}>{member.name}</h3>
+      <div
+        style={{
+          width: "100%",
+          height: "220px",
+          backgroundImage: `url(${member.image ?? "/Placeholders/Person.jpg"})`,
+          backgroundSize: "cover",
+          backgroundPosition: "center",
+          borderRadius: "5px",
+        }}
+      />
+      <h3 style={{ margin: "0" }}>{member.member_name}</h3>
 
-      <Text>{member.role}</Text>
+      <Text>{member.member_role}</Text>
     </Stack>
   );
 }

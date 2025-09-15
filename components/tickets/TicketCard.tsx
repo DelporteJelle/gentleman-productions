@@ -40,7 +40,7 @@ export default function TicketCard({
       }}
     >
       <Image
-        src={`/api/images/${event.mainImage}`}
+        src={event.display_image}
         alt={event.title}
         width={500}
         height={300}
@@ -59,7 +59,7 @@ export default function TicketCard({
         <div className="date">
           <IconCalendarFilled />
           <span>
-            {new Date(date.start).toLocaleDateString("nl-BE", {
+            {new Date(date.start_time).toLocaleDateString("nl-BE", {
               day: "numeric",
               month: "long",
               year: "numeric",
@@ -67,14 +67,14 @@ export default function TicketCard({
           </span>
           {" - "}
           <span>
-            {new Date(date.start).toLocaleTimeString("nl-BE", {
+            {new Date(date.start_time).toLocaleTimeString("nl-BE", {
               hour: "numeric",
               minute: "numeric",
             })}
           </span>
           {"-"}
           <span>
-            {new Date(date.end).toLocaleTimeString("nl-BE", {
+            {new Date(date.end_time).toLocaleTimeString("nl-BE", {
               hour: "numeric",
               minute: "numeric",
             })}
@@ -82,7 +82,7 @@ export default function TicketCard({
         </div>
         <div className="d-flex">
           <IconMapPinFilled className="me-2" />
-          {event.eventLocation?.location}
+          {event.eventlocation?.location}
         </div>
       </div>
     </div>
