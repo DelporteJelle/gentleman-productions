@@ -18,7 +18,7 @@ export default function LoginPage() {
         body: JSON.stringify({ username, password }),
       });
       if (res.ok) {
-        router.push("/edit");
+        router.push("/private");
       } else {
         setError(await res.text());
       }
@@ -36,7 +36,7 @@ export default function LoginPage() {
           <input
             type="text"
             value={username}
-            onChange={e => setUsername(e.target.value)}
+            onChange={(e) => setUsername(e.target.value)}
             required
             style={{ width: "100%", padding: 8 }}
           />
@@ -44,15 +44,17 @@ export default function LoginPage() {
         <div style={{ marginBottom: 16 }}>
           <label>Password</label>
           <input
-            // type="password"
+            type="password"
             value={password}
-            onChange={e => setPassword(e.target.value)}
+            onChange={(e) => setPassword(e.target.value)}
             required
             style={{ width: "100%", padding: 8 }}
           />
         </div>
         {error && <div style={{ color: "red", marginBottom: 16 }}>{error}</div>}
-        <button type="submit" style={{ width: "100%", padding: 8 }}>Login</button>
+        <button type="submit" style={{ width: "100%", padding: 8 }}>
+          Login
+        </button>
       </form>
     </div>
   );
