@@ -4,6 +4,9 @@ import jwt from "jsonwebtoken";
 
 const sql = neon(process.env.DATABASE_URL!);
 
+// Cache for 7 days
+export const revalidate = 604800; // 7 days in seconds
+
 // GET: Fetch the highlight and its linked event from the database
 export async function GET() {
   console.log("Fetching highlight");
@@ -13,7 +16,13 @@ export async function GET() {
       FROM Events
       INNER JOIN Highlight ON Events.uuid = Highlight.event_uuid;
     `;
-    return NextResponse.json(highlightWithEvent);
+
+    return NextResponse.json(highlightWithEvent, {
+      headers: {
+        "Cache-Control":
+          "public, s-maxage=604800, stale-while-revalidate=86400",
+      },
+    });
   } catch (error) {
     console.error("Error fetching highlight with event:", error);
     return NextResponse.json(

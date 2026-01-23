@@ -1,6 +1,10 @@
 import { NextResponse } from "next/server";
 import { neon } from "@neondatabase/serverless";
 import jwt from "jsonwebtoken";
+
+// Cache for 7 days
+export const revalidate = 604800; // 7 days in seconds
+
 export async function GET(request: Request) {
   const sql = neon(process.env.DATABASE_URL!);
   const { searchParams } = new URL(request.url);
@@ -50,7 +54,13 @@ export async function GET(request: Request) {
       page,
       limit,
     };
-    return NextResponse.json(responseData);
+
+    return NextResponse.json(responseData, {
+      headers: {
+        "Cache-Control":
+          "public, s-maxage=604800, stale-while-revalidate=86400",
+      },
+    });
   } catch (error) {
     console.error("Error fetching events:", error);
     return NextResponse.json(

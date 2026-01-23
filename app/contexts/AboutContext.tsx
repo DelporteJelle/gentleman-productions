@@ -74,12 +74,11 @@ export const AboutProvider: React.FC<{ children: React.ReactNode }> = ({
       const cachedTeamMembers = loadFromLocalStorage(TEAM_MEMBER_KEY);
       const cachedPartners = loadFromLocalStorage(PARTNERS_KEY);
 
-      if (cachedTeamMembers) {
+      if (cachedTeamMembers && cachedPartners) {
         setTeamMembers(cachedTeamMembers);
-      }
-
-      if (cachedPartners) {
         setPartners(cachedPartners);
+        setLoading(false);
+        return;
       }
 
       // Fetch team members from the API if not in localStorage
@@ -92,6 +91,8 @@ export const AboutProvider: React.FC<{ children: React.ReactNode }> = ({
         const teamData = await response.json();
         setTeamMembers(teamData);
         saveToLocalStorage("teamMembers", teamData);
+      } else {
+        setTeamMembers(cachedTeamMembers);
       }
 
       // Fetch partners from the API if not in localStorage
@@ -104,6 +105,8 @@ export const AboutProvider: React.FC<{ children: React.ReactNode }> = ({
         const partnerData = await response.json();
         setPartners(partnerData);
         saveToLocalStorage(PARTNERS_KEY, partnerData);
+      } else {
+        setPartners(cachedPartners);
       }
     } catch (err: any) {
       setError(err.message || "An error occurred");
@@ -200,6 +203,7 @@ export const AboutProvider: React.FC<{ children: React.ReactNode }> = ({
     } catch (err: any) {
       setError(err.message || "An error occurred");
     } finally {
+      localStorage.removeItem(TEAM_MEMBER_KEY);
       setLoading(false);
     }
   };
@@ -225,6 +229,7 @@ export const AboutProvider: React.FC<{ children: React.ReactNode }> = ({
     } catch (err: any) {
       setError(err.message || "An error occurred");
     } finally {
+      localStorage.removeItem(PARTNERS_KEY);
       setLoading(false);
     }
   };
@@ -258,6 +263,7 @@ export const AboutProvider: React.FC<{ children: React.ReactNode }> = ({
     } catch (err: any) {
       setError(err.message || "An error occurred");
     } finally {
+      localStorage.removeItem(TEAM_MEMBER_KEY);
       setLoading(false);
     }
   };
@@ -291,13 +297,15 @@ export const AboutProvider: React.FC<{ children: React.ReactNode }> = ({
     } catch (err: any) {
       setError(err.message || "An error occurred");
     } finally {
+      localStorage.removeItem(PARTNERS_KEY);
       setLoading(false);
     }
   };
 
   useEffect(() => {
     fetchData();
-  }, [fetchData]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []); // Only run once on mount
 
   useEffect(() => {
     if (error) {

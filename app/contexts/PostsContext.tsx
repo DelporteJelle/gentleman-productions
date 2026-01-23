@@ -82,25 +82,25 @@ export const PostsProvider: React.FC<{ children: React.ReactNode }> = ({
 
       if (cachedPosts) {
         setPosts(cachedPosts);
+        setLoading(false);
         return;
       }
 
-      if (!cachedPosts) {
-        const response = await fetch(`/api/posts?limit=${limit}&page=${page}`);
-        if (!response.ok) {
-          throw new Error("Failed to fetch posts");
-        }
-
-        const data = await response.json();
-        setPosts(data.data);
-        saveToLocalStorage(key, data.data); // Save to localStorage
+      // No cache found, fetch from API
+      const response = await fetch(`/api/posts?limit=${limit}&page=${page}`);
+      if (!response.ok) {
+        throw new Error("Failed to fetch posts");
       }
+
+      const data = await response.json();
+      setPosts(data.data);
+      saveToLocalStorage(key, data.data); // Save to localStorage
     } catch (err: any) {
       setError(err.message || "An error occurred");
     } finally {
       setLoading(false);
     }
-  }, [loadFromLocalStorage, saveToLocalStorage, setPosts]);
+  }, [loadFromLocalStorage, saveToLocalStorage]);
 
   /* Fetch a single post by ID */
   const fetchEventById = useCallback(
@@ -143,18 +143,19 @@ export const PostsProvider: React.FC<{ children: React.ReactNode }> = ({
 
       if (cachedPost) {
         setHighlightPost(cachedPost);
+        setLoading(false);
+        return;
       }
 
-      if (!cachedPost) {
-        const response = await fetch(`/api/highlight`);
-        if (!response.ok) {
-          throw new Error("Failed to fetch posts");
-        }
-
-        const data = await response.json();
-        setHighlightPost(data[0]);
-        saveToLocalStorage(HIGHLIGHT_KEY, data[0]); // Save to localStorage
+      // No cache found, fetch from API
+      const response = await fetch(`/api/highlight`);
+      if (!response.ok) {
+        throw new Error("Failed to fetch posts");
       }
+
+      const data = await response.json();
+      setHighlightPost(data[0]);
+      saveToLocalStorage(HIGHLIGHT_KEY, data[0]); // Save to localStorage
     } catch (err: any) {
       setError(err.message || "An error occurred");
     } finally {
@@ -349,7 +350,8 @@ export const PostsProvider: React.FC<{ children: React.ReactNode }> = ({
   useEffect(() => {
     fetchPosts();
     fetchHighlight();
-  }, [fetchHighlight, fetchPosts]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []); // Only run once on mount
 
   useEffect(() => {
     if (error) {
