@@ -236,6 +236,7 @@ export const PostsProvider: React.FC<{ children: React.ReactNode }> = ({
     async (newEvent: Event) => {
       setLoading(true);
       setError(null);
+      console.log("Creating event: ");
       console.log(newEvent);
       try {
         const response = await fetch("/api/events", {

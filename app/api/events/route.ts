@@ -42,6 +42,7 @@ export async function POST(request: Request) {
 
   try {
     const body: Event = await request.json();
+    console.log(body);
 
     // Insert a new post into the posts table
     await sql`

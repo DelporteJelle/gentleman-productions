@@ -73,7 +73,7 @@ export default function CreateEventModal({
   }, [event]);
 
   const form = useForm({
-    mode: "uncontrolled",
+    mode: "controlled",
     initialValues: getInitialValues(),
     validate: {
       title: (value) => (value.trim() ? null : "Title is required"),
@@ -170,7 +170,6 @@ export default function CreateEventModal({
     setActive((current) => (current > 0 ? current - 1 : current));
 
   const handleSubmit = useCallback(() => {
-    console.log(form.values);
     form.validate();
     if (!form.isValid()) return;
 
@@ -194,6 +193,7 @@ export default function CreateEventModal({
         };
       }),
     };
+    console.log(eventData);
 
     if (event) {
       editEvent(event.uuid, { ...eventData });
@@ -223,8 +223,16 @@ export default function CreateEventModal({
           {...form.getInputProps(`dates.${index}.price`)}
         />
       </Group>
+      <Group grow>
+        <TextInput
+          label="Link to payment site"
+          placeholder="Enter link to external ticket site"
+          key={form.key(`dates.${index}.external_link`)}
+          {...form.getInputProps(`dates.${index}.external_link`)}
+        />
+      </Group>
 
-      <Group>
+      <Group p={10}>
         {form
           .getValues()
           .dates[index].timeLine.map((timeLineEntry, timeIndex) => (
@@ -243,10 +251,6 @@ export default function CreateEventModal({
                 {...form.getInputProps(
                   `dates.${index}.timeLine.${timeIndex}.time`,
                 )}
-                onChange={(e) =>
-                  (form.values.dates[index].timeLine[timeIndex].time =
-                    e.target.value)
-                }
               />
               <TextInput
                 required
@@ -258,10 +262,6 @@ export default function CreateEventModal({
                 {...form.getInputProps(
                   `dates.${index}.timeLine.${timeIndex}.description`,
                 )}
-                onChange={(e) =>
-                  (form.values.dates[index].timeLine[timeIndex].description =
-                    e.target.value)
-                }
               />
             </Paper>
           ))}
@@ -366,6 +366,7 @@ export default function CreateEventModal({
                   uuid: crypto.randomUUID(),
                   start_time: "",
                   end_time: "",
+                  external_link: "",
                   timeLine: [
                     {
                       time: "",
@@ -392,6 +393,7 @@ export default function CreateEventModal({
             <TextInput
               required
               label="Image URL"
+              description="Images need to be hosted externally. You can do this via onedrive by uploading the image, clicking the 3 dots (more actions), click </>embed and copy paste the URL"
               placeholder="Enter display image URL"
               key={form.key("display_image")}
               {...form.getInputProps("display_image")}
