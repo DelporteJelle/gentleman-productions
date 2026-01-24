@@ -2,6 +2,7 @@ import { Event } from "@/types";
 import { NextResponse } from "next/server";
 import { neon } from "@neondatabase/serverless";
 import jwt from "jsonwebtoken";
+import { revalidateTag } from "next/cache";
 
 export async function GET() {
   console.log("Fetching events from database");
@@ -83,6 +84,9 @@ export async function POST(request: Request) {
         ${JSON.stringify(body.dates)}
       );
     `;
+
+    // Revalidate the posts cache
+    revalidateTag("posts");
 
     return NextResponse.json(
       { message: "Event created successfully" },

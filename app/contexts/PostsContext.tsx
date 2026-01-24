@@ -70,37 +70,42 @@ export const PostsProvider: React.FC<{ children: React.ReactNode }> = ({
   }, []);
 
   /* Fetch all posts */
-  const fetchPosts = useCallback(async () => {
-    setLoading(true);
-    setError(null);
+  const fetchPosts = useCallback(
+    async (skipCache = false) => {
+      setLoading(true);
+      setError(null);
 
-    try {
-      const page = 1;
-      const limit = 100;
-      const key = POSTS_KEY;
-      const cachedPosts = loadFromLocalStorage(key);
+      try {
+        const page = 1;
+        const limit = 100;
+        const key = POSTS_KEY;
+        const cachedPosts = !skipCache ? loadFromLocalStorage(key) : null;
 
-      if (cachedPosts) {
-        setPosts(cachedPosts);
+        if (cachedPosts) {
+          setPosts(cachedPosts);
+          setLoading(false);
+          return;
+        }
+
+        // No cache found, fetch from API
+        const response = await fetch(`/api/posts?limit=${limit}&page=${page}`, {
+          next: { tags: ["posts"] },
+        });
+        if (!response.ok) {
+          throw new Error("Failed to fetch posts");
+        }
+
+        const data = await response.json();
+        setPosts(data.data);
+        saveToLocalStorage(key, data.data); // Save to localStorage
+      } catch (err: any) {
+        setError(err.message || "An error occurred");
+      } finally {
         setLoading(false);
-        return;
       }
-
-      // No cache found, fetch from API
-      const response = await fetch(`/api/posts?limit=${limit}&page=${page}`);
-      if (!response.ok) {
-        throw new Error("Failed to fetch posts");
-      }
-
-      const data = await response.json();
-      setPosts(data.data);
-      saveToLocalStorage(key, data.data); // Save to localStorage
-    } catch (err: any) {
-      setError(err.message || "An error occurred");
-    } finally {
-      setLoading(false);
-    }
-  }, [loadFromLocalStorage, saveToLocalStorage]);
+    },
+    [loadFromLocalStorage, saveToLocalStorage],
+  );
 
   /* Fetch a single post by ID */
   const fetchEventById = useCallback(
@@ -134,34 +139,41 @@ export const PostsProvider: React.FC<{ children: React.ReactNode }> = ({
     [posts],
   );
 
-  const fetchHighlight = useCallback(async () => {
-    setLoading(true);
-    setError(null);
+  const fetchHighlight = useCallback(
+    async (skipCache = false) => {
+      setLoading(true);
+      setError(null);
 
-    try {
-      const cachedPost = loadFromLocalStorage(HIGHLIGHT_KEY);
+      try {
+        const cachedPost = !skipCache
+          ? loadFromLocalStorage(HIGHLIGHT_KEY)
+          : null;
 
-      if (cachedPost) {
-        setHighlightPost(cachedPost);
+        if (cachedPost) {
+          setHighlightPost(cachedPost);
+          setLoading(false);
+          return;
+        }
+
+        // No cache found, fetch from API
+        const response = await fetch(`/api/highlight`, {
+          next: { tags: ["highlight"] },
+        });
+        if (!response.ok) {
+          throw new Error("Failed to fetch posts");
+        }
+
+        const data = await response.json();
+        setHighlightPost(data[0]);
+        saveToLocalStorage(HIGHLIGHT_KEY, data[0]); // Save to localStorage
+      } catch (err: any) {
+        setError(err.message || "An error occurred");
+      } finally {
         setLoading(false);
-        return;
       }
-
-      // No cache found, fetch from API
-      const response = await fetch(`/api/highlight`);
-      if (!response.ok) {
-        throw new Error("Failed to fetch posts");
-      }
-
-      const data = await response.json();
-      setHighlightPost(data[0]);
-      saveToLocalStorage(HIGHLIGHT_KEY, data[0]); // Save to localStorage
-    } catch (err: any) {
-      setError(err.message || "An error occurred");
-    } finally {
-      setLoading(false);
-    }
-  }, [loadFromLocalStorage, saveToLocalStorage]);
+    },
+    [loadFromLocalStorage, saveToLocalStorage],
+  );
 
   const editHighlight = useCallback(
     async (uuid: string, date: string | undefined) => {
@@ -192,17 +204,19 @@ export const PostsProvider: React.FC<{ children: React.ReactNode }> = ({
           color: "green",
         });
 
-        const updatedPost = await response.json();
-        setHighlightPost(updatedPost);
+        // Clear cache and refetch highlight
+        localStorage.removeItem(HIGHLIGHT_KEY);
+
+        // Wait for cache invalidation and DB replication
+        await new Promise((resolve) => setTimeout(resolve, 100));
+        await fetchHighlight(true);
       } catch (err: any) {
         setError(err.message || "An error occurred");
       } finally {
-        // Clear the highlight from localStorage
-        localStorage.removeItem(HIGHLIGHT_KEY);
         setLoading(false);
       }
     },
-    [],
+    [fetchHighlight],
   );
 
   const deleteHighlight = useCallback(async () => {
@@ -223,21 +237,24 @@ export const PostsProvider: React.FC<{ children: React.ReactNode }> = ({
         message: "Highlight deleted successfully",
         color: "green",
       });
+
+      // Clear cache and refetch highlight
       localStorage.removeItem(HIGHLIGHT_KEY);
-      setHighlightPost(undefined);
+
+      // Wait for cache invalidation and DB replication
+      await new Promise((resolve) => setTimeout(resolve, 100));
+      await fetchHighlight(true);
     } catch (err: any) {
       setError(err.message || "An error occurred");
     } finally {
       setLoading(false);
     }
-  }, []);
+  }, [fetchHighlight]);
 
   const createEvent = useCallback(
     async (newEvent: Event) => {
       setLoading(true);
       setError(null);
-      console.log("Creating event: ");
-      console.log(newEvent);
       try {
         const response = await fetch("/api/events", {
           method: "POST",
@@ -251,24 +268,25 @@ export const PostsProvider: React.FC<{ children: React.ReactNode }> = ({
           throw new Error("Failed to create event");
         }
 
-        const createdEvent = await response.json();
-
-        // Update posts state with the new event
-        setPosts((prevPosts) => [...prevPosts, createdEvent]);
-
         showNotification({
           title: "Success",
           message: "Event created successfully",
           color: "green",
         });
+
+        // Clear cache and refetch posts
+        localStorage.removeItem(POSTS_KEY);
+
+        // Wait for cache invalidation and DB replication
+        await new Promise((resolve) => setTimeout(resolve, 500));
+        await fetchPosts(true);
       } catch (err: any) {
         setError(err.message || "An error occurred");
       } finally {
-        localStorage.removeItem(POSTS_KEY);
         setLoading(false);
       }
     },
-    [setPosts],
+    [fetchPosts],
   );
 
   const editEvent = useCallback(
@@ -289,18 +307,18 @@ export const PostsProvider: React.FC<{ children: React.ReactNode }> = ({
           throw new Error("Failed to update event");
         }
 
-        const updatedEvent = await response.json();
-
-        // Update posts state with the updated event
-        setPosts((prevPosts) =>
-          prevPosts.map((post) => (post.uuid === uuid ? updatedEvent : post)),
-        );
-
         showNotification({
           title: "Success",
           message: "Event updated successfully",
           color: "green",
         });
+
+        // Clear cache and refetch posts
+        localStorage.removeItem(POSTS_KEY);
+
+        // Wait for cache invalidation and DB replication
+        await new Promise((resolve) => setTimeout(resolve, 500));
+        await fetchPosts(true);
       } catch (err: any) {
         setError(err.message || "An error occurred");
         showNotification({
@@ -309,11 +327,10 @@ export const PostsProvider: React.FC<{ children: React.ReactNode }> = ({
           color: "red",
         });
       } finally {
-        localStorage.removeItem(POSTS_KEY);
         setLoading(false);
       }
     },
-    [setPosts],
+    [fetchPosts],
   );
 
   const removePost = useCallback(
@@ -330,22 +347,25 @@ export const PostsProvider: React.FC<{ children: React.ReactNode }> = ({
           throw new Error("Failed to delete event");
         }
 
-        // Update posts state by removing the deleted event
-        setPosts((prevPosts) => prevPosts.filter((post) => post.uuid !== uuid));
-
-        localStorage.removeItem(POSTS_KEY);
         showNotification({
           title: "Success",
           message: "Event deleted successfully",
           color: "green",
         });
+
+        // Clear cache and refetch posts
+        localStorage.removeItem(POSTS_KEY);
+
+        // Wait for cache invalidation and DB replication
+        await new Promise((resolve) => setTimeout(resolve, 500));
+        await fetchPosts(true);
       } catch (err: any) {
         setError(err.message || "An error occurred");
       } finally {
         setLoading(false);
       }
     },
-    [setPosts],
+    [fetchPosts],
   );
 
   useEffect(() => {

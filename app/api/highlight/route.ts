@@ -1,15 +1,16 @@
 import { NextResponse } from "next/server";
 import { neon } from "@neondatabase/serverless";
 import jwt from "jsonwebtoken";
+import { revalidateTag } from "next/cache";
 
 const sql = neon(process.env.DATABASE_URL!);
 
-// Cache for 7 days
-export const revalidate = 604800; // 7 days in seconds
+// Cache for 7 days with tags for manual revalidation
+export const revalidate = 604800; // 7 days
 
 // GET: Fetch the highlight and its linked event from the database
 export async function GET() {
-  console.log("Fetching highlight");
+  console.log("Fetching highlight from DB");
   try {
     const highlightWithEvent = await sql`
       SELECT Events.*, Highlight.valid_date
@@ -50,6 +51,9 @@ export async function DELETE(request: Request) {
     await sql`
       DELETE FROM Highlight;
     `;
+
+    // Revalidate the highlight cache
+    revalidateTag("highlight");
 
     return NextResponse.json(
       { message: "Highlight deleted successfully" },
@@ -102,6 +106,9 @@ export async function PUT(request: Request) {
       VALUES (${crypto.randomUUID()}, ${body.event_uuid}, ${body.valid_date})
       RETURNING *;
     `;
+
+    // Revalidate the highlight cache
+    revalidateTag("highlight");
 
     return NextResponse.json(newHighlight[0], { status: 200 });
   } catch (error) {

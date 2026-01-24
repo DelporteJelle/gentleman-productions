@@ -8,6 +8,7 @@ import { Group, Image, px, Stack } from "@mantine/core";
 import { useRouter } from "next/navigation";
 import Masonry, { ResponsiveMasonry } from "react-responsive-masonry";
 import { usePosts } from "@/app/contexts/PostsContext";
+import CanvasBackground from "@/components/Background/CanvasBackground";
 
 // Define the page component
 const EventPage = () => {
@@ -31,6 +32,18 @@ const EventPage = () => {
 
   return (
     <div>
+      <div
+        style={{
+          position: "fixed",
+          top: 0,
+          left: 0,
+          width: "100%",
+          height: "100%",
+          zIndex: -1,
+        }}
+      >
+        <CanvasBackground />
+      </div>
       <ResponsiveMasonry
         columnsCountBreakPoints={{ 450: 1, 900: 2, 1350: 3, 1800: 4 }}
       >

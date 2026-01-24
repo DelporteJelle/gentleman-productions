@@ -19,7 +19,7 @@ export default function Navigation({ userRole }: NavigationProps) {
 
       {hasCreateAccess ? (
         <a
-          href="/private/about/"
+          href="/private/about"
           className={pathname === "/private/about" ? "active" : ""}
         >
           About

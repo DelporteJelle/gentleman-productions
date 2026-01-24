@@ -1,9 +1,10 @@
 import { NextResponse } from "next/server";
 import { neon } from "@neondatabase/serverless";
 import jwt from "jsonwebtoken";
+import { revalidateTag } from "next/cache";
 
-// Cache for 7 days
-export const revalidate = 604800; // 7 days in seconds
+// Cache for 7 days with tags for manual revalidation
+export const revalidate = 604800; // 7 days
 
 export async function GET(request: Request) {
   const sql = neon(process.env.DATABASE_URL!);
@@ -57,8 +58,7 @@ export async function GET(request: Request) {
 
     return NextResponse.json(responseData, {
       headers: {
-        "Cache-Control":
-          "public, s-maxage=604800, stale-while-revalidate=86400",
+        "Cache-Control": "public, s-maxage=604800, stale-while-revalidate=86400",
       },
     });
   } catch (error) {
@@ -102,6 +102,9 @@ export async function DELETE(request: Request) {
       DELETE FROM posts
       WHERE post_uuid = ${uuid};
     `;
+
+    // Revalidate the posts cache
+    revalidateTag("posts");
 
     return NextResponse.json(
       { message: "Post and linked entry deleted successfully" },

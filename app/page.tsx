@@ -18,14 +18,14 @@ import { usePosts } from "./contexts/PostsContext";
 
 gsap.registerPlugin(useGSAP, ScrollTrigger, ScrollToPlugin);
 
-const images = [
-  "Banner_2.jpg",
-  "Banner_4.jpg",
-  "Banner_6.jpg",
-  "Banner_7.jpg",
-  "Banner_8.jpg",
-  "Banner_9.jpg",
-  "Banner_11.jpg",
+const imageURLs = [
+  "https://1drv.ms/i/c/09de1e7f62bf5ef8/IQSFbd-6MNcrRaiBa37gLaALATt5LWXcKeBxdeNE4Y5gia8?width=2550",
+  "https://1drv.ms/i/c/09de1e7f62bf5ef8/IQQa_tmQCWyXQqecQexVlm_sAc2T-5n1GQdyBNAvWn53Gac?width=2550",
+  "https://1drv.ms/i/c/09de1e7f62bf5ef8/IQTC1CjKqjpCT79VBxkYtWv4AW79ZTEsx0KBVLR7IlJk3WM?width=2550",
+  "https://1drv.ms/i/c/09de1e7f62bf5ef8/IQRiqOB-Fw1fRaxp8a94tW7IAYXy4_5cD_M3UXbJ_UZ_sdg?width=2550",
+  "https://1drv.ms/i/c/09de1e7f62bf5ef8/IQRnbZ9Pk_h0S42Ir3ymNXgQAdVnE8kZoEttm6VDD64KsJw?width=2550",
+  "https://1drv.ms/i/c/09de1e7f62bf5ef8/IQSC9sibt3BwTb7sMlTVucr9AeD_ksICAbs6Nu1gwI_ubXY?width=2550",
+  "https://1drv.ms/i/c/09de1e7f62bf5ef8/IQQ-I_YDmtHwRKkmn5kSXiWhAbgKBAk876JZ0tOVwc_ooXs?width=2550",
 ];
 
 export default function Home() {
@@ -33,12 +33,12 @@ export default function Home() {
   const { posts, loading, error, highlightPost } = usePosts();
 
   const [currentIndex, setCurrentIndex] = useState(
-    Math.floor(Math.random() * images.length),
+    Math.floor(Math.random() * imageURLs.length),
   );
 
   useEffect(() => {
     const intervalId = setInterval(() => {
-      setCurrentIndex((prevIndex) => (prevIndex + 1) % images.length);
+      setCurrentIndex((prevIndex) => (prevIndex + 1) % imageURLs.length);
     }, 60000);
 
     return () => clearInterval(intervalId);
@@ -115,7 +115,7 @@ export default function Home() {
       {/*Background Image*/}
       <div className={styles.imageContainer}>
         <Image
-          src={`/api/images/${images[currentIndex]}`}
+          src={imageURLs[currentIndex]}
           alt={"highlight"}
           style={{
             objectFit: "cover",

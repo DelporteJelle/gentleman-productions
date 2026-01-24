@@ -1,7 +1,7 @@
-
 import { NextResponse } from "next/server";
 import { neon } from "@neondatabase/serverless";
 import jwt from "jsonwebtoken";
+import { revalidateTag } from "next/cache";
 
 export async function GET(request: Request) {
   console.log("Fetching event from database");
@@ -33,7 +33,6 @@ export async function GET(request: Request) {
     );
   }
 }
-
 
 export async function PUT(request: Request) {
   console.log("Updating event in database");
@@ -84,6 +83,9 @@ export async function PUT(request: Request) {
     if (updatedEvent.length === 0) {
       return NextResponse.json({ error: "Event not found" }, { status: 404 });
     }
+
+    // Revalidate the posts cache
+    revalidateTag("posts");
 
     return NextResponse.json(updatedEvent[0]);
   } catch (error) {
