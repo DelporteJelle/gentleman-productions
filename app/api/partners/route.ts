@@ -1,177 +1,126 @@
-import { NextResponse } from "next/server";
-import { neon } from "@neondatabase/serverless";
-import jwt from "jsonwebtoken";
-const sql = neon(process.env.DATABASE_URL!);
+import { Partner } from "@/types";
+import {
+  getDb,
+  jsonResponse,
+  errorResponse,
+  requireAuth,
+  parseBody,
+  getQueryParam,
+  invalidateCache,
+  CacheTags,
+} from "@/lib/server/api";
 
-// GET: Fetch all partners
 export async function GET() {
-  console.log("Fetching all partners");
+  const sql = getDb();
+
   try {
-    const partners = await sql`
-      SELECT * FROM partners;
-    `;
-    return NextResponse.json(partners);
+    const partners = await sql`SELECT * FROM partners;`;
+    return jsonResponse(partners);
   } catch (error) {
     console.error("Error fetching partners:", error);
-    return NextResponse.json(
-      { error: "Failed to fetch partners" },
-      { status: 500 },
-    );
+    return errorResponse("Failed to fetch partners");
   }
 }
 
-// POST: Create a new partner
 export async function POST(request: Request) {
-  // Check JWT in cookie
-  const cookieHeader = request.headers.get("cookie");
-  const token = cookieHeader?.split("token=")[1]?.split(";")[0];
-  if (!token) {
-    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-  }
-  try {
-    jwt.verify(token, process.env.JWT_SECRET!);
-  } catch {
-    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-  }
+  const authError = requireAuth(request);
+  if (authError) return authError;
 
-  console.log("Creating partner in database");
-  try {
-    const body = await request.json();
+  const sql = getDb();
 
-    // Validate the request body
-    if (!body.partner_name || !body.logo || !body.description) {
-      return NextResponse.json(
-        { error: "Partner name, logo, and description are required" },
-        { status: 400 },
-      );
+  try {
+    const body = await parseBody<Partner>(request);
+
+    if (!body.partner_name) {
+      return errorResponse("Partner name is required", 400);
     }
 
     const newPartner = await sql`
       INSERT INTO partners (
-        uuid,
-        created_at,
-        updated_at,
-        created_by,
-        partner_name,
-        logo,
-        description
+        uuid, created_at, partner_name, description, logo
       ) VALUES (
-        gen_random_uuid(),
-        NOW(),
-        NULL,
-        ${body.created_by || null},
+        ${body.uuid || crypto.randomUUID()},
+        ${body.created_at || new Date().toISOString()},
         ${body.partner_name},
-        ${body.logo},
-        ${body.description}
+        ${body.description || null},
+        ${body.logo || null}
       )
       RETURNING *;
     `;
 
-    return NextResponse.json(newPartner[0], { status: 201 });
+    invalidateCache(CacheTags.PARTNERS);
+
+    return jsonResponse(newPartner[0], 201);
   } catch (error) {
     console.error("Error creating partner:", error);
-    return NextResponse.json(
-      { error: "Failed to create partner" },
-      { status: 500 },
-    );
+    return errorResponse("Failed to create partner");
   }
 }
 
-// PUT: Update an existing partner
 export async function PUT(request: Request) {
-  // Check JWT in cookie
-  const cookieHeader = request.headers.get("cookie");
-  const token = cookieHeader?.split("token=")[1]?.split(";")[0];
-  if (!token) {
-    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-  }
-  try {
-    jwt.verify(token, process.env.JWT_SECRET!);
-  } catch {
-    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-  }
+  const authError = requireAuth(request);
+  if (authError) return authError;
 
-  console.log("Updating partner in database");
-  try {
-    const body = await request.json();
+  const sql = getDb();
 
-    // Validate the request body
-    if (!body.uuid || !body.partner_name || !body.logo || !body.description) {
-      return NextResponse.json(
-        { error: "UUID, partner name, logo, and description are required" },
-        { status: 400 },
-      );
+  try {
+    const body = await parseBody<Partner>(request);
+
+    if (!body.uuid || !body.partner_name) {
+      return errorResponse("UUID and partner name are required", 400);
     }
 
     const updatedPartner = await sql`
-      UPDATE partners
-      SET 
+      UPDATE partners SET
         partner_name = ${body.partner_name},
-        logo = ${body.logo},
-        description = ${body.description},
-        updated_at = NOW(),
-        created_by = ${body.created_by || null}
+        description = ${body.description || null},
+        logo = ${body.logo || null},
+        updated_at = NOW()
       WHERE uuid = ${body.uuid}
       RETURNING *;
     `;
 
     if (updatedPartner.length === 0) {
-      return NextResponse.json({ error: "Partner not found" }, { status: 404 });
+      return errorResponse("Partner not found", 404);
     }
 
-    return NextResponse.json(updatedPartner[0], { status: 200 });
+    invalidateCache(CacheTags.PARTNERS);
+
+    return jsonResponse(updatedPartner[0]);
   } catch (error) {
     console.error("Error updating partner:", error);
-    return NextResponse.json(
-      { error: "Failed to update partner" },
-      { status: 500 },
-    );
+    return errorResponse("Failed to update partner");
   }
 }
 
-// DELETE: Remove a partner
 export async function DELETE(request: Request) {
-  // Check JWT in cookie
-  const cookieHeader = request.headers.get("cookie");
-  const token = cookieHeader?.split("token=")[1]?.split(";")[0];
-  if (!token) {
-    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-  }
-  try {
-    jwt.verify(token, process.env.JWT_SECRET!);
-  } catch {
-    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  const authError = requireAuth(request);
+  if (authError) return authError;
+
+  const sql = getDb();
+  const uuid = getQueryParam(request, "uuid");
+
+  if (!uuid) {
+    return errorResponse("UUID is required", 400);
   }
 
-  console.log("Deleting partner from database");
   try {
-    const { searchParams } = new URL(request.url);
-    const uuid = searchParams.get("uuid");
-
-    // Validate the request
-    if (!uuid) {
-      return NextResponse.json({ error: "UUID is required" }, { status: 400 });
-    }
-
     const deletedPartner = await sql`
-      DELETE FROM partners
-      WHERE uuid = ${uuid}
-      RETURNING *;
+      DELETE FROM partners WHERE uuid = ${uuid} RETURNING *;
     `;
 
     if (deletedPartner.length === 0) {
-      return NextResponse.json({ error: "Partner not found" }, { status: 404 });
+      return errorResponse("Partner not found", 404);
     }
 
-    return NextResponse.json(
-      { message: "Partner deleted successfully", partner: deletedPartner[0] },
-      { status: 200 },
-    );
+    invalidateCache(CacheTags.PARTNERS);
+
+    return jsonResponse({
+      message: "Partner deleted successfully",
+      partner: deletedPartner[0],
+    });
   } catch (error) {
     console.error("Error deleting partner:", error);
-    return NextResponse.json(
-      { error: "Failed to delete partner" },
-      { status: 500 },
-    );
+    return errorResponse("Failed to delete partner");
   }
 }

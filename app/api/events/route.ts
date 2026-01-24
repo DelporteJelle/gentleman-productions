@@ -1,75 +1,47 @@
 import { Event } from "@/types";
-import { NextResponse } from "next/server";
-import { neon } from "@neondatabase/serverless";
-import jwt from "jsonwebtoken";
-import { revalidateTag } from "next/cache";
+import {
+  getDb,
+  jsonResponse,
+  errorResponse,
+  requireAuth,
+  parseBody,
+  invalidateCache,
+  CacheTags,
+} from "@/lib/server/api";
 
 export async function GET() {
-  console.log("Fetching events from database");
-  const sql = neon(process.env.DATABASE_URL!);
+  const sql = getDb();
 
   try {
-    // Fetch events from the database
-    const events = await sql`
-      SELECT * FROM events;
-    `;
-
-    return NextResponse.json(events);
+    const events = await sql`SELECT * FROM events;`;
+    return jsonResponse(events);
   } catch (error) {
     console.error("Error fetching events:", error);
-    return NextResponse.json(
-      { error: "Failed to fetch events" },
-      { status: 500 },
-    );
+    return errorResponse("Failed to fetch events");
   }
 }
 
 export async function POST(request: Request) {
-  console.log("Creating event in database");
+  const authError = requireAuth(request);
+  if (authError) return authError;
 
-  const sql = neon(process.env.DATABASE_URL!);
-
-  // Check JWT in cookie
-  const cookieHeader = request.headers.get("cookie");
-  const token = cookieHeader?.split("token=")[1]?.split(";")[0];
-  if (!token) {
-    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-  }
-  try {
-    jwt.verify(token, process.env.JWT_SECRET!);
-  } catch {
-    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-  }
+  const sql = getDb();
 
   try {
-    const body: Event = await request.json();
-    console.log(body);
+    const body = await parseBody<Event>(request);
 
-    // Insert a new post into the posts table
+    // Insert into posts table
     await sql`
-      INSERT INTO posts (
-        post_uuid,
-        created_at
-      ) VALUES (
-        ${body.uuid},
-        ${body.created_at || new Date().toISOString()}
-      );
+      INSERT INTO posts (post_uuid, created_at)
+      VALUES (${body.uuid}, ${body.created_at || new Date().toISOString()});
     `;
 
-    // Insert a new event into the events table
+    // Insert into events table
     await sql`
       INSERT INTO events (
-        created_at,
-        updated_at,
-        created_by,
-        uuid,
-        title,
-        post_type,
-        description,
-        display_image,
-        images,
-        eventLocation,
-        dates
+        created_at, updated_at, created_by, uuid, title,
+        post_type, description, display_image, images,
+        eventLocation, dates
       ) VALUES (
         ${body.created_at || new Date().toISOString()},
         ${body.updated_at || null},
@@ -85,18 +57,11 @@ export async function POST(request: Request) {
       );
     `;
 
-    // Revalidate the posts cache
-    revalidateTag("posts");
+    invalidateCache(CacheTags.POSTS);
 
-    return NextResponse.json(
-      { message: "Event created successfully" },
-      { status: 201 },
-    );
+    return jsonResponse({ message: "Event created successfully" }, 201);
   } catch (error) {
     console.error("Error creating event:", error);
-    return NextResponse.json(
-      { error: "Failed to create event" },
-      { status: 500 },
-    );
+    return errorResponse("Failed to create event");
   }
 }

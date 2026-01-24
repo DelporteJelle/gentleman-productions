@@ -1,16 +1,21 @@
-import { NextResponse } from "next/server";
-import { neon } from "@neondatabase/serverless";
-import jwt from "jsonwebtoken";
-import { revalidateTag } from "next/cache";
-
-const sql = neon(process.env.DATABASE_URL!);
+import { EventHighlight } from "@/types";
+import {
+  getDb,
+  jsonResponse,
+  errorResponse,
+  cachedResponse,
+  requireAuth,
+  parseBody,
+  invalidateCache,
+  CacheTags,
+} from "@/lib/server/api";
 
 // Cache for 7 days with tags for manual revalidation
-export const revalidate = 604800; // 7 days
+export const revalidate = 604800;
 
-// GET: Fetch the highlight and its linked event from the database
 export async function GET() {
-  console.log("Fetching highlight from DB");
+  const sql = getDb();
+
   try {
     const highlightWithEvent = await sql`
       SELECT Events.*, Highlight.valid_date
@@ -18,104 +23,58 @@ export async function GET() {
       INNER JOIN Highlight ON Events.uuid = Highlight.event_uuid;
     `;
 
-    return NextResponse.json(highlightWithEvent, {
-      headers: {
-        "Cache-Control":
-          "public, s-maxage=604800, stale-while-revalidate=86400",
-      },
-    });
+    return cachedResponse(highlightWithEvent);
   } catch (error) {
-    console.error("Error fetching highlight with event:", error);
-    return NextResponse.json(
-      { error: "Failed to fetch highlight with event" },
-      { status: 500 },
-    );
+    console.error("Error fetching highlight:", error);
+    return errorResponse("Failed to fetch highlight");
   }
 }
 
-export async function DELETE(request: Request) {
-  // Check JWT in cookie
-  const cookieHeader = request.headers.get("cookie");
-  const token = cookieHeader?.split("token=")[1]?.split(";")[0];
-  if (!token) {
-    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-  }
-  try {
-    jwt.verify(token, process.env.JWT_SECRET!);
-  } catch {
-    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-  }
-
-  try {
-    // Delete the existing highlight
-    await sql`
-      DELETE FROM Highlight;
-    `;
-
-    // Revalidate the highlight cache
-    revalidateTag("highlight");
-
-    return NextResponse.json(
-      { message: "Highlight deleted successfully" },
-      {
-        status: 200,
-      },
-    );
-  } catch (error) {
-    console.error("Error deleting highlight:", error);
-    return NextResponse.json(
-      { error: "Failed to delete highlight" },
-      { status: 500 },
-    );
-  }
-}
-
-// PUT: Update an existing highlight
 export async function PUT(request: Request) {
-  // Check JWT in cookie
-  const cookieHeader = request.headers.get("cookie");
-  const token = cookieHeader?.split("token=")[1]?.split(";")[0];
-  if (!token) {
-    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-  }
-  try {
-    jwt.verify(token, process.env.JWT_SECRET!);
-  } catch {
-    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-  }
+  const authError = requireAuth(request);
+  if (authError) return authError;
+
+  const sql = getDb();
 
   try {
-    const body = await request.json();
+    const body = await parseBody<{ event_uuid: string; valid_date: string }>(request);
 
-    // Validate the request body
     if (!body.event_uuid || !body.valid_date) {
-      return NextResponse.json(
-        { error: "UUID, event UUID, and valid date are required" },
-        { status: 400 },
-      );
+      return errorResponse("Event UUID and valid date are required", 400);
     }
 
-    // Delete the existing highlight
-    await sql`
-      DELETE FROM Highlight;
-    `;
+    // Delete existing highlight
+    await sql`DELETE FROM Highlight;`;
 
-    // Create a new highlight
+    // Create new highlight
     const newHighlight = await sql`
       INSERT INTO Highlight (uuid, event_uuid, valid_date)
       VALUES (${crypto.randomUUID()}, ${body.event_uuid}, ${body.valid_date})
       RETURNING *;
     `;
 
-    // Revalidate the highlight cache
-    revalidateTag("highlight");
+    invalidateCache(CacheTags.HIGHLIGHT);
 
-    return NextResponse.json(newHighlight[0], { status: 200 });
+    return jsonResponse(newHighlight[0]);
   } catch (error) {
-    console.error("Error replacing highlight:", error);
-    return NextResponse.json(
-      { error: "Failed to replace highlight" },
-      { status: 500 },
-    );
+    console.error("Error updating highlight:", error);
+    return errorResponse("Failed to update highlight");
+  }
+}
+
+export async function DELETE(request: Request) {
+  const authError = requireAuth(request);
+  if (authError) return authError;
+
+  const sql = getDb();
+
+  try {
+    await sql`DELETE FROM Highlight;`;
+    invalidateCache(CacheTags.HIGHLIGHT);
+
+    return jsonResponse({ message: "Highlight deleted successfully" });
+  } catch (error) {
+    console.error("Error deleting highlight:", error);
+    return errorResponse("Failed to delete highlight");
   }
 }
