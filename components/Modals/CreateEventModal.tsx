@@ -28,7 +28,7 @@ export default function CreateEventModal({
   onClose,
   event,
 }: CreateEventModalProps) {
-  const { createEvent, editEvent } = usePosts();
+  const { createEvent, updateEvent } = usePosts();
 
   const getInitialValues = useCallback(() => {
     if (event) {
@@ -196,12 +196,12 @@ export default function CreateEventModal({
     console.log(eventData);
 
     if (event) {
-      editEvent(event.uuid, { ...eventData });
+      updateEvent(event.uuid, { ...eventData });
     } else {
       createEvent(eventData);
     }
     onClose();
-  }, [form, event, createEvent, editEvent, onClose]);
+  }, [form, event, createEvent, updateEvent, onClose]);
 
   const dates = form.getValues().dates.map((date, index) => (
     <Paper key={date.uuid} p={"10"} radius="md" withBorder>

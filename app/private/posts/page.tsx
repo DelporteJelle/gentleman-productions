@@ -23,11 +23,10 @@ export default function PostsPage() {
     posts,
     loading,
     error,
-    setPosts,
-    editHighlight,
+    setHighlight,
     removePost,
-    highlightPost,
-    deleteHighlight,
+    highlight,
+    clearHighlight,
   } = usePosts();
 
   const handleEdit = (uuid: string) => {
@@ -75,9 +74,9 @@ export default function PostsPage() {
                 post,
                 handleEdit,
                 removePost,
-                editHighlight,
-                deleteHighlight,
-                highlightPost,
+                setHighlight,
+                clearHighlight,
+                highlight,
                 index,
               );
             })}
@@ -125,18 +124,18 @@ const postWrapper = (
   post: Post,
   onEdit: (uuid: string) => void,
   onRemove: (uuid: string) => void,
-  editHighlight: (uuid: string, value: any) => void,
-  deleteHighlight: () => void,
-  highlightPost: any,
+  setHighlight: (uuid: string, value?: string) => void,
+  clearHighlight: () => void,
+  highlight: Post | null,
   index: number,
 ) => {
-  const isHighlighted = highlightPost?.uuid === post.uuid;
-  console.log(highlightPost);
+  const isHighlighted = highlight?.uuid === post.uuid;
+
   const handleHighlightToggle = () => {
     if (isHighlighted) {
-      deleteHighlight();
+      clearHighlight();
     } else {
-      editHighlight(post.uuid, undefined);
+      setHighlight(post.uuid, undefined);
     }
   };
 

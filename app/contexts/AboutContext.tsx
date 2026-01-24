@@ -1,345 +1,405 @@
-import { Partner, TeamMember } from "@/types";
-import { showNotification } from "@mantine/notifications";
+"use client";
+
 import React, {
   createContext,
   useContext,
   useState,
   useEffect,
   useCallback,
+  useMemo,
 } from "react";
+import { Partner, TeamMember } from "@/types";
+import { CacheKeys, saveToCache, loadFromCache, clearCache } from "@/lib/cache";
+import {
+  apiGet,
+  apiPost,
+  apiPut,
+  apiDelete,
+  notifySuccess,
+  notifyError,
+  delay,
+  CACHE_INVALIDATION_DELAY,
+} from "@/lib/api";
 
-interface AboutContextProps {
-  fetchData: () => Promise<void>;
-  createTeamMember: (member: TeamMember) => Promise<void>;
-  createPartner: (partner: Partner) => Promise<void>;
-  deleteTeamMember: (uuid: string) => Promise<void>;
-  deletePartner: (uuid: string) => Promise<void>;
-  updateTeamMember: (member: TeamMember) => Promise<void>;
-  updatePartner: (partner: Partner) => Promise<void>;
+// ============================================================================
+// Types
+// ============================================================================
+
+interface AboutState {
   teamMembers: TeamMember[];
   partners: Partner[];
   loading: boolean;
   error: string | null;
 }
 
-const AboutContext = createContext<AboutContextProps | undefined>(undefined);
-const TEAM_MEMBER_KEY = "teamMembers";
-const PARTNERS_KEY = "partners";
+interface AboutContextValue extends AboutState {
+  // Data fetching
+  fetchData: () => Promise<void>;
+
+  // Team member operations
+  createTeamMember: (member: TeamMember) => Promise<void>;
+  updateTeamMember: (member: TeamMember) => Promise<void>;
+  deleteTeamMember: (uuid: string) => Promise<void>;
+
+  // Partner operations
+  createPartner: (partner: Partner) => Promise<void>;
+  updatePartner: (partner: Partner) => Promise<void>;
+  deletePartner: (uuid: string) => Promise<void>;
+}
+
+// ============================================================================
+// Context
+// ============================================================================
+
+const AboutContext = createContext<AboutContextValue | undefined>(undefined);
+
+// ============================================================================
+// API Functions
+// ============================================================================
+
+const TeamAPI = {
+  async fetchAll(): Promise<TeamMember[]> {
+    return apiGet<TeamMember[]>("/api/team");
+  },
+
+  async create(member: TeamMember): Promise<TeamMember> {
+    return apiPost<TeamMember, TeamMember>("/api/team", member);
+  },
+
+  async update(member: TeamMember): Promise<TeamMember> {
+    return apiPut<TeamMember, TeamMember>("/api/team", member);
+  },
+
+  async delete(uuid: string): Promise<void> {
+    await apiDelete(`/api/team?uuid=${uuid}`);
+  },
+};
+
+const PartnersAPI = {
+  async fetchAll(): Promise<Partner[]> {
+    return apiGet<Partner[]>("/api/partners");
+  },
+
+  async create(partner: Partner): Promise<Partner> {
+    return apiPost<Partner, Partner>("/api/partners", partner);
+  },
+
+  async update(partner: Partner): Promise<Partner> {
+    return apiPut<Partner, Partner>("/api/partners", partner);
+  },
+
+  async delete(uuid: string): Promise<void> {
+    await apiDelete(`/api/partners?uuid=${uuid}`);
+  },
+};
+
+// ============================================================================
+// Provider Component
+// ============================================================================
 
 export const AboutProvider: React.FC<{ children: React.ReactNode }> = ({
   children,
 }) => {
-  const [teamMembers, setTeamMembers] = useState<TeamMember[]>([]);
-  const [partners, setPartners] = useState<Partner[]>([]);
-  const [loading, setLoading] = useState<boolean>(false);
-  const [error, setError] = useState<string | null>(null);
+  const [state, setState] = useState<AboutState>({
+    teamMembers: [],
+    partners: [],
+    loading: false,
+    error: null,
+  });
 
-  const ONE_WEEK_IN_MS = 7 * 24 * 60 * 60 * 1000; // 1 week in milliseconds
-
-  // Utility function to save data to localStorage with a timestamp
-  const saveToLocalStorage = useCallback(
-    (key: string, data: any) => {
-      const item = {
-        value: data,
-        expiry: Date.now() + ONE_WEEK_IN_MS, // Current time + 1 week
-      };
-      localStorage.setItem(key, JSON.stringify(item));
-    },
-    [ONE_WEEK_IN_MS],
-  );
-
-  // Utility function to load data from localStorage and check expiry
-  const loadFromLocalStorage = useCallback((key: string) => {
-    const itemStr = localStorage.getItem(key);
-    if (!itemStr) {
-      return null;
-    }
-
-    const item = JSON.parse(itemStr);
-    if (Date.now() > item.expiry) {
-      // If the data has expired, remove it from localStorage
-      localStorage.removeItem(key);
-      return null;
-    }
-
-    return item.value;
+  // Helper to update state partially
+  const updateState = useCallback((updates: Partial<AboutState>) => {
+    setState((prev) => ({ ...prev, ...updates }));
   }, []);
 
+  // ============================================================================
+  // Data Fetching
+  // ============================================================================
+
+  const fetchTeamMembers = useCallback(
+    async (skipCache = false): Promise<TeamMember[]> => {
+      // Try cache first if not skipping
+      if (!skipCache) {
+        const cached = loadFromCache<TeamMember[]>(CacheKeys.TEAM_MEMBERS);
+        if (cached) return cached;
+      }
+
+      // Fetch from API
+      const data = await TeamAPI.fetchAll();
+      saveToCache(CacheKeys.TEAM_MEMBERS, data);
+      return data;
+    },
+    []
+  );
+
+  const fetchPartners = useCallback(
+    async (skipCache = false): Promise<Partner[]> => {
+      // Try cache first if not skipping
+      if (!skipCache) {
+        const cached = loadFromCache<Partner[]>(CacheKeys.PARTNERS);
+        if (cached) return cached;
+      }
+
+      // Fetch from API
+      const data = await PartnersAPI.fetchAll();
+      saveToCache(CacheKeys.PARTNERS, data);
+      return data;
+    },
+    []
+  );
+
   const fetchData = useCallback(async () => {
-    setLoading(true);
-    setError(null);
+    updateState({ loading: true, error: null });
 
     try {
-      // Try to load team members from localStorage
-      const cachedTeamMembers = loadFromLocalStorage(TEAM_MEMBER_KEY);
-      const cachedPartners = loadFromLocalStorage(PARTNERS_KEY);
+      const [teamMembers, partners] = await Promise.all([
+        fetchTeamMembers(),
+        fetchPartners(),
+      ]);
 
-      if (cachedTeamMembers && cachedPartners) {
-        setTeamMembers(cachedTeamMembers);
-        setPartners(cachedPartners);
-        setLoading(false);
-        return;
-      }
-
-      // Fetch team members from the API if not in localStorage
-      if (!cachedTeamMembers) {
-        let response = await fetch("/api/team");
-        if (!response.ok) {
-          throw new Error("Failed to fetch team members");
-        }
-
-        const teamData = await response.json();
-        setTeamMembers(teamData);
-        saveToLocalStorage("teamMembers", teamData);
-      } else {
-        setTeamMembers(cachedTeamMembers);
-      }
-
-      // Fetch partners from the API if not in localStorage
-      if (!cachedPartners) {
-        let response = await fetch("/api/partners");
-        if (!response.ok) {
-          throw new Error("Failed to fetch partners");
-        }
-
-        const partnerData = await response.json();
-        setPartners(partnerData);
-        saveToLocalStorage(PARTNERS_KEY, partnerData);
-      } else {
-        setPartners(cachedPartners);
-      }
-    } catch (err: any) {
-      setError(err.message || "An error occurred");
-    } finally {
-      setLoading(false);
-    }
-  }, [loadFromLocalStorage, saveToLocalStorage]);
-
-  const createTeamMember = async (member: TeamMember) => {
-    setLoading(true);
-    setError(null);
-    try {
-      const response = await fetch("/api/team", {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify(member),
-      });
-
-      if (!response.ok) {
-        throw new Error("Failed to create team member");
-      }
-
-      showNotification({
-        title: "Success",
-        message: "Team member created successfully",
-        color: "green",
-      });
-
-      const newMember = await response.json();
-      setTeamMembers((prev) => [...prev, newMember]);
-    } catch (err: any) {
-      setError(err.message || "An error occurred");
-    } finally {
-      //remove localStorage data to force a refetch
-      localStorage.removeItem(TEAM_MEMBER_KEY);
-      setLoading(false);
-    }
-  };
-
-  const createPartner = async (partner: Partner) => {
-    setLoading(true);
-    setError(null);
-    try {
-      const response = await fetch("/api/partners", {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify(partner),
-      });
-
-      if (!response.ok) {
-        throw new Error("Failed to create partner");
-      }
-
-      showNotification({
-        title: "Success",
-        message: "Partner created successfully",
-        color: "green",
-      });
-
-      const newPartner = await response.json();
-      setPartners((prev) => [...prev, newPartner]);
-    } catch (err: any) {
-      setError(err.message || "An error occurred");
-    } finally {
-      //remove localStorage data to force a refetch
-      localStorage.removeItem(PARTNERS_KEY);
-      setLoading(false);
-    }
-  };
-
-  const deleteTeamMember = async (uuid: string) => {
-    setLoading(true);
-    setError(null);
-    try {
-      const response = await fetch(`/api/team?uuid=${uuid}`, {
-        method: "DELETE",
-      });
-
-      if (!response.ok) {
-        throw new Error("Failed to delete team member");
-      }
-
-      showNotification({
-        title: "Success",
-        message: "Team member deleted successfully",
-        color: "green",
-      });
-
-      setTeamMembers((prev) => prev.filter((member) => member.uuid !== uuid));
-    } catch (err: any) {
-      setError(err.message || "An error occurred");
-    } finally {
-      localStorage.removeItem(TEAM_MEMBER_KEY);
-      setLoading(false);
-    }
-  };
-
-  const deletePartner = async (uuid: string) => {
-    setLoading(true);
-    setError(null);
-    try {
-      const response = await fetch(`/api/partners?uuid=${uuid}`, {
-        method: "DELETE",
-      });
-
-      if (!response.ok) {
-        throw new Error("Failed to delete partner");
-      }
-
-      setPartners((prev) => prev.filter((partner) => partner.uuid !== uuid));
-      showNotification({
-        title: "Success",
-        message: "Partner deleted successfully",
-        color: "green",
-      });
-    } catch (err: any) {
-      setError(err.message || "An error occurred");
-    } finally {
-      localStorage.removeItem(PARTNERS_KEY);
-      setLoading(false);
-    }
-  };
-
-  const updateTeamMember = async (member: TeamMember) => {
-    setLoading(true);
-    setError(null);
-    try {
-      const response = await fetch("/api/team", {
-        method: "PUT",
-        headers: {
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify(member),
-      });
-
-      if (!response.ok) {
-        throw new Error("Failed to update team member");
-      }
-
-      showNotification({
-        title: "Success",
-        message: "Team member updated successfully",
-        color: "green",
-      });
-
-      const updatedMember = await response.json();
-      setTeamMembers((prev) =>
-        prev.map((m) => (m.uuid === updatedMember.uuid ? updatedMember : m)),
-      );
-    } catch (err: any) {
-      setError(err.message || "An error occurred");
-    } finally {
-      localStorage.removeItem(TEAM_MEMBER_KEY);
-      setLoading(false);
-    }
-  };
-
-  const updatePartner = async (partner: Partner) => {
-    setLoading(true);
-    setError(null);
-    try {
-      const response = await fetch("/api/partners", {
-        method: "PUT",
-        headers: {
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify(partner),
-      });
-
-      if (!response.ok) {
-        throw new Error("Failed to update partner");
-      }
-
-      showNotification({
-        title: "Success",
-        message: "Partner updated successfully",
-        color: "green",
-      });
-
-      const updatedPartner = await response.json();
-      setPartners((prev) =>
-        prev.map((p) => (p.uuid === updatedPartner.uuid ? updatedPartner : p)),
-      );
-    } catch (err: any) {
-      setError(err.message || "An error occurred");
-    } finally {
-      localStorage.removeItem(PARTNERS_KEY);
-      setLoading(false);
-    }
-  };
-
-  useEffect(() => {
-    fetchData();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []); // Only run once on mount
-
-  useEffect(() => {
-    if (error) {
-      showNotification({
-        title: "Error",
-        message: error,
-        color: "red",
-      });
-    }
-  }, [loading, error]);
-
-  return (
-    <AboutContext.Provider
-      value={{
-        fetchData,
+      updateState({
         teamMembers,
         partners,
-        loading,
-        error,
-        createTeamMember,
-        createPartner,
-        deleteTeamMember,
-        deletePartner,
-        updateTeamMember,
-        updatePartner,
-      }}
-    >
-      {children}
-    </AboutContext.Provider>
+        loading: false,
+      });
+    } catch (err) {
+      const message =
+        err instanceof Error ? err.message : "Failed to fetch data";
+      updateState({ error: message, loading: false });
+      notifyError("Error", message);
+    }
+  }, [fetchTeamMembers, fetchPartners, updateState]);
+
+  // ============================================================================
+  // Team Member Operations
+  // ============================================================================
+
+  const createTeamMember = useCallback(
+    async (member: TeamMember) => {
+      updateState({ loading: true, error: null });
+
+      try {
+        const newMember = await TeamAPI.create(member);
+        notifySuccess("Success", "Team member created successfully");
+
+        // Update state with new member
+        setState((prev) => ({
+          ...prev,
+          teamMembers: [...prev.teamMembers, newMember],
+          loading: false,
+        }));
+
+        // Invalidate cache
+        clearCache(CacheKeys.TEAM_MEMBERS);
+      } catch (err) {
+        const message =
+          err instanceof Error ? err.message : "Failed to create team member";
+        updateState({ error: message, loading: false });
+        notifyError("Error", message);
+      }
+    },
+    [updateState]
+  );
+
+  const updateTeamMember = useCallback(
+    async (member: TeamMember) => {
+      updateState({ loading: true, error: null });
+
+      try {
+        const updatedMember = await TeamAPI.update(member);
+        notifySuccess("Success", "Team member updated successfully");
+
+        // Update state with updated member
+        setState((prev) => ({
+          ...prev,
+          teamMembers: prev.teamMembers.map((m) =>
+            m.uuid === updatedMember.uuid ? updatedMember : m
+          ),
+          loading: false,
+        }));
+
+        // Invalidate cache
+        clearCache(CacheKeys.TEAM_MEMBERS);
+      } catch (err) {
+        const message =
+          err instanceof Error ? err.message : "Failed to update team member";
+        updateState({ error: message, loading: false });
+        notifyError("Error", message);
+      }
+    },
+    [updateState]
+  );
+
+  const deleteTeamMember = useCallback(
+    async (uuid: string) => {
+      updateState({ loading: true, error: null });
+
+      try {
+        await TeamAPI.delete(uuid);
+        notifySuccess("Success", "Team member deleted successfully");
+
+        // Remove from state
+        setState((prev) => ({
+          ...prev,
+          teamMembers: prev.teamMembers.filter((m) => m.uuid !== uuid),
+          loading: false,
+        }));
+
+        // Invalidate cache
+        clearCache(CacheKeys.TEAM_MEMBERS);
+      } catch (err) {
+        const message =
+          err instanceof Error ? err.message : "Failed to delete team member";
+        updateState({ error: message, loading: false });
+        notifyError("Error", message);
+      }
+    },
+    [updateState]
+  );
+
+  // ============================================================================
+  // Partner Operations
+  // ============================================================================
+
+  const createPartner = useCallback(
+    async (partner: Partner) => {
+      updateState({ loading: true, error: null });
+
+      try {
+        const newPartner = await PartnersAPI.create(partner);
+        notifySuccess("Success", "Partner created successfully");
+
+        // Update state with new partner
+        setState((prev) => ({
+          ...prev,
+          partners: [...prev.partners, newPartner],
+          loading: false,
+        }));
+
+        // Invalidate cache
+        clearCache(CacheKeys.PARTNERS);
+      } catch (err) {
+        const message =
+          err instanceof Error ? err.message : "Failed to create partner";
+        updateState({ error: message, loading: false });
+        notifyError("Error", message);
+      }
+    },
+    [updateState]
+  );
+
+  const updatePartner = useCallback(
+    async (partner: Partner) => {
+      updateState({ loading: true, error: null });
+
+      try {
+        const updatedPartner = await PartnersAPI.update(partner);
+        notifySuccess("Success", "Partner updated successfully");
+
+        // Update state with updated partner
+        setState((prev) => ({
+          ...prev,
+          partners: prev.partners.map((p) =>
+            p.uuid === updatedPartner.uuid ? updatedPartner : p
+          ),
+          loading: false,
+        }));
+
+        // Invalidate cache
+        clearCache(CacheKeys.PARTNERS);
+      } catch (err) {
+        const message =
+          err instanceof Error ? err.message : "Failed to update partner";
+        updateState({ error: message, loading: false });
+        notifyError("Error", message);
+      }
+    },
+    [updateState]
+  );
+
+  const deletePartner = useCallback(
+    async (uuid: string) => {
+      updateState({ loading: true, error: null });
+
+      try {
+        await PartnersAPI.delete(uuid);
+        notifySuccess("Success", "Partner deleted successfully");
+
+        // Remove from state
+        setState((prev) => ({
+          ...prev,
+          partners: prev.partners.filter((p) => p.uuid !== uuid),
+          loading: false,
+        }));
+
+        // Invalidate cache
+        clearCache(CacheKeys.PARTNERS);
+      } catch (err) {
+        const message =
+          err instanceof Error ? err.message : "Failed to delete partner";
+        updateState({ error: message, loading: false });
+        notifyError("Error", message);
+      }
+    },
+    [updateState]
+  );
+
+  // ============================================================================
+  // Effects
+  // ============================================================================
+
+  // Initial data fetch
+  useEffect(() => {
+    fetchData();
+  }, []); // eslint-disable-line react-hooks/exhaustive-deps
+
+  // ============================================================================
+  // Context Value
+  // ============================================================================
+
+  const value: AboutContextValue = useMemo(
+    () => ({
+      // State
+      teamMembers: state.teamMembers,
+      partners: state.partners,
+      loading: state.loading,
+      error: state.error,
+
+      // Data fetching
+      fetchData,
+
+      // Team member operations
+      createTeamMember,
+      updateTeamMember,
+      deleteTeamMember,
+
+      // Partner operations
+      createPartner,
+      updatePartner,
+      deletePartner,
+    }),
+    [
+      state,
+      fetchData,
+      createTeamMember,
+      updateTeamMember,
+      deleteTeamMember,
+      createPartner,
+      updatePartner,
+      deletePartner,
+    ]
+  );
+
+  return (
+    <AboutContext.Provider value={value}>{children}</AboutContext.Provider>
   );
 };
 
-// Custom hook to use the AboutContext
-export const useAbout = () => {
+// ============================================================================
+// Hook
+// ============================================================================
+
+export const useAbout = (): AboutContextValue => {
   const context = useContext(AboutContext);
   if (!context) {
     throw new Error("useAbout must be used within an AboutProvider");

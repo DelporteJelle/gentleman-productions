@@ -1,413 +1,425 @@
-import { Event, Post } from "@/types";
+"use client";
+
 import React, {
   createContext,
   useContext,
   useState,
   useEffect,
   useCallback,
+  useMemo,
 } from "react";
-import { showNotification } from "@mantine/notifications";
+import {
+  Event,
+  Post,
+  HighlightedEvent,
+  isEvent,
+  PaginatedResponse,
+} from "@/types";
+import { CacheKeys, saveToCache, loadFromCache, clearCache } from "@/lib/cache";
+import {
+  apiGet,
+  apiPost,
+  apiPut,
+  apiDelete,
+  notifySuccess,
+  notifyError,
+  delay,
+  CACHE_INVALIDATION_DELAY,
+} from "@/lib/api";
 
-interface PostsContextProps {
+// ============================================================================
+// Types
+// ============================================================================
+
+interface PostsState {
   posts: Post[];
-  highlightPost: any;
-  editHighlight: (uuid: string, date: string | undefined) => void;
-  deleteHighlight: () => void;
-  setPosts: React.Dispatch<React.SetStateAction<Post[]>>;
-  fetchPosts: () => Promise<void>;
-  fetchEventById: (id: string) => Promise<Post | null>;
+  highlight: HighlightedEvent | null;
   loading: boolean;
   error: string | null;
-  createEvent: (newEvent: Event) => Promise<void>;
-  editEvent: (uuid: string, event: Event) => Promise<void>;
-  removePost: (uuid: string) => Promise<void>;
 }
 
-const HIGHLIGHT_KEY = "highlightPost";
-const POSTS_KEY = "posts";
+interface PostsContextValue extends PostsState {
+  // Post operations
+  fetchPosts: (skipCache?: boolean) => Promise<void>;
+  fetchPostById: (id: string) => Promise<Post | null>;
+  removePost: (uuid: string) => Promise<void>;
 
-const PostsContext = createContext<PostsContextProps | undefined>(undefined);
+  // Event-specific operations (extend for other post types)
+  createEvent: (event: Event) => Promise<void>;
+  updateEvent: (uuid: string, event: Event) => Promise<void>;
+
+  // Highlight operations
+  fetchHighlight: (skipCache?: boolean) => Promise<void>;
+  setHighlight: (eventUuid: string, validDate?: string) => Promise<void>;
+  clearHighlight: () => Promise<void>;
+
+  // Computed values
+  events: Event[];
+}
+
+// ============================================================================
+// Context
+// ============================================================================
+
+const PostsContext = createContext<PostsContextValue | undefined>(undefined);
+
+// ============================================================================
+// API Functions
+// ============================================================================
+
+const PostsAPI = {
+  async fetchAll(page = 1, limit = 100): Promise<PaginatedResponse<Post>> {
+    const params = new URLSearchParams({
+      page: String(page),
+      limit: String(limit),
+    });
+    return apiGet<PaginatedResponse<Post>>(`/api/posts?${params}`);
+  },
+
+  async fetchById(id: string): Promise<Post> {
+    return apiGet<Post>(`/api/events/${id}`);
+  },
+
+  async delete(uuid: string): Promise<void> {
+    await apiDelete(`/api/posts?uuid=${uuid}`);
+  },
+};
+
+const EventsAPI = {
+  async create(event: Event): Promise<{ message: string }> {
+    return apiPost<{ message: string }, Event>("/api/events", event);
+  },
+
+  async update(uuid: string, event: Event): Promise<Event> {
+    return apiPut<Event, Event>(`/api/events/${uuid}`, event);
+  },
+};
+
+const HighlightAPI = {
+  async fetch(): Promise<HighlightedEvent[]> {
+    return apiGet<HighlightedEvent[]>("/api/highlight");
+  },
+
+  async set(eventUuid: string, validDate: string): Promise<void> {
+    await apiPut("/api/highlight", {
+      event_uuid: eventUuid,
+      valid_date: validDate,
+    });
+  },
+
+  async clear(): Promise<void> {
+    await apiDelete("/api/highlight");
+  },
+};
+
+// ============================================================================
+// Provider Component
+// ============================================================================
 
 export const PostsProvider: React.FC<{ children: React.ReactNode }> = ({
   children,
 }) => {
-  const [posts, setPosts] = useState<Post[]>([]);
-  const [loading, setLoading] = useState<boolean>(false);
-  const [error, setError] = useState<string | null>(null);
-  const [highlightPost, setHighlightPost] = useState<Post | undefined>(
-    undefined,
-  );
+  const [state, setState] = useState<PostsState>({
+    posts: [],
+    highlight: null,
+    loading: false,
+    error: null,
+  });
 
-  const ONE_WEEK_IN_MS = 7 * 24 * 60 * 60 * 1000; // 1 week in milliseconds
-
-  /* Utility function to save data to localStorage with a timestamp */
-  const saveToLocalStorage = useCallback(
-    (key: string, data: any) => {
-      const item = {
-        value: data,
-        expiry: Date.now() + ONE_WEEK_IN_MS, // Current time + 1 week
-      };
-      localStorage.setItem(key, JSON.stringify(item));
-    },
-    [ONE_WEEK_IN_MS],
-  );
-
-  /* Utility function to load data from localStorage and check expiry */
-  const loadFromLocalStorage = useCallback((key: string) => {
-    const itemStr = localStorage.getItem(key);
-    if (!itemStr) {
-      return null;
-    }
-
-    const item = JSON.parse(itemStr);
-    if (Date.now() > item.expiry) {
-      // If the data has expired, remove it from localStorage
-      localStorage.removeItem(key);
-      return null;
-    }
-
-    return item.value;
+  // Helper to update state partially
+  const updateState = useCallback((updates: Partial<PostsState>) => {
+    setState((prev) => ({ ...prev, ...updates }));
   }, []);
 
-  /* Fetch all posts */
+  // ============================================================================
+  // Post Operations
+  // ============================================================================
+
   const fetchPosts = useCallback(
     async (skipCache = false) => {
-      setLoading(true);
-      setError(null);
+      updateState({ loading: true, error: null });
 
       try {
-        const page = 1;
-        const limit = 100;
-        const key = POSTS_KEY;
-        const cachedPosts = !skipCache ? loadFromLocalStorage(key) : null;
-
-        if (cachedPosts) {
-          setPosts(cachedPosts);
-          setLoading(false);
-          return;
+        // Try cache first if not skipping
+        if (!skipCache) {
+          const cached = loadFromCache<Post[]>(CacheKeys.POSTS);
+          if (cached) {
+            updateState({ posts: cached, loading: false });
+            return;
+          }
         }
 
-        // No cache found, fetch from API
-        const response = await fetch(`/api/posts?limit=${limit}&page=${page}`, {
-          next: { tags: ["posts"] },
-        });
-        if (!response.ok) {
-          throw new Error("Failed to fetch posts");
-        }
-
-        const data = await response.json();
-        setPosts(data.data);
-        saveToLocalStorage(key, data.data); // Save to localStorage
-      } catch (err: any) {
-        setError(err.message || "An error occurred");
-      } finally {
-        setLoading(false);
+        // Fetch from API
+        const response = await PostsAPI.fetchAll();
+        saveToCache(CacheKeys.POSTS, response.data);
+        updateState({ posts: response.data, loading: false });
+      } catch (err) {
+        const message =
+          err instanceof Error ? err.message : "Failed to fetch posts";
+        updateState({ error: message, loading: false });
+        notifyError("Error", message);
       }
     },
-    [loadFromLocalStorage, saveToLocalStorage],
+    [updateState],
   );
 
-  /* Fetch a single post by ID */
-  const fetchEventById = useCallback(
+  const fetchPostById = useCallback(
     async (id: string): Promise<Post | null> => {
-      const existingPost = posts.find((post) => post.uuid === id);
-      if (existingPost) {
-        return existingPost;
-      }
+      // Check if already in state
+      const existing = state.posts.find((post) => post.uuid === id);
+      if (existing) return existing;
 
-      // If not found, fetch the post from the API
+      updateState({ loading: true, error: null });
+
       try {
-        setLoading(true);
-        const response = await fetch(`/api/events/${id}`);
-        if (!response.ok) {
-          throw new Error("Failed to fetch the post");
-        }
+        const post = await PostsAPI.fetchById(id);
 
-        const post = await response.json();
-
-        // Add the fetched post to the list
-        setPosts((prevPosts) => [...prevPosts, post]);
+        // Add to posts array
+        setState((prev) => ({
+          ...prev,
+          posts: [...prev.posts, post],
+          loading: false,
+        }));
 
         return post;
-      } catch (err: any) {
-        setError(err.message || "An error occurred");
+      } catch (err) {
+        const message =
+          err instanceof Error ? err.message : "Failed to fetch post";
+        updateState({ error: message, loading: false });
         return null;
-      } finally {
-        setLoading(false);
       }
     },
-    [posts],
-  );
-
-  const fetchHighlight = useCallback(
-    async (skipCache = false) => {
-      setLoading(true);
-      setError(null);
-
-      try {
-        const cachedPost = !skipCache
-          ? loadFromLocalStorage(HIGHLIGHT_KEY)
-          : null;
-
-        if (cachedPost) {
-          setHighlightPost(cachedPost);
-          setLoading(false);
-          return;
-        }
-
-        // No cache found, fetch from API
-        const response = await fetch(`/api/highlight`, {
-          next: { tags: ["highlight"] },
-        });
-        if (!response.ok) {
-          throw new Error("Failed to fetch posts");
-        }
-
-        const data = await response.json();
-        setHighlightPost(data[0]);
-        saveToLocalStorage(HIGHLIGHT_KEY, data[0]); // Save to localStorage
-      } catch (err: any) {
-        setError(err.message || "An error occurred");
-      } finally {
-        setLoading(false);
-      }
-    },
-    [loadFromLocalStorage, saveToLocalStorage],
-  );
-
-  const editHighlight = useCallback(
-    async (uuid: string, date: string | undefined) => {
-      setLoading(true);
-      setError(null);
-
-      const valid_date = new Date();
-      valid_date.setFullYear(valid_date.getFullYear() + 1);
-      try {
-        const response = await fetch(`/api/highlight`, {
-          method: "PUT",
-          headers: {
-            "Content-Type": "application/json",
-          },
-          body: JSON.stringify({
-            event_uuid: uuid,
-            valid_date: date ? date : valid_date,
-          }),
-        });
-
-        if (!response.ok) {
-          throw new Error("Failed to update highlight");
-        }
-
-        showNotification({
-          title: "Success",
-          message: "Highlight updated successfully",
-          color: "green",
-        });
-
-        // Clear cache and refetch highlight
-        localStorage.removeItem(HIGHLIGHT_KEY);
-
-        // Wait for cache invalidation and DB replication
-        await new Promise((resolve) => setTimeout(resolve, 100));
-        await fetchHighlight(true);
-      } catch (err: any) {
-        setError(err.message || "An error occurred");
-      } finally {
-        setLoading(false);
-      }
-    },
-    [fetchHighlight],
-  );
-
-  const deleteHighlight = useCallback(async () => {
-    setLoading(true);
-    setError(null);
-
-    try {
-      const response = await fetch(`/api/highlight`, {
-        method: "DELETE",
-      });
-
-      if (!response.ok) {
-        throw new Error("Failed to delete highlight");
-      }
-
-      showNotification({
-        title: "Success",
-        message: "Highlight deleted successfully",
-        color: "green",
-      });
-
-      // Clear cache and refetch highlight
-      localStorage.removeItem(HIGHLIGHT_KEY);
-
-      // Wait for cache invalidation and DB replication
-      await new Promise((resolve) => setTimeout(resolve, 100));
-      await fetchHighlight(true);
-    } catch (err: any) {
-      setError(err.message || "An error occurred");
-    } finally {
-      setLoading(false);
-    }
-  }, [fetchHighlight]);
-
-  const createEvent = useCallback(
-    async (newEvent: Event) => {
-      setLoading(true);
-      setError(null);
-      try {
-        const response = await fetch("/api/events", {
-          method: "POST",
-          headers: {
-            "Content-Type": "application/json",
-          },
-          body: JSON.stringify(newEvent),
-        });
-
-        if (!response.ok) {
-          throw new Error("Failed to create event");
-        }
-
-        showNotification({
-          title: "Success",
-          message: "Event created successfully",
-          color: "green",
-        });
-
-        // Clear cache and refetch posts
-        localStorage.removeItem(POSTS_KEY);
-
-        // Wait for cache invalidation and DB replication
-        await new Promise((resolve) => setTimeout(resolve, 500));
-        await fetchPosts(true);
-      } catch (err: any) {
-        setError(err.message || "An error occurred");
-      } finally {
-        setLoading(false);
-      }
-    },
-    [fetchPosts],
-  );
-
-  const editEvent = useCallback(
-    async (uuid: string, event: Event) => {
-      setLoading(true);
-      setError(null);
-      console.log(event);
-      try {
-        const response = await fetch(`/api/events/${uuid}`, {
-          method: "PUT",
-          headers: {
-            "Content-Type": "application/json",
-          },
-          body: JSON.stringify(event),
-        });
-
-        if (!response.ok) {
-          throw new Error("Failed to update event");
-        }
-
-        showNotification({
-          title: "Success",
-          message: "Event updated successfully",
-          color: "green",
-        });
-
-        // Clear cache and refetch posts
-        localStorage.removeItem(POSTS_KEY);
-
-        // Wait for cache invalidation and DB replication
-        await new Promise((resolve) => setTimeout(resolve, 500));
-        await fetchPosts(true);
-      } catch (err: any) {
-        setError(err.message || "An error occurred");
-        showNotification({
-          title: "Error",
-          message: err.message || "Failed to update event",
-          color: "red",
-        });
-      } finally {
-        setLoading(false);
-      }
-    },
-    [fetchPosts],
+    [state.posts, updateState],
   );
 
   const removePost = useCallback(
     async (uuid: string) => {
-      setLoading(true);
-      setError(null);
+      updateState({ loading: true, error: null });
 
       try {
-        const response = await fetch(`/api/posts?uuid=${uuid}`, {
-          method: "DELETE",
-        });
+        await PostsAPI.delete(uuid);
+        notifySuccess("Success", "Post deleted successfully");
 
-        if (!response.ok) {
-          throw new Error("Failed to delete event");
-        }
-
-        showNotification({
-          title: "Success",
-          message: "Event deleted successfully",
-          color: "green",
-        });
-
-        // Clear cache and refetch posts
-        localStorage.removeItem(POSTS_KEY);
-
-        // Wait for cache invalidation and DB replication
-        await new Promise((resolve) => setTimeout(resolve, 500));
+        // Invalidate cache and refetch
+        clearCache(CacheKeys.POSTS);
+        await delay(CACHE_INVALIDATION_DELAY);
         await fetchPosts(true);
-      } catch (err: any) {
-        setError(err.message || "An error occurred");
-      } finally {
-        setLoading(false);
+      } catch (err) {
+        const message =
+          err instanceof Error ? err.message : "Failed to delete post";
+        updateState({ error: message, loading: false });
+        notifyError("Error", message);
       }
     },
-    [fetchPosts],
+    [fetchPosts, updateState],
   );
 
+  // ============================================================================
+  // Event Operations
+  // ============================================================================
+
+  const createEvent = useCallback(
+    async (event: Event) => {
+      updateState({ loading: true, error: null });
+
+      try {
+        await EventsAPI.create(event);
+        notifySuccess("Success", "Event created successfully");
+
+        // Invalidate cache and refetch
+        clearCache(CacheKeys.POSTS);
+        await delay(CACHE_INVALIDATION_DELAY);
+        await fetchPosts(true);
+      } catch (err) {
+        const message =
+          err instanceof Error ? err.message : "Failed to create event";
+        updateState({ error: message, loading: false });
+        notifyError("Error", message);
+      }
+    },
+    [fetchPosts, updateState],
+  );
+
+  const updateEvent = useCallback(
+    async (uuid: string, event: Event) => {
+      updateState({ loading: true, error: null });
+
+      try {
+        await EventsAPI.update(uuid, event);
+        notifySuccess("Success", "Event updated successfully");
+
+        // Invalidate cache and refetch
+        clearCache(CacheKeys.POSTS);
+        await delay(CACHE_INVALIDATION_DELAY);
+        await fetchPosts(true);
+      } catch (err) {
+        const message =
+          err instanceof Error ? err.message : "Failed to update event";
+        updateState({ error: message, loading: false });
+        notifyError("Error", message);
+      }
+    },
+    [fetchPosts, updateState],
+  );
+
+  // ============================================================================
+  // Highlight Operations
+  // ============================================================================
+
+  const fetchHighlight = useCallback(
+    async (skipCache = false) => {
+      updateState({ loading: true, error: null });
+
+      try {
+        // Try cache first if not skipping
+        if (!skipCache) {
+          const cached = loadFromCache<HighlightedEvent>(CacheKeys.HIGHLIGHT);
+          if (cached) {
+            updateState({ highlight: cached, loading: false });
+            return;
+          }
+        }
+
+        // Fetch from API
+        const data = await HighlightAPI.fetch();
+        const highlight = data[0] || null;
+
+        if (highlight) {
+          saveToCache(CacheKeys.HIGHLIGHT, highlight);
+        }
+        updateState({ highlight, loading: false });
+      } catch (err) {
+        const message =
+          err instanceof Error ? err.message : "Failed to fetch highlight";
+        updateState({ error: message, loading: false });
+      }
+    },
+    [updateState],
+  );
+
+  const setHighlight = useCallback(
+    async (eventUuid: string, validDate?: string) => {
+      updateState({ loading: true, error: null });
+
+      // Default to 1 year from now if no date provided
+      const date =
+        validDate ||
+        new Date(Date.now() + 365 * 24 * 60 * 60 * 1000).toISOString();
+
+      try {
+        await HighlightAPI.set(eventUuid, date);
+        notifySuccess("Success", "Highlight updated successfully");
+
+        // Invalidate cache and refetch
+        clearCache(CacheKeys.HIGHLIGHT);
+        await delay(CACHE_INVALIDATION_DELAY);
+        await fetchHighlight(true);
+      } catch (err) {
+        const message =
+          err instanceof Error ? err.message : "Failed to update highlight";
+        updateState({ error: message, loading: false });
+        notifyError("Error", message);
+      }
+    },
+    [fetchHighlight, updateState],
+  );
+
+  const clearHighlight = useCallback(async () => {
+    updateState({ loading: true, error: null });
+
+    try {
+      await HighlightAPI.clear();
+      notifySuccess("Success", "Highlight cleared successfully");
+
+      // Invalidate cache and refetch
+      clearCache(CacheKeys.HIGHLIGHT);
+      await delay(CACHE_INVALIDATION_DELAY);
+      await fetchHighlight(true);
+    } catch (err) {
+      const message =
+        err instanceof Error ? err.message : "Failed to clear highlight";
+      updateState({ error: message, loading: false });
+      notifyError("Error", message);
+    }
+  }, [fetchHighlight, updateState]);
+
+  // ============================================================================
+  // Computed Values
+  // ============================================================================
+
+  // Filter posts by type - useful for getting only events
+  const events = useMemo(() => state.posts.filter(isEvent), [state.posts]);
+
+  // ============================================================================
+  // Effects
+  // ============================================================================
+
+  // Initial data fetch
   useEffect(() => {
     fetchPosts();
     fetchHighlight();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []); // Only run once on mount
+  }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
-  useEffect(() => {
-    if (error) {
-      showNotification({
-        title: "Error",
-        message: error,
-        color: "red",
-      });
-    }
-  }, [loading, error]);
+  // ============================================================================
+  // Context Value
+  // ============================================================================
+
+  const value: PostsContextValue = useMemo(
+    () => ({
+      // State
+      posts: state.posts,
+      highlight: state.highlight,
+      loading: state.loading,
+      error: state.error,
+
+      // Post operations
+      fetchPosts,
+      fetchPostById,
+      removePost,
+
+      // Event operations
+      createEvent,
+      updateEvent,
+
+      // Highlight operations
+      fetchHighlight,
+      setHighlight,
+      clearHighlight,
+
+      // Computed
+      events,
+
+      // Legacy compatibility aliases
+      highlightPost: state.highlight,
+      editHighlight: setHighlight,
+      deleteHighlight: clearHighlight,
+      fetchEventById: fetchPostById,
+      editEvent: updateEvent,
+    }),
+    [
+      state,
+      events,
+      fetchPosts,
+      fetchPostById,
+      removePost,
+      createEvent,
+      updateEvent,
+      fetchHighlight,
+      setHighlight,
+      clearHighlight,
+    ],
+  );
 
   return (
-    <PostsContext.Provider
-      value={{
-        posts,
-        setPosts,
-        fetchPosts,
-        fetchEventById,
-        loading,
-        error,
-        highlightPost,
-        editHighlight,
-        deleteHighlight,
-        createEvent,
-        editEvent,
-        removePost,
-      }}
-    >
-      {children}
-    </PostsContext.Provider>
+    <PostsContext.Provider value={value}>{children}</PostsContext.Provider>
   );
 };
 
-// Custom hook to use the PostsContext
-export const usePosts = () => {
+// ============================================================================
+// Hook
+// ============================================================================
+
+export const usePosts = (): PostsContextValue => {
   const context = useContext(PostsContext);
   if (!context) {
     throw new Error("usePosts must be used within a PostsProvider");

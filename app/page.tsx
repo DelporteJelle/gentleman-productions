@@ -30,7 +30,7 @@ const imageURLs = [
 
 export default function Home() {
   const router = useRouter();
-  const { posts, loading, error, highlightPost } = usePosts();
+  const { posts, loading, error, highlight } = usePosts();
 
   const [currentIndex, setCurrentIndex] = useState(
     Math.floor(Math.random() * imageURLs.length),
@@ -105,8 +105,8 @@ export default function Home() {
   }, [scrollY]);
 
   useEffect(() => {
-    console.log(highlightPost);
-  }, [highlightPost]);
+    console.log(highlight);
+  }, [highlight]);
 
   if (loading) return <p>Loading events...</p>;
 
@@ -161,29 +161,29 @@ export default function Home() {
             <div className={styles.ring}></div>
           </div>
         )}
-        {/**Hightlight */}
+        {/**Highlight */}
         <div className={styles.hightlight}>
           <div className={styles.glass}>
-            {highlightPost &&
-            highlightPost.post_type === DbObjectType.EVENT &&
-            highlightPost.valid_date &&
-            new Date(highlightPost.valid_date) > new Date() ? (
+            {highlight &&
+            highlight.post_type === DbObjectType.EVENT &&
+            highlight.valid_date &&
+            new Date(highlight.valid_date) > new Date() ? (
               <>
                 <div className={"title"}>
-                  {highlightPost.title}
+                  {highlight.title}
                   <div className={styles.line}></div>
                 </div>
                 <div className="bold">SAVE THE DATE</div>
                 <div className={styles.date}>
-                  {highlightPost.post_type === DbObjectType.EVENT &&
-                    (highlightPost as Event).dates.map((date, index) => (
+                  {highlight.post_type === DbObjectType.EVENT &&
+                    (highlight as Event).dates.map((date, index) => (
                       <span key={index}>
                         {new Date(date.start_time).toLocaleDateString("nl-BE", {
                           day: "numeric",
                           month: "long",
                           year: "numeric",
                         })}
-                        {index === 0 && index != highlightPost.dates.length - 1
+                        {index === 0 && index != highlight.dates.length - 1
                           ? " - "
                           : ""}
                       </span>
@@ -192,7 +192,7 @@ export default function Home() {
                 <button
                   className="btn-red"
                   onClick={() => {
-                    router.push("/event/" + highlightPost.uuid + "/ticket");
+                    router.push("/event/" + highlight.uuid + "/ticket");
                   }}
                 >
                   More Info

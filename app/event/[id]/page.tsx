@@ -14,17 +14,17 @@ import CanvasBackground from "@/components/Background/CanvasBackground";
 const EventPage = () => {
   const router = useRouter();
   const { id } = useParams();
-  const { fetchEventById, loading, error } = usePosts();
+  const { fetchPostById, loading, error } = usePosts();
   const [event, setEvent] = useState<Event | null>(null);
 
   useEffect(() => {
     const fetchPost = async () => {
-      const fetchedPost = await fetchEventById(id as string);
+      const fetchedPost = await fetchPostById(id as string);
       setEvent(fetchedPost as Event);
     };
 
     fetchPost();
-  }, [id, fetchEventById, router]);
+  }, [id, fetchPostById, router]);
 
   if (loading) return <p>Loading...</p>;
   if (error) return <p>Error: {error}</p>;
