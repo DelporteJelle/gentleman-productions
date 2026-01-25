@@ -9,7 +9,7 @@ import React, {
   useMemo,
 } from "react";
 import { Partner, TeamMember } from "@/types";
-import { CacheKeys, saveToCache, loadFromCache, clearCache } from "@/lib/cache";
+import { CacheKeys, saveToCache, loadFromCache } from "@/lib/cache";
 import {
   apiGet,
   apiPost,
@@ -17,8 +17,6 @@ import {
   apiDelete,
   notifySuccess,
   notifyError,
-  delay,
-  CACHE_INVALIDATION_DELAY,
 } from "@/lib/api";
 
 // ============================================================================
@@ -129,7 +127,7 @@ export const AboutProvider: React.FC<{ children: React.ReactNode }> = ({
       saveToCache(CacheKeys.TEAM_MEMBERS, data);
       return data;
     },
-    []
+    [],
   );
 
   const fetchPartners = useCallback(
@@ -145,7 +143,7 @@ export const AboutProvider: React.FC<{ children: React.ReactNode }> = ({
       saveToCache(CacheKeys.PARTNERS, data);
       return data;
     },
-    []
+    [],
   );
 
   const fetchData = useCallback(async () => {
@@ -182,15 +180,16 @@ export const AboutProvider: React.FC<{ children: React.ReactNode }> = ({
         const newMember = await TeamAPI.create(member);
         notifySuccess("Success", "Team member created successfully");
 
-        // Update state with new member
-        setState((prev) => ({
-          ...prev,
-          teamMembers: [...prev.teamMembers, newMember],
-          loading: false,
-        }));
-
-        // Invalidate cache
-        clearCache(CacheKeys.TEAM_MEMBERS);
+        // Update state and save to cache
+        setState((prev) => {
+          const updatedMembers = [...prev.teamMembers, newMember];
+          saveToCache(CacheKeys.TEAM_MEMBERS, updatedMembers);
+          return {
+            ...prev,
+            teamMembers: updatedMembers,
+            loading: false,
+          };
+        });
       } catch (err) {
         const message =
           err instanceof Error ? err.message : "Failed to create team member";
@@ -198,7 +197,7 @@ export const AboutProvider: React.FC<{ children: React.ReactNode }> = ({
         notifyError("Error", message);
       }
     },
-    [updateState]
+    [updateState],
   );
 
   const updateTeamMember = useCallback(
@@ -209,17 +208,18 @@ export const AboutProvider: React.FC<{ children: React.ReactNode }> = ({
         const updatedMember = await TeamAPI.update(member);
         notifySuccess("Success", "Team member updated successfully");
 
-        // Update state with updated member
-        setState((prev) => ({
-          ...prev,
-          teamMembers: prev.teamMembers.map((m) =>
-            m.uuid === updatedMember.uuid ? updatedMember : m
-          ),
-          loading: false,
-        }));
-
-        // Invalidate cache
-        clearCache(CacheKeys.TEAM_MEMBERS);
+        // Update state and save to cache
+        setState((prev) => {
+          const updatedMembers = prev.teamMembers.map((m) =>
+            m.uuid === updatedMember.uuid ? updatedMember : m,
+          );
+          saveToCache(CacheKeys.TEAM_MEMBERS, updatedMembers);
+          return {
+            ...prev,
+            teamMembers: updatedMembers,
+            loading: false,
+          };
+        });
       } catch (err) {
         const message =
           err instanceof Error ? err.message : "Failed to update team member";
@@ -227,7 +227,7 @@ export const AboutProvider: React.FC<{ children: React.ReactNode }> = ({
         notifyError("Error", message);
       }
     },
-    [updateState]
+    [updateState],
   );
 
   const deleteTeamMember = useCallback(
@@ -238,15 +238,18 @@ export const AboutProvider: React.FC<{ children: React.ReactNode }> = ({
         await TeamAPI.delete(uuid);
         notifySuccess("Success", "Team member deleted successfully");
 
-        // Remove from state
-        setState((prev) => ({
-          ...prev,
-          teamMembers: prev.teamMembers.filter((m) => m.uuid !== uuid),
-          loading: false,
-        }));
-
-        // Invalidate cache
-        clearCache(CacheKeys.TEAM_MEMBERS);
+        // Update state and save to cache
+        setState((prev) => {
+          const updatedMembers = prev.teamMembers.filter(
+            (m) => m.uuid !== uuid,
+          );
+          saveToCache(CacheKeys.TEAM_MEMBERS, updatedMembers);
+          return {
+            ...prev,
+            teamMembers: updatedMembers,
+            loading: false,
+          };
+        });
       } catch (err) {
         const message =
           err instanceof Error ? err.message : "Failed to delete team member";
@@ -254,7 +257,7 @@ export const AboutProvider: React.FC<{ children: React.ReactNode }> = ({
         notifyError("Error", message);
       }
     },
-    [updateState]
+    [updateState],
   );
 
   // ============================================================================
@@ -269,15 +272,16 @@ export const AboutProvider: React.FC<{ children: React.ReactNode }> = ({
         const newPartner = await PartnersAPI.create(partner);
         notifySuccess("Success", "Partner created successfully");
 
-        // Update state with new partner
-        setState((prev) => ({
-          ...prev,
-          partners: [...prev.partners, newPartner],
-          loading: false,
-        }));
-
-        // Invalidate cache
-        clearCache(CacheKeys.PARTNERS);
+        // Update state and save to cache
+        setState((prev) => {
+          const updatedPartners = [...prev.partners, newPartner];
+          saveToCache(CacheKeys.PARTNERS, updatedPartners);
+          return {
+            ...prev,
+            partners: updatedPartners,
+            loading: false,
+          };
+        });
       } catch (err) {
         const message =
           err instanceof Error ? err.message : "Failed to create partner";
@@ -285,7 +289,7 @@ export const AboutProvider: React.FC<{ children: React.ReactNode }> = ({
         notifyError("Error", message);
       }
     },
-    [updateState]
+    [updateState],
   );
 
   const updatePartner = useCallback(
@@ -296,17 +300,18 @@ export const AboutProvider: React.FC<{ children: React.ReactNode }> = ({
         const updatedPartner = await PartnersAPI.update(partner);
         notifySuccess("Success", "Partner updated successfully");
 
-        // Update state with updated partner
-        setState((prev) => ({
-          ...prev,
-          partners: prev.partners.map((p) =>
-            p.uuid === updatedPartner.uuid ? updatedPartner : p
-          ),
-          loading: false,
-        }));
-
-        // Invalidate cache
-        clearCache(CacheKeys.PARTNERS);
+        // Update state and save to cache
+        setState((prev) => {
+          const updatedPartners = prev.partners.map((p) =>
+            p.uuid === updatedPartner.uuid ? updatedPartner : p,
+          );
+          saveToCache(CacheKeys.PARTNERS, updatedPartners);
+          return {
+            ...prev,
+            partners: updatedPartners,
+            loading: false,
+          };
+        });
       } catch (err) {
         const message =
           err instanceof Error ? err.message : "Failed to update partner";
@@ -314,7 +319,7 @@ export const AboutProvider: React.FC<{ children: React.ReactNode }> = ({
         notifyError("Error", message);
       }
     },
-    [updateState]
+    [updateState],
   );
 
   const deletePartner = useCallback(
@@ -325,15 +330,16 @@ export const AboutProvider: React.FC<{ children: React.ReactNode }> = ({
         await PartnersAPI.delete(uuid);
         notifySuccess("Success", "Partner deleted successfully");
 
-        // Remove from state
-        setState((prev) => ({
-          ...prev,
-          partners: prev.partners.filter((p) => p.uuid !== uuid),
-          loading: false,
-        }));
-
-        // Invalidate cache
-        clearCache(CacheKeys.PARTNERS);
+        // Update state and save to cache
+        setState((prev) => {
+          const updatedPartners = prev.partners.filter((p) => p.uuid !== uuid);
+          saveToCache(CacheKeys.PARTNERS, updatedPartners);
+          return {
+            ...prev,
+            partners: updatedPartners,
+            loading: false,
+          };
+        });
       } catch (err) {
         const message =
           err instanceof Error ? err.message : "Failed to delete partner";
@@ -341,7 +347,7 @@ export const AboutProvider: React.FC<{ children: React.ReactNode }> = ({
         notifyError("Error", message);
       }
     },
-    [updateState]
+    [updateState],
   );
 
   // ============================================================================
@@ -387,7 +393,7 @@ export const AboutProvider: React.FC<{ children: React.ReactNode }> = ({
       createPartner,
       updatePartner,
       deletePartner,
-    ]
+    ],
   );
 
   return (

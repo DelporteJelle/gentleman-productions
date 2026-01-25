@@ -47,15 +47,22 @@ export async function PUT(request: Request) {
     await sql`DELETE FROM Highlight;`;
 
     // Create new highlight
-    const newHighlight = await sql`
+    await sql`
       INSERT INTO Highlight (uuid, event_uuid, valid_date)
       VALUES (${crypto.randomUUID()}, ${body.event_uuid}, ${body.valid_date})
       RETURNING *;
     `;
 
+    // Fetch the highlight with full event data
+    const highlightWithEvent = await sql`
+      SELECT Events.*, Highlight.valid_date
+      FROM Events
+      INNER JOIN Highlight ON Events.uuid = Highlight.event_uuid;
+    `;
+
     invalidateCache(CacheTags.HIGHLIGHT);
 
-    return jsonResponse(newHighlight[0]);
+    return jsonResponse(highlightWithEvent[0] || null);
   } catch (error) {
     console.error("Error updating highlight:", error);
     return errorResponse("Failed to update highlight");

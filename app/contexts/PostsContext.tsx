@@ -23,8 +23,6 @@ import {
   apiDelete,
   notifySuccess,
   notifyError,
-  delay,
-  CACHE_INVALIDATION_DELAY,
 } from "@/lib/api";
 
 // ============================================================================
@@ -86,8 +84,8 @@ const PostsAPI = {
 };
 
 const EventsAPI = {
-  async create(event: Event): Promise<{ message: string }> {
-    return apiPost<{ message: string }, Event>("/api/events", event);
+  async create(event: Event): Promise<Event> {
+    return apiPost<Event, Event>("/api/events", event);
   },
 
   async update(uuid: string, event: Event): Promise<Event> {
@@ -100,11 +98,14 @@ const HighlightAPI = {
     return apiGet<HighlightedEvent[]>("/api/highlight");
   },
 
-  async set(eventUuid: string, validDate: string): Promise<void> {
-    await apiPut("/api/highlight", {
-      event_uuid: eventUuid,
-      valid_date: validDate,
-    });
+  async set(eventUuid: string, validDate: string): Promise<HighlightedEvent> {
+    return apiPut<HighlightedEvent, { event_uuid: string; valid_date: string }>(
+      "/api/highlight",
+      {
+        event_uuid: eventUuid,
+        valid_date: validDate,
+      }
+    );
   },
 
   async clear(): Promise<void> {
@@ -200,10 +201,16 @@ export const PostsProvider: React.FC<{ children: React.ReactNode }> = ({
         await PostsAPI.delete(uuid);
         notifySuccess("Success", "Post deleted successfully");
 
-        // Invalidate cache and refetch
-        clearCache(CacheKeys.POSTS);
-        await delay(CACHE_INVALIDATION_DELAY);
-        await fetchPosts(true);
+        // Update state directly and save to cache
+        setState((prev) => {
+          const updatedPosts = prev.posts.filter((p) => p.uuid !== uuid);
+          saveToCache(CacheKeys.POSTS, updatedPosts);
+          return {
+            ...prev,
+            posts: updatedPosts,
+            loading: false,
+          };
+        });
       } catch (err) {
         const message =
           err instanceof Error ? err.message : "Failed to delete post";
@@ -211,7 +218,7 @@ export const PostsProvider: React.FC<{ children: React.ReactNode }> = ({
         notifyError("Error", message);
       }
     },
-    [fetchPosts, updateState],
+    [updateState],
   );
 
   // ============================================================================
@@ -223,13 +230,19 @@ export const PostsProvider: React.FC<{ children: React.ReactNode }> = ({
       updateState({ loading: true, error: null });
 
       try {
-        await EventsAPI.create(event);
+        const createdEvent = await EventsAPI.create(event);
         notifySuccess("Success", "Event created successfully");
 
-        // Invalidate cache and refetch
-        clearCache(CacheKeys.POSTS);
-        await delay(CACHE_INVALIDATION_DELAY);
-        await fetchPosts(true);
+        // Update state directly and save to cache
+        setState((prev) => {
+          const updatedPosts = [...prev.posts, createdEvent];
+          saveToCache(CacheKeys.POSTS, updatedPosts);
+          return {
+            ...prev,
+            posts: updatedPosts,
+            loading: false,
+          };
+        });
       } catch (err) {
         const message =
           err instanceof Error ? err.message : "Failed to create event";
@@ -237,7 +250,7 @@ export const PostsProvider: React.FC<{ children: React.ReactNode }> = ({
         notifyError("Error", message);
       }
     },
-    [fetchPosts, updateState],
+    [updateState],
   );
 
   const updateEvent = useCallback(
@@ -245,13 +258,21 @@ export const PostsProvider: React.FC<{ children: React.ReactNode }> = ({
       updateState({ loading: true, error: null });
 
       try {
-        await EventsAPI.update(uuid, event);
+        const updatedEvent = await EventsAPI.update(uuid, event);
         notifySuccess("Success", "Event updated successfully");
 
-        // Invalidate cache and refetch
-        clearCache(CacheKeys.POSTS);
-        await delay(CACHE_INVALIDATION_DELAY);
-        await fetchPosts(true);
+        // Update state directly and save to cache
+        setState((prev) => {
+          const updatedPosts = prev.posts.map((p) =>
+            p.uuid === uuid ? updatedEvent : p
+          );
+          saveToCache(CacheKeys.POSTS, updatedPosts);
+          return {
+            ...prev,
+            posts: updatedPosts,
+            loading: false,
+          };
+        });
       } catch (err) {
         const message =
           err instanceof Error ? err.message : "Failed to update event";
@@ -259,7 +280,7 @@ export const PostsProvider: React.FC<{ children: React.ReactNode }> = ({
         notifyError("Error", message);
       }
     },
-    [fetchPosts, updateState],
+    [updateState],
   );
 
   // ============================================================================
@@ -307,13 +328,12 @@ export const PostsProvider: React.FC<{ children: React.ReactNode }> = ({
         new Date(Date.now() + 365 * 24 * 60 * 60 * 1000).toISOString();
 
       try {
-        await HighlightAPI.set(eventUuid, date);
+        const updatedHighlight = await HighlightAPI.set(eventUuid, date);
         notifySuccess("Success", "Highlight updated successfully");
 
-        // Invalidate cache and refetch
-        clearCache(CacheKeys.HIGHLIGHT);
-        await delay(CACHE_INVALIDATION_DELAY);
-        await fetchHighlight(true);
+        // Update state and cache directly
+        saveToCache(CacheKeys.HIGHLIGHT, updatedHighlight);
+        updateState({ highlight: updatedHighlight, loading: false });
       } catch (err) {
         const message =
           err instanceof Error ? err.message : "Failed to update highlight";
@@ -321,7 +341,7 @@ export const PostsProvider: React.FC<{ children: React.ReactNode }> = ({
         notifyError("Error", message);
       }
     },
-    [fetchHighlight, updateState],
+    [updateState],
   );
 
   const clearHighlight = useCallback(async () => {
@@ -331,17 +351,16 @@ export const PostsProvider: React.FC<{ children: React.ReactNode }> = ({
       await HighlightAPI.clear();
       notifySuccess("Success", "Highlight cleared successfully");
 
-      // Invalidate cache and refetch
+      // Update state and cache directly
       clearCache(CacheKeys.HIGHLIGHT);
-      await delay(CACHE_INVALIDATION_DELAY);
-      await fetchHighlight(true);
+      updateState({ highlight: null, loading: false });
     } catch (err) {
       const message =
         err instanceof Error ? err.message : "Failed to clear highlight";
       updateState({ error: message, loading: false });
       notifyError("Error", message);
     }
-  }, [fetchHighlight, updateState]);
+  }, [updateState]);
 
   // ============================================================================
   // Computed Values

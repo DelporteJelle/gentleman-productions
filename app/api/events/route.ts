@@ -37,7 +37,7 @@ export async function POST(request: Request) {
     `;
 
     // Insert into events table
-    await sql`
+    const createdEvent = await sql`
       INSERT INTO events (
         created_at, updated_at, created_by, uuid, title,
         post_type, description, display_image, images,
@@ -54,12 +54,13 @@ export async function POST(request: Request) {
         ${body.images},
         ${JSON.stringify(body.eventlocation)},
         ${JSON.stringify(body.dates)}
-      );
+      )
+      RETURNING *;
     `;
 
     invalidateCache(CacheTags.POSTS);
 
-    return jsonResponse({ message: "Event created successfully" }, 201);
+    return jsonResponse(createdEvent[0], 201);
   } catch (error) {
     console.error("Error creating event:", error);
     return errorResponse("Failed to create event");
