@@ -220,7 +220,7 @@ export default function Home() {
                     new Date(a.created_at).getTime(),
                 )
                 .map((post: Post, index: number) => (
-                  <div key={post.uuid}>
+                  <div key={post.uuid} style={{ width: "100%" }}>
                     <Group
                       justify={"center"}
                       mt={200}
