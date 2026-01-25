@@ -77,32 +77,38 @@ export default function Home() {
     };
   }, [hasScrolled]);
 
-  //Adjust CanvasBackground position based on scroll direction
-  const [canvasInFront, setCanvasInFront] = useState(false); // Track if CanvasBackground should move in front
-  const [scrollY, setScrollY] = useState(0); // Track the current scroll position
-  const [scrollDirection, setScrollDirection] = useState<"up" | "down" | null>(
-    null,
-  ); // Track scroll direction
+  // Track scroll position for CanvasBackground parallax effect
+  const [scrollY, setScrollY] = useState(0);
+  const [viewportHeight, setViewportHeight] = useState(0);
 
   useEffect(() => {
+    // Set initial viewport height
+    setViewportHeight(window.innerHeight);
+
+    const handleResize = () => {
+      setViewportHeight(window.innerHeight);
+    };
+
     const handleScroll = () => {
-      const currentScrollY = window.scrollY;
-
-      // Determine scroll direction
-      if (currentScrollY > scrollY) {
-        setScrollDirection("down");
-      } else if (currentScrollY < scrollY) {
-        setScrollDirection("up");
-      }
-
-      setScrollY(currentScrollY);
-
-      setCanvasInFront(currentScrollY > 500); // Adjust the threshold as needed
+      setScrollY(window.scrollY);
     };
 
     window.addEventListener("scroll", handleScroll);
-    return () => window.removeEventListener("scroll", handleScroll);
-  }, [scrollY]);
+    window.addEventListener("resize", handleResize);
+
+    return () => {
+      window.removeEventListener("scroll", handleScroll);
+      window.removeEventListener("resize", handleResize);
+    };
+  }, []);
+
+  // Calculate canvas transform - scrolls with page until it covers viewport, then stays fixed
+  const canvasTransform =
+    viewportHeight > 0
+      ? scrollY >= viewportHeight
+        ? "translateY(0)" // Fully covering - stay fixed at top
+        : `translateY(${viewportHeight - scrollY}px)` // Scroll with content
+      : "translateY(100%)";
 
   useEffect(() => {
     console.log(highlight);
@@ -128,7 +134,7 @@ export default function Home() {
           }}
         />
       </div>
-      {/* Canvas Background */}
+      {/* Canvas Background - scrolls with page then becomes fixed */}
       <div
         style={{
           position: "fixed",
@@ -136,13 +142,8 @@ export default function Home() {
           left: 0,
           width: "100%",
           height: "100%",
-          zIndex: -1, // Keep it above the background image
-          transform: canvasInFront
-            ? "translateY(0)" // Fully visible when scrolled down
-            : scrollDirection === "up"
-              ? "translateY(100%)" // Move up when scrolling up
-              : "translateY(100%)", // Move down when scrolling down
-          transition: "transform 0.5s ease", // Smooth transition for movement
+          zIndex: -1,
+          transform: canvasTransform,
         }}
       >
         <CanvasBackground />
