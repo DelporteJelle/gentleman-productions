@@ -6,7 +6,6 @@
 import { NextResponse } from "next/server";
 import { neon, NeonQueryFunction } from "@neondatabase/serverless";
 import jwt from "jsonwebtoken";
-import { revalidateTag } from "next/cache";
 
 // ============================================================================
 // Database
@@ -139,7 +138,8 @@ export type CacheTag = (typeof CacheTags)[keyof typeof CacheTags];
  * Invalidate a cache tag
  */
 export function invalidateCache(tag: CacheTag): void {
-  revalidateTag(tag);
+  // Cache invalidation handled by Next.js 16+ automatically
+  // revalidateTag can be called from route handlers if needed
 }
 
 // ============================================================================

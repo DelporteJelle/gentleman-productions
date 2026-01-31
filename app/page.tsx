@@ -32,11 +32,14 @@ export default function Home() {
   const router = useRouter();
   const { posts, loading, error, highlight } = usePosts();
 
-  const [currentIndex, setCurrentIndex] = useState(
-    Math.floor(Math.random() * imageURLs.length),
-  );
+  const [currentIndex, setCurrentIndex] = useState(0);
+  const [isHydrated, setIsHydrated] = useState(false);
 
   useEffect(() => {
+    // Initialize with random index after hydration
+    setCurrentIndex(Math.floor(Math.random() * imageURLs.length));
+    setIsHydrated(true);
+
     const intervalId = setInterval(() => {
       setCurrentIndex((prevIndex) => (prevIndex + 1) % imageURLs.length);
     }, 60000);
