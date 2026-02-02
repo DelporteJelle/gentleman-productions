@@ -1,6 +1,7 @@
 import { neon } from "@neondatabase/serverless";
 import bcrypt from "bcrypt";
 import jwt from "jsonwebtoken";
+import { checkRateLimit, getClientIp } from "@/lib/rateLimit";
 
 const sql = neon(process.env.DATABASE_URL!);
 
@@ -9,6 +10,23 @@ export async function POST(req: Request) {
     const { username, password } = await req.json();
     if (!username || !password) {
       return new Response("Missing credentials", { status: 400 });
+    }
+
+    // Rate limiting: Max 5 attempts per 15 minutes per IP
+    const clientIp = getClientIp(req);
+    const rateLimit = checkRateLimit(`login:${clientIp}`, 5, 15 * 60 * 1000);
+
+    if (!rateLimit.allowed) {
+      const retryAfter = Math.ceil((rateLimit.resetAt - Date.now()) / 1000);
+      return new Response("Too many login attempts. Please try again later.", {
+        status: 429,
+        headers: {
+          "Retry-After": retryAfter.toString(),
+          "X-RateLimit-Limit": "5",
+          "X-RateLimit-Remaining": "0",
+          "X-RateLimit-Reset": new Date(rateLimit.resetAt).toISOString(),
+        },
+      });
     }
 
     // Query user from database
@@ -44,7 +62,7 @@ export async function POST(req: Request) {
       "HttpOnly",
       "Path=/",
       "Max-Age=604800", // 7 days
-      "SameSite=Lax",
+      "SameSite=Strict", // Changed from Lax to Strict for better CSRF protection
       isProduction ? "Secure" : "",
     ]
       .filter(Boolean)
@@ -55,6 +73,10 @@ export async function POST(req: Request) {
       headers: {
         "Set-Cookie": cookieOptions,
         "Content-Type": "application/json",
+        // Security headers
+        "X-Content-Type-Options": "nosniff",
+        "X-Frame-Options": "DENY",
+        "Strict-Transport-Security": "max-age=31536000; includeSubDomains",
       },
     });
   } catch (err) {
