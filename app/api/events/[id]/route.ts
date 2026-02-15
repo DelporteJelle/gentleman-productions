@@ -1,51 +1,51 @@
-import { NextResponse } from "next/server";
-import { neon } from "@neondatabase/serverless";
+import { Event } from "@/types";
+import {
+  getDb,
+  jsonResponse,
+  errorResponse,
+  requireAuth,
+  parseBody,
+  getPathId,
+  invalidateCache,
+  CacheTags,
+} from "@/lib/server/api";
 
 export async function GET(request: Request) {
-  console.log("Fetching event from database");
-  const sql = neon(process.env.DATABASE_URL!);
-  const url = new URL(request.url);
-  const id = url.pathname.split("/").pop();
+  const sql = getDb();
+  const id = getPathId(request);
 
   if (!id) {
-    return NextResponse.json({ error: "ID is required" }, { status: 400 });
+    return errorResponse("ID is required", 400);
   }
 
   try {
-    // Fetch the event from the database
-    const event = await sql`
-      SELECT * FROM events WHERE uuid = ${id};
-    `;
+    const event = await sql`SELECT * FROM events WHERE uuid = ${id};`;
 
-    if (event.length > 0) {
-      // Store the fetched event in the cache with a 1-week expiry
-      return NextResponse.json(event[0]);
-    } else {
-      return NextResponse.json({ error: "Event not found" }, { status: 404 });
+    if (event.length === 0) {
+      return errorResponse("Event not found", 404);
     }
+
+    return jsonResponse(event[0]);
   } catch (error) {
     console.error("Error fetching event:", error);
-    return NextResponse.json(
-      { error: "Failed to fetch event" },
-      { status: 500 },
-    );
+    return errorResponse("Failed to fetch event");
   }
 }
 
 export async function PUT(request: Request) {
-  console.log("Updating event in database");
-  const sql = neon(process.env.DATABASE_URL!);
-  const url = new URL(request.url);
-  const id = url.pathname.split("/").pop();
+  const authError = requireAuth(request);
+  if (authError) return authError;
+
+  const sql = getDb();
+  const id = getPathId(request);
 
   if (!id) {
-    return NextResponse.json({ error: "ID is required" }, { status: 400 });
+    return errorResponse("ID is required", 400);
   }
 
   try {
-    const body = await request.json();
+    const body = await parseBody<Event>(request);
 
-    // Update the entire event entry, overwriting all fields
     await sql`
       UPDATE events SET
         created_at = ${body.created_at || new Date().toISOString()},
@@ -61,21 +61,17 @@ export async function PUT(request: Request) {
       WHERE uuid = ${id};
     `;
 
-    // Fetch and return the updated event
-    const updatedEvent = await sql`
-      SELECT * FROM events WHERE uuid = ${id};
-    `;
+    const updatedEvent = await sql`SELECT * FROM events WHERE uuid = ${id};`;
 
     if (updatedEvent.length === 0) {
-      return NextResponse.json({ error: "Event not found" }, { status: 404 });
+      return errorResponse("Event not found", 404);
     }
 
-    return NextResponse.json(updatedEvent[0]);
+    invalidateCache(CacheTags.POSTS);
+
+    return jsonResponse(updatedEvent[0]);
   } catch (error) {
     console.error("Error updating event:", error);
-    return NextResponse.json(
-      { error: "Failed to update event" },
-      { status: 500 },
-    );
+    return errorResponse("Failed to update event");
   }
 }

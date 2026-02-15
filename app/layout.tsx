@@ -1,6 +1,6 @@
 "use client";
 
-import "/variables.css";
+import "../variables.css";
 import "./globals.css";
 import "@mantine/core/styles.css";
 import "@mantine/dates/styles.css";
@@ -24,7 +24,7 @@ const RootLayout: React.FC<React.PropsWithChildren> = ({ children }) => {
   const [opened, { toggle }] = useDisclosure(false);
 
   return (
-    <html lang="en">
+    <html lang="en" suppressHydrationWarning>
       <head>
         <ColorSchemeScript />
       </head>

@@ -1,80 +1,87 @@
-import { NextResponse } from "next/server";
-import { neon } from "@neondatabase/serverless";
+import { EventHighlight } from "@/types";
+import {
+  getDb,
+  jsonResponse,
+  errorResponse,
+  cachedResponse,
+  requireAuth,
+  parseBody,
+  invalidateCache,
+  CacheTags,
+} from "@/lib/server/api";
 
-const sql = neon(process.env.DATABASE_URL!);
+// Cache for 7 days with tags for manual revalidation
+export const revalidate = 604800;
 
-// GET: Fetch the highlight and its linked event from the database
 export async function GET() {
-  console.log("Fetching highlight");
+  const sql = getDb();
+
   try {
     const highlightWithEvent = await sql`
       SELECT Events.*, Highlight.valid_date
       FROM Events
       INNER JOIN Highlight ON Events.uuid = Highlight.event_uuid;
     `;
-    return NextResponse.json(highlightWithEvent);
+
+    return cachedResponse(highlightWithEvent);
   } catch (error) {
-    console.error("Error fetching highlight with event:", error);
-    return NextResponse.json(
-      { error: "Failed to fetch highlight with event" },
-      { status: 500 },
-    );
+    console.error("Error fetching highlight:", error);
+    return errorResponse("Failed to fetch highlight");
   }
 }
 
-export async function DELETE() {
-  try {
-    // Delete the existing highlight
-    await sql`
-      DELETE FROM Highlight;
-    `;
-
-    return NextResponse.json(
-      { message: "Highlight deleted successfully" },
-      {
-        status: 200,
-      },
-    );
-  } catch (error) {
-    console.error("Error deleting highlight:", error);
-    return NextResponse.json(
-      { error: "Failed to delete highlight" },
-      { status: 500 },
-    );
-  }
-}
-
-// PUT: Update an existing highlight
 export async function PUT(request: Request) {
-  try {
-    const body = await request.json();
+  const authError = requireAuth(request);
+  if (authError) return authError;
 
-    // Validate the request body
+  const sql = getDb();
+
+  try {
+    const body = await parseBody<{ event_uuid: string; valid_date: string }>(request);
+
     if (!body.event_uuid || !body.valid_date) {
-      return NextResponse.json(
-        { error: "UUID, event UUID, and valid date are required" },
-        { status: 400 },
-      );
+      return errorResponse("Event UUID and valid date are required", 400);
     }
 
-    // Delete the existing highlight
-    await sql`
-      DELETE FROM Highlight;
-    `;
+    // Delete existing highlight
+    await sql`DELETE FROM Highlight;`;
 
-    // Create a new highlight
-    const newHighlight = await sql`
+    // Create new highlight
+    await sql`
       INSERT INTO Highlight (uuid, event_uuid, valid_date)
       VALUES (${crypto.randomUUID()}, ${body.event_uuid}, ${body.valid_date})
       RETURNING *;
     `;
 
-    return NextResponse.json(newHighlight[0], { status: 200 });
+    // Fetch the highlight with full event data
+    const highlightWithEvent = await sql`
+      SELECT Events.*, Highlight.valid_date
+      FROM Events
+      INNER JOIN Highlight ON Events.uuid = Highlight.event_uuid;
+    `;
+
+    invalidateCache(CacheTags.HIGHLIGHT);
+
+    return jsonResponse(highlightWithEvent[0] || null);
   } catch (error) {
-    console.error("Error replacing highlight:", error);
-    return NextResponse.json(
-      { error: "Failed to replace highlight" },
-      { status: 500 },
-    );
+    console.error("Error updating highlight:", error);
+    return errorResponse("Failed to update highlight");
+  }
+}
+
+export async function DELETE(request: Request) {
+  const authError = requireAuth(request);
+  if (authError) return authError;
+
+  const sql = getDb();
+
+  try {
+    await sql`DELETE FROM Highlight;`;
+    invalidateCache(CacheTags.HIGHLIGHT);
+
+    return jsonResponse({ message: "Highlight deleted successfully" });
+  } catch (error) {
+    console.error("Error deleting highlight:", error);
+    return errorResponse("Failed to delete highlight");
   }
 }

@@ -18,27 +18,30 @@ import { usePosts } from "./contexts/PostsContext";
 
 gsap.registerPlugin(useGSAP, ScrollTrigger, ScrollToPlugin);
 
-const images = [
-  "Banner_2.jpg",
-  "Banner_4.jpg",
-  "Banner_6.jpg",
-  "Banner_7.jpg",
-  "Banner_8.jpg",
-  "Banner_9.jpg",
-  "Banner_11.jpg",
+const imageURLs = [
+  "https://1drv.ms/i/c/09de1e7f62bf5ef8/IQSFbd-6MNcrRaiBa37gLaALATt5LWXcKeBxdeNE4Y5gia8?width=2550",
+  "https://1drv.ms/i/c/09de1e7f62bf5ef8/IQQa_tmQCWyXQqecQexVlm_sAc2T-5n1GQdyBNAvWn53Gac?width=2550",
+  "https://1drv.ms/i/c/09de1e7f62bf5ef8/IQTC1CjKqjpCT79VBxkYtWv4AW79ZTEsx0KBVLR7IlJk3WM?width=2550",
+  "https://1drv.ms/i/c/09de1e7f62bf5ef8/IQRiqOB-Fw1fRaxp8a94tW7IAYXy4_5cD_M3UXbJ_UZ_sdg?width=2550",
+  "https://1drv.ms/i/c/09de1e7f62bf5ef8/IQRnbZ9Pk_h0S42Ir3ymNXgQAdVnE8kZoEttm6VDD64KsJw?width=2550",
+  "https://1drv.ms/i/c/09de1e7f62bf5ef8/IQSC9sibt3BwTb7sMlTVucr9AeD_ksICAbs6Nu1gwI_ubXY?width=2550",
+  "https://1drv.ms/i/c/09de1e7f62bf5ef8/IQQ-I_YDmtHwRKkmn5kSXiWhAbgKBAk876JZ0tOVwc_ooXs?width=2550",
 ];
 
 export default function Home() {
   const router = useRouter();
-  const { posts, loading, error, highlightPost } = usePosts();
+  const { posts, loading, error, highlight } = usePosts();
 
-  const [currentIndex, setCurrentIndex] = useState(
-    Math.floor(Math.random() * images.length),
-  );
+  const [currentIndex, setCurrentIndex] = useState(0);
+  const [isHydrated, setIsHydrated] = useState(false);
 
   useEffect(() => {
+    // Initialize with random index after hydration
+    setCurrentIndex(Math.floor(Math.random() * imageURLs.length));
+    setIsHydrated(true);
+
     const intervalId = setInterval(() => {
-      setCurrentIndex((prevIndex) => (prevIndex + 1) % images.length);
+      setCurrentIndex((prevIndex) => (prevIndex + 1) % imageURLs.length);
     }, 60000);
 
     return () => clearInterval(intervalId);
@@ -77,36 +80,42 @@ export default function Home() {
     };
   }, [hasScrolled]);
 
-  //Adjust CanvasBackground position based on scroll direction
-  const [canvasInFront, setCanvasInFront] = useState(false); // Track if CanvasBackground should move in front
-  const [scrollY, setScrollY] = useState(0); // Track the current scroll position
-  const [scrollDirection, setScrollDirection] = useState<"up" | "down" | null>(
-    null,
-  ); // Track scroll direction
+  // Track scroll position for CanvasBackground parallax effect
+  const [scrollY, setScrollY] = useState(0);
+  const [viewportHeight, setViewportHeight] = useState(0);
 
   useEffect(() => {
+    // Set initial viewport height
+    setViewportHeight(window.innerHeight);
+
+    const handleResize = () => {
+      setViewportHeight(window.innerHeight);
+    };
+
     const handleScroll = () => {
-      const currentScrollY = window.scrollY;
-
-      // Determine scroll direction
-      if (currentScrollY > scrollY) {
-        setScrollDirection("down");
-      } else if (currentScrollY < scrollY) {
-        setScrollDirection("up");
-      }
-
-      setScrollY(currentScrollY);
-
-      setCanvasInFront(currentScrollY > 500); // Adjust the threshold as needed
+      setScrollY(window.scrollY);
     };
 
     window.addEventListener("scroll", handleScroll);
-    return () => window.removeEventListener("scroll", handleScroll);
-  }, [scrollY]);
+    window.addEventListener("resize", handleResize);
+
+    return () => {
+      window.removeEventListener("scroll", handleScroll);
+      window.removeEventListener("resize", handleResize);
+    };
+  }, []);
+
+  // Calculate canvas transform - scrolls with page until it covers viewport, then stays fixed
+  const canvasTransform =
+    viewportHeight > 0
+      ? scrollY >= viewportHeight
+        ? "translateY(0)" // Fully covering - stay fixed at top
+        : `translateY(${viewportHeight - scrollY}px)` // Scroll with content
+      : "translateY(100%)";
 
   useEffect(() => {
-    console.log(highlightPost);
-  }, [highlightPost]);
+    console.log(highlight);
+  }, [highlight]);
 
   if (loading) return <p>Loading events...</p>;
 
@@ -115,7 +124,7 @@ export default function Home() {
       {/*Background Image*/}
       <div className={styles.imageContainer}>
         <Image
-          src={`/api/images/${images[currentIndex]}`}
+          src={imageURLs[currentIndex]}
           alt={"highlight"}
           style={{
             objectFit: "cover",
@@ -128,7 +137,7 @@ export default function Home() {
           }}
         />
       </div>
-      {/* Canvas Background */}
+      {/* Canvas Background - scrolls with page then becomes fixed */}
       <div
         style={{
           position: "fixed",
@@ -136,13 +145,8 @@ export default function Home() {
           left: 0,
           width: "100%",
           height: "100%",
-          zIndex: -1, // Keep it above the background image
-          transform: canvasInFront
-            ? "translateY(0)" // Fully visible when scrolled down
-            : scrollDirection === "up"
-              ? "translateY(100%)" // Move up when scrolling up
-              : "translateY(100%)", // Move down when scrolling down
-          transition: "transform 0.5s ease", // Smooth transition for movement
+          zIndex: -1,
+          transform: canvasTransform,
         }}
       >
         <CanvasBackground />
@@ -161,29 +165,29 @@ export default function Home() {
             <div className={styles.ring}></div>
           </div>
         )}
-        {/**Hightlight */}
+        {/**Highlight */}
         <div className={styles.hightlight}>
           <div className={styles.glass}>
-            {highlightPost &&
-            highlightPost.post_type === DbObjectType.EVENT &&
-            highlightPost.valid_date &&
-            new Date(highlightPost.valid_date) > new Date() ? (
+            {highlight &&
+            highlight.post_type === DbObjectType.EVENT &&
+            highlight.valid_date &&
+            new Date(highlight.valid_date) > new Date() ? (
               <>
                 <div className={"title"}>
-                  {highlightPost.title}
+                  {highlight.title}
                   <div className={styles.line}></div>
                 </div>
                 <div className="bold">SAVE THE DATE</div>
                 <div className={styles.date}>
-                  {highlightPost.post_type === DbObjectType.EVENT &&
-                    (highlightPost as Event).dates.map((date, index) => (
+                  {highlight.post_type === DbObjectType.EVENT &&
+                    (highlight as Event).dates.map((date, index) => (
                       <span key={index}>
                         {new Date(date.start_time).toLocaleDateString("nl-BE", {
                           day: "numeric",
                           month: "long",
                           year: "numeric",
                         })}
-                        {index === 0 && index != highlightPost.dates.length - 1
+                        {index === 0 && index != highlight.dates.length - 1
                           ? " - "
                           : ""}
                       </span>
@@ -192,7 +196,7 @@ export default function Home() {
                 <button
                   className="btn-red"
                   onClick={() => {
-                    router.push("/event/" + highlightPost.uuid + "/ticket");
+                    router.push("/event/" + highlight.uuid + "/ticket");
                   }}
                 >
                   More Info
@@ -219,7 +223,7 @@ export default function Home() {
                     new Date(a.created_at).getTime(),
                 )
                 .map((post: Post, index: number) => (
-                  <div key={post.uuid}>
+                  <div key={post.uuid} style={{ width: "100%" }}>
                     <Group
                       justify={"center"}
                       mt={200}

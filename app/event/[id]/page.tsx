@@ -8,22 +8,23 @@ import { Group, Image, px, Stack } from "@mantine/core";
 import { useRouter } from "next/navigation";
 import Masonry, { ResponsiveMasonry } from "react-responsive-masonry";
 import { usePosts } from "@/app/contexts/PostsContext";
+import CanvasBackground from "@/components/Background/CanvasBackground";
 
 // Define the page component
 const EventPage = () => {
   const router = useRouter();
   const { id } = useParams();
-  const { fetchEventById, loading, error } = usePosts();
+  const { fetchPostById, loading, error } = usePosts();
   const [event, setEvent] = useState<Event | null>(null);
 
   useEffect(() => {
     const fetchPost = async () => {
-      const fetchedPost = await fetchEventById(id as string);
+      const fetchedPost = await fetchPostById(id as string);
       setEvent(fetchedPost as Event);
     };
 
     fetchPost();
-  }, [id, fetchEventById, router]);
+  }, [id, fetchPostById, router]);
 
   if (loading) return <p>Loading...</p>;
   if (error) return <p>Error: {error}</p>;
@@ -31,6 +32,18 @@ const EventPage = () => {
 
   return (
     <div>
+      <div
+        style={{
+          position: "fixed",
+          top: 0,
+          left: 0,
+          width: "100%",
+          height: "100%",
+          zIndex: -1,
+        }}
+      >
+        <CanvasBackground />
+      </div>
       <ResponsiveMasonry
         columnsCountBreakPoints={{ 450: 1, 900: 2, 1350: 3, 1800: 4 }}
       >

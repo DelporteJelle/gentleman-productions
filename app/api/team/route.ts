@@ -1,83 +1,87 @@
-import { NextResponse } from "next/server";
-import { neon } from "@neondatabase/serverless";
+import { TeamMember } from "@/types";
+import {
+  getDb,
+  jsonResponse,
+  errorResponse,
+  requireAuth,
+  parseBody,
+  getQueryParam,
+  invalidateCache,
+  CacheTags,
+} from "@/lib/server/api";
 
-const sql = neon(process.env.DATABASE_URL!);
-
-// GET: Fetch all team members
 export async function GET() {
-  console.log("Fetching all team members");
+  const sql = getDb();
+
   try {
-    const teamMembers = await sql`
-      SELECT * FROM members;
-    `;
-    return NextResponse.json(teamMembers);
+    const teamMembers = await sql`SELECT * FROM members;`;
+    return jsonResponse(teamMembers);
   } catch (error) {
     console.error("Error fetching team members:", error);
-    return NextResponse.json(
-      { error: "Failed to fetch team members" },
-      { status: 500 },
-    );
+    return errorResponse("Failed to fetch team members");
   }
 }
 
-// POST: Create a new team member
 export async function POST(request: Request) {
-  console.log("Creating team member in database");
+  const authError = requireAuth(request);
+  if (authError) return authError;
+
+  const sql = getDb();
+
   try {
-    const body = await request.json();
+    const body = await parseBody<TeamMember>(request);
 
-    console.log("Request body:", body);
-
-    // Validate the request body
     if (!body.member_name || !body.member_role) {
-      return NextResponse.json(
-        { error: "Name and role are required" },
-        { status: 400 },
-      );
+      return errorResponse("Name and role are required", 400);
     }
 
     const newMember = await sql`
-      INSERT INTO members (uuid, created_at, member_name, member_role, image, email, linkedin, instagram, facebook, twitter, website)
-      VALUES (${body.uuid || crypto.randomUUID()}, ${body.created_at} ,${
-        body.member_name
-      }, ${body.member_role}, ${body.image_url || null}, ${
-        body.email || null
-      }, ${body.linkedin || null}, ${body.instagram || null}, ${
-        body.facebook || null
-      }, ${body.twitter || null}, ${body.website || null})
+      INSERT INTO members (
+        uuid, created_at, member_name, member_role, image,
+        email, linkedin, instagram, facebook, twitter, website
+      ) VALUES (
+        ${body.uuid || crypto.randomUUID()},
+        ${body.created_at || new Date().toISOString()},
+        ${body.member_name},
+        ${body.member_role},
+        ${body.image || null},
+        ${body.email || null},
+        ${body.linkedin || null},
+        ${body.instagram || null},
+        ${body.facebook || null},
+        ${body.twitter || null},
+        ${body.website || null}
+      )
       RETURNING *;
     `;
 
-    return NextResponse.json(newMember[0], { status: 201 });
+    invalidateCache(CacheTags.TEAM);
+
+    return jsonResponse(newMember[0], 201);
   } catch (error) {
     console.error("Error creating team member:", error);
-    return NextResponse.json(
-      { error: "Failed to create team member" },
-      { status: 500 },
-    );
+    return errorResponse("Failed to create team member");
   }
 }
 
-// PUT: Update an existing team member
 export async function PUT(request: Request) {
-  console.log("Updating team member in database");
-  try {
-    const body = await request.json();
+  const authError = requireAuth(request);
+  if (authError) return authError;
 
-    // Validate the request body
+  const sql = getDb();
+
+  try {
+    const body = await parseBody<TeamMember>(request);
+
     if (!body.uuid || !body.member_name || !body.member_role) {
-      return NextResponse.json(
-        { error: "uuid, name, and role are required" },
-        { status: 400 },
-      );
+      return errorResponse("UUID, name, and role are required", 400);
     }
 
     const updatedMember = await sql`
-      UPDATE members
-      SET 
+      UPDATE members SET
         member_name = ${body.member_name},
         member_role = ${body.member_role},
-        image = ${body.image_url || null},
+        image = ${body.image || null},
         email = ${body.email || null},
         linkedin = ${body.linkedin || null},
         instagram = ${body.instagram || null},
@@ -90,56 +94,46 @@ export async function PUT(request: Request) {
     `;
 
     if (updatedMember.length === 0) {
-      return NextResponse.json(
-        { error: "Team member not found" },
-        { status: 404 },
-      );
+      return errorResponse("Team member not found", 404);
     }
 
-    return NextResponse.json(updatedMember[0], { status: 200 });
+    invalidateCache(CacheTags.TEAM);
+
+    return jsonResponse(updatedMember[0]);
   } catch (error) {
     console.error("Error updating team member:", error);
-    return NextResponse.json(
-      { error: "Failed to update team member" },
-      { status: 500 },
-    );
+    return errorResponse("Failed to update team member");
   }
 }
 
-// DELETE: Remove a team member
 export async function DELETE(request: Request) {
-  console.log("Deleting team member from database");
+  const authError = requireAuth(request);
+  if (authError) return authError;
+
+  const sql = getDb();
+  const uuid = getQueryParam(request, "uuid");
+
+  if (!uuid) {
+    return errorResponse("UUID is required", 400);
+  }
+
   try {
-    const { searchParams } = new URL(request.url);
-    const id = searchParams.get("uuid");
-
-    // Validate the request
-    if (!id) {
-      return NextResponse.json({ error: "uuid is required" }, { status: 400 });
-    }
-
     const deletedMember = await sql`
-      DELETE FROM members
-      WHERE uuid = ${id}
-      RETURNING *;
+      DELETE FROM members WHERE uuid = ${uuid} RETURNING *;
     `;
 
     if (deletedMember.length === 0) {
-      return NextResponse.json(
-        { error: "Team member not found" },
-        { status: 404 },
-      );
+      return errorResponse("Team member not found", 404);
     }
 
-    return NextResponse.json(
-      { message: "Team member deleted successfully", member: deletedMember[0] },
-      { status: 200 },
-    );
+    invalidateCache(CacheTags.TEAM);
+
+    return jsonResponse({
+      message: "Team member deleted successfully",
+      member: deletedMember[0],
+    });
   } catch (error) {
     console.error("Error deleting team member:", error);
-    return NextResponse.json(
-      { error: "Failed to delete team member" },
-      { status: 500 },
-    );
+    return errorResponse("Failed to delete team member");
   }
 }

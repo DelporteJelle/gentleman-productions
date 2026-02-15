@@ -19,8 +19,15 @@ export default function PostsPage() {
   const [modalOpened, setModalOpened] = useState(false); // Modal state
   const [eventToEdit, setEventToEdit] = useState<Event | undefined>(undefined); // Event to edit
 
-  const { posts, loading, error, setPosts, editHighlight, removePost } =
-    usePosts();
+  const {
+    posts,
+    loading,
+    error,
+    setHighlight,
+    removePost,
+    highlight,
+    clearHighlight,
+  } = usePosts();
 
   const handleEdit = (uuid: string) => {
     const event = posts.find((post) => post.uuid === uuid) as Event;
@@ -67,7 +74,9 @@ export default function PostsPage() {
                 post,
                 handleEdit,
                 removePost,
-                editHighlight,
+                setHighlight,
+                clearHighlight,
+                highlight,
                 index,
               );
             })}
@@ -115,9 +124,21 @@ const postWrapper = (
   post: Post,
   onEdit: (uuid: string) => void,
   onRemove: (uuid: string) => void,
-  editHighlight: (uuid: string, value: any) => void,
+  setHighlight: (uuid: string, value?: string) => void,
+  clearHighlight: () => void,
+  highlight: Post | null,
   index: number,
 ) => {
+  const isHighlighted = highlight?.uuid === post.uuid;
+
+  const handleHighlightToggle = () => {
+    if (isHighlighted) {
+      clearHighlight();
+    } else {
+      setHighlight(post.uuid, undefined);
+    }
+  };
+
   return (
     <div key={post.uuid} style={{ position: "relative", margin: 8 }}>
       <div
@@ -130,11 +151,17 @@ const postWrapper = (
           gap: 8,
         }}
       >
-        <Tooltip label="Set this post as highlight" position="top" withArrow>
+        <Tooltip
+          label={
+            isHighlighted ? "Remove highlight" : "Set this post as highlight"
+          }
+          position="top"
+          withArrow
+        >
           <ActionIcon
-            color="blue"
-            variant="light"
-            onClick={() => editHighlight(post.uuid, undefined)}
+            color={isHighlighted ? "yellow" : "blue"}
+            variant={isHighlighted ? "filled" : "light"}
+            onClick={handleHighlightToggle}
           >
             <IconFlagStar size={20} />
           </ActionIcon>

@@ -4,9 +4,10 @@ import { Image } from "@mantine/core";
 import styles from "./EventCard.module.css";
 import { useRouter } from "next/navigation";
 import { Event } from "@/types";
-import React, { createRef, useEffect, useRef } from "react";
+import React, { createRef, useEffect, useRef, useState } from "react";
 import { gsap } from "gsap";
 import TextPlugin from "gsap/TextPlugin";
+import { IconPhotoOff } from "@tabler/icons-react";
 interface props {
   event: Event;
   index: any;
@@ -20,6 +21,19 @@ export default function ImageTextCard({ event, index }: props) {
   const dateRef = useRef(null);
   const descriptionRef = useRef(null);
   const btnRef = useRef(null);
+  const [imageLoaded, setImageLoaded] = useState(false);
+  const [imageError, setImageError] = useState(false);
+
+  // Set a timeout for image loading
+  useEffect(() => {
+    const timeout = setTimeout(() => {
+      if (!imageLoaded) {
+        setImageError(true);
+      }
+    }, 10000); // 10 second timeout
+
+    return () => clearTimeout(timeout);
+  }, [imageLoaded]);
 
   useEffect(() => {
     if (cardRef.current) {
@@ -86,16 +100,35 @@ export default function ImageTextCard({ event, index }: props) {
         style={{ opacity: 0, transformOrigin: "center center", width: "0%" }}
       >
         <div className={styles.card_img}>
-          <Image
-            src={event.display_image}
-            alt={event.title}
-            height={450}
-            style={{ objectFit: "cover" }}
+          <div
+            className={styles.image_skeleton}
+            style={{
+              opacity: imageLoaded || imageError ? 0 : 0.7,
+              transition: "opacity 0.3s ease",
+            }}
           />
+          {imageError ? (
+            <div className={styles.image_error}>
+              <IconPhotoOff size={64} stroke={1.5} />
+              <p>Image not available</p>
+            </div>
+          ) : (
+            <Image
+              src={event.display_image}
+              alt={event.title}
+              height={450}
+              style={{
+                objectFit: "cover",
+                opacity: imageLoaded ? 1 : 0,
+                transition: "opacity 0.3s ease",
+              }}
+              onLoad={() => setImageLoaded(true)}
+              onError={() => setImageError(true)}
+            />
+          )}
         </div>
         <div className={styles.card_txt}>
           <h2 ref={titleRef}>{event.title}</h2>
-
           <div className="date mt-4" ref={dateRef}>
             {event.dates.map((date: any, index: number) => (
               <span key={index}>

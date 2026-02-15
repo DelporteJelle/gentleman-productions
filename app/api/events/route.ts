@@ -1,60 +1,47 @@
 import { Event } from "@/types";
-import { NextResponse } from "next/server";
-import { neon } from "@neondatabase/serverless";
+import {
+  getDb,
+  jsonResponse,
+  errorResponse,
+  requireAuth,
+  parseBody,
+  invalidateCache,
+  CacheTags,
+} from "@/lib/server/api";
 
 export async function GET() {
-  console.log("Fetching events from database");
-  const sql = neon(process.env.DATABASE_URL!);
+  const sql = getDb();
 
   try {
-    // Fetch events from the database
-    const events = await sql`
-      SELECT * FROM events;
-    `;
-
-    return NextResponse.json(events);
+    const events = await sql`SELECT * FROM events;`;
+    return jsonResponse(events);
   } catch (error) {
     console.error("Error fetching events:", error);
-    return NextResponse.json(
-      { error: "Failed to fetch events" },
-      { status: 500 },
-    );
+    return errorResponse("Failed to fetch events");
   }
 }
 
 export async function POST(request: Request) {
-  console.log("Creating event in database");
+  const authError = requireAuth(request);
+  if (authError) return authError;
 
-  const sql = neon(process.env.DATABASE_URL!);
+  const sql = getDb();
 
   try {
-    const body: Event = await request.json();
+    const body = await parseBody<Event>(request);
 
-    // Insert a new post into the posts table
+    // Insert into posts table
     await sql`
-      INSERT INTO posts (
-        post_uuid,
-        created_at
-      ) VALUES (
-        ${body.uuid},
-        ${body.created_at || new Date().toISOString()}
-      );
+      INSERT INTO posts (post_uuid, created_at)
+      VALUES (${body.uuid}, ${body.created_at || new Date().toISOString()});
     `;
 
-    // Insert a new event into the events table
-    await sql`
+    // Insert into events table
+    const createdEvent = await sql`
       INSERT INTO events (
-        created_at,
-        updated_at,
-        created_by,
-        uuid,
-        title,
-        post_type,
-        description,
-        display_image,
-        images,
-        eventLocation,
-        dates
+        created_at, updated_at, created_by, uuid, title,
+        post_type, description, display_image, images,
+        eventLocation, dates
       ) VALUES (
         ${body.created_at || new Date().toISOString()},
         ${body.updated_at || null},
@@ -67,18 +54,15 @@ export async function POST(request: Request) {
         ${body.images},
         ${JSON.stringify(body.eventlocation)},
         ${JSON.stringify(body.dates)}
-      );
+      )
+      RETURNING *;
     `;
 
-    return NextResponse.json(
-      { message: "Event created successfully" },
-      { status: 201 },
-    );
+    invalidateCache(CacheTags.POSTS);
+
+    return jsonResponse(createdEvent[0], 201);
   } catch (error) {
     console.error("Error creating event:", error);
-    return NextResponse.json(
-      { error: "Failed to create event" },
-      { status: 500 },
-    );
+    return errorResponse("Failed to create event");
   }
 }
