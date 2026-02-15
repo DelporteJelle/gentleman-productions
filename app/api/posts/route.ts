@@ -20,42 +20,74 @@ export async function GET(request: Request) {
   const limit = parseInt(getQueryParam(request, "limit") || "10", 10);
 
   try {
-    // Base query to fetch events
-    let query = sql`
-      SELECT 
-        posts.created_at AS post_created_at,
-        events.*
-      FROM posts
-      JOIN events ON posts.post_uuid = events.uuid
-    `;
+    let posts: any[];
+    let totalCount: number;
 
-    // Apply filter if a specific post_type is provided
-    if (type) {
-      query = sql`
-        ${query}
-        WHERE events.post_type = ${type}
+    if (type === "EVENT") {
+      // Fetch only events
+      const query = sql`
+        SELECT 
+          posts.created_at AS post_created_at,
+          events.*
+        FROM posts
+        JOIN events ON posts.post_uuid::uuid = events.uuid
+        ORDER BY posts.created_at DESC
+        LIMIT ${limit} OFFSET ${(page - 1) * limit}
       `;
+      posts = await query;
+
+      const total = await sql`SELECT COUNT(*) FROM events;`;
+      totalCount = parseInt(total[0].count, 10);
+    } else if (type === "BASIC_POST") {
+      // Fetch only basic posts
+      const query = sql`
+        SELECT 
+          posts.created_at AS post_created_at,
+          basic_posts.*
+        FROM posts
+        JOIN basic_posts ON posts.post_uuid::uuid = basic_posts.uuid
+        ORDER BY posts.created_at DESC
+        LIMIT ${limit} OFFSET ${(page - 1) * limit}
+      `;
+      posts = await query;
+
+      const total = await sql`SELECT COUNT(*) FROM basic_posts;`;
+      totalCount = parseInt(total[0].count, 10);
+    } else {
+      // Fetch both types separately and merge in JS to avoid UNION type mismatches
+      const [eventRows, basicPostRows] = await Promise.all([
+        sql`
+          SELECT 
+            posts.created_at AS post_created_at,
+            events.*
+          FROM posts
+          JOIN events ON posts.post_uuid::uuid = events.uuid
+          ORDER BY posts.created_at DESC
+        `,
+        sql`
+          SELECT 
+            posts.created_at AS post_created_at,
+            basic_posts.*
+          FROM posts
+          JOIN basic_posts ON posts.post_uuid::uuid = basic_posts.uuid
+          ORDER BY posts.created_at DESC
+        `,
+      ]);
+
+      // Merge and sort by created_at descending
+      const allPosts = [...eventRows, ...basicPostRows].sort(
+        (a: any, b: any) =>
+          new Date(b.post_created_at || b.created_at).getTime() -
+          new Date(a.post_created_at || a.created_at).getTime(),
+      );
+
+      totalCount = allPosts.length;
+      posts = allPosts.slice((page - 1) * limit, page * limit);
     }
-
-    // Add ordering, pagination, and limits
-    query = sql`
-      ${query}
-      ORDER BY posts.created_at DESC
-      LIMIT ${limit} OFFSET ${(page - 1) * limit}
-    `;
-
-    const posts = await query;
-
-    // Get total count
-    const totalQuery = type
-      ? sql`SELECT COUNT(*) FROM events WHERE post_type = ${type};`
-      : sql`SELECT COUNT(*) FROM events;`;
-
-    const total = await totalQuery;
 
     return cachedResponse({
       data: posts,
-      total: total[0].count,
+      total: totalCount,
       page,
       limit,
     });
@@ -77,6 +109,9 @@ export async function DELETE(request: Request) {
   }
 
   try {
+    // Delete from both possible tables (only one will match)
+    await sql`DELETE FROM events WHERE uuid = ${uuid};`;
+    await sql`DELETE FROM basic_posts WHERE uuid = ${uuid};`;
     await sql`DELETE FROM posts WHERE post_uuid = ${uuid};`;
     invalidateCache(CacheTags.POSTS);
 

@@ -23,6 +23,7 @@ export async function GET() {
 }
 
 export async function POST(request: Request) {
+  console.log(request.headers.get("cookie"));
   const authError = requireAuth(request);
   if (authError) return authError;
 

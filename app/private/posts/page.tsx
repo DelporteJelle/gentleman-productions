@@ -2,13 +2,21 @@
 
 import { useEffect, useState } from "react";
 import EventCard from "@/components/EventCard/EventCard"; // Adjust the path to your EventCard component
-import { DbObjectType, Event, Post } from "@/types";
-import { Button, Group, Stack, ActionIcon } from "@mantine/core";
+import { DbObjectType, Event, BasicPost, Post } from "@/types";
+import { Button, Group, Stack, ActionIcon, Menu } from "@mantine/core";
 import CreateEventModal from "@/components/Modals/CreateEventModal";
+import CreateBasicPostModal from "@/components/Modals/CreateBasicPostModal";
 import { DateTimePicker } from "@mantine/dates";
 import BasicPostCard from "@/components/EventCard/BasicPostCard";
 import { usePosts } from "@/app/contexts/PostsContext";
-import { IconTrash, IconEdit, IconFlagStar } from "@tabler/icons-react";
+import {
+  IconTrash,
+  IconEdit,
+  IconFlagStar,
+  IconPlus,
+  IconCalendarEvent,
+  IconArticle,
+} from "@tabler/icons-react";
 import { Tooltip } from "@mantine/core";
 
 export default function PostsPage() {
@@ -16,8 +24,12 @@ export default function PostsPage() {
   const [page, setPage] = useState(1); // Current page
   const [total, setTotal] = useState(0); // Total posts
   const [limit] = useState(10); // Posts per page
-  const [modalOpened, setModalOpened] = useState(false); // Modal state
-  const [eventToEdit, setEventToEdit] = useState<Event | undefined>(undefined); // Event to edit
+  const [eventModalOpened, setEventModalOpened] = useState(false);
+  const [basicPostModalOpened, setBasicPostModalOpened] = useState(false);
+  const [eventToEdit, setEventToEdit] = useState<Event | undefined>(undefined);
+  const [basicPostToEdit, setBasicPostToEdit] = useState<
+    BasicPost | undefined
+  >(undefined);
 
   const {
     posts,
@@ -30,10 +42,15 @@ export default function PostsPage() {
   } = usePosts();
 
   const handleEdit = (uuid: string) => {
-    const event = posts.find((post) => post.uuid === uuid) as Event;
-    if (event) {
-      setEventToEdit(event);
-      setModalOpened(true);
+    const post = posts.find((post) => post.uuid === uuid);
+    if (!post) return;
+
+    if (post.post_type === DbObjectType.EVENT) {
+      setEventToEdit(post as Event);
+      setEventModalOpened(true);
+    } else if (post.post_type === DbObjectType.BASIC_POST) {
+      setBasicPostToEdit(post as BasicPost);
+      setBasicPostModalOpened(true);
     }
   };
 
@@ -44,26 +61,6 @@ export default function PostsPage() {
   return (
     <Stack align="center">
       <h1>Posts</h1>
-
-      {/* Filter */}
-      {/* <div>
-        <label htmlFor="type">Filter by Type:</label>
-        <select
-          id="type"
-          value={type}
-          onChange={(e) => {
-            setType(e.target.value as DbObjectType);
-            setPage(1);
-          }}
-        >
-          <option value="">All</option>
-          {Object.values(DbObjectType).map((type) => (
-            <option key={type} value={type}>
-              {type}
-            </option>
-          ))}
-        </select>
-      </div> */}
 
       {/* Posts */}
       <div>
@@ -83,19 +80,48 @@ export default function PostsPage() {
         </Group>
       </div>
 
-      {/* Create Post Button */}
-      <Button color="red" onClick={() => setModalOpened(true)}>
-        Create New Post
-      </Button>
+      {/* Create Post Buttons */}
+      <Menu shadow="md" width={200}>
+        <Menu.Target>
+          <Button color="red" leftSection={<IconPlus size={16} />}>
+            Create New Post
+          </Button>
+        </Menu.Target>
+
+        <Menu.Dropdown>
+          <Menu.Item
+            leftSection={<IconCalendarEvent size={16} />}
+            onClick={() => setEventModalOpened(true)}
+          >
+            Event
+          </Menu.Item>
+          <Menu.Item
+            leftSection={<IconArticle size={16} />}
+            onClick={() => setBasicPostModalOpened(true)}
+          >
+            Basic Post
+          </Menu.Item>
+        </Menu.Dropdown>
+      </Menu>
 
       {/* Create Event Modal */}
       <CreateEventModal
-        opened={modalOpened}
+        opened={eventModalOpened}
         onClose={() => {
-          setModalOpened(false);
+          setEventModalOpened(false);
           setEventToEdit(undefined);
         }}
         event={eventToEdit}
+      />
+
+      {/* Create Basic Post Modal */}
+      <CreateBasicPostModal
+        opened={basicPostModalOpened}
+        onClose={() => {
+          setBasicPostModalOpened(false);
+          setBasicPostToEdit(undefined);
+        }}
+        basicPost={basicPostToEdit}
       />
 
       {/* Pagination */}
@@ -187,9 +213,9 @@ const postWrapper = (
       </div>
       {post.post_type === DbObjectType.EVENT ? (
         <EventCard event={post as Event} index={index} />
-      ) : (
-        <BasicPostCard post={post as Post} />
-      )}
+      ) : post.post_type === DbObjectType.BASIC_POST ? (
+        <BasicPostCard post={post as BasicPost} index={index} />
+      ) : null}
     </div>
   );
 };

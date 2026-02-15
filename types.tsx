@@ -18,9 +18,7 @@ export interface DbObject {
  */
 export enum DbObjectType {
   EVENT = "EVENT",
-  // Future types can be added here:
-  // ARTICLE = "ARTICLE",
-  // NEWS = "NEWS",
+  BASIC_POST = "BASIC_POST",
 }
 
 // ============================================================================
@@ -46,6 +44,18 @@ export interface Event extends Post {
   images?: string[];
   dates: EventDateEntry[];
   eventlocation?: EventLocation;
+}
+
+/**
+ * Basic post type - a simple post with an image, title, optional description and optional link
+ */
+export interface BasicPost extends Post {
+  post_type: DbObjectType.BASIC_POST;
+  display_image: string;
+  link?: string;
+  link_text?: string;
+  date?: string;
+  location?: string;
 }
 
 /**
@@ -83,7 +93,7 @@ export interface TimeLineEntry {
 // ============================================================================
 
 /**
- * Highlighted event reference - links to an event to feature it
+ * Highlighted event reference - links to a post to feature it
  */
 export interface EventHighlight {
   uuid: string;
@@ -97,6 +107,11 @@ export interface EventHighlight {
 export interface HighlightedEvent extends Event {
   valid_date: string;
 }
+
+/**
+ * Highlighted post - can be an event or a basic post
+ */
+export type HighlightedPost = (Event | BasicPost) & { valid_date: string };
 
 // ============================================================================
 // About Page Types
@@ -145,6 +160,13 @@ export interface PaginatedResponse<T> {
  */
 export function isEvent(post: Post): post is Event {
   return post.post_type === DbObjectType.EVENT;
+}
+
+/**
+ * Type guard to check if a post is a BasicPost
+ */
+export function isBasicPost(post: Post): post is BasicPost {
+  return post.post_type === DbObjectType.BASIC_POST;
 }
 
 /**
