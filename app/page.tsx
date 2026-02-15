@@ -206,7 +206,7 @@ export default function Home() {
             ) : highlight &&
               highlight.post_type === DbObjectType.BASIC_POST &&
               highlight.date &&
-              new Date(highlight.date) > new Date() ? (
+              new Date(highlight.valid_date) > new Date() ? (
               <>
                 <div className={"title"}>
                   {highlight.title}
