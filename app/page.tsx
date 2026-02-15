@@ -7,8 +7,9 @@ import { useRouter } from "next/navigation";
 import { ScrollTrigger } from "gsap/ScrollTrigger";
 import { ScrollToPlugin } from "gsap/ScrollToPlugin";
 import EventCard from "@/components/EventCard/EventCard";
+import BasicPostCard from "@/components/EventCard/BasicPostCard";
 import { useEffect, useRef, useState } from "react";
-import { DbObjectType, Event, EventHighlight, Post } from "@/types";
+import { DbObjectType, Event, BasicPost, EventHighlight, Post } from "@/types";
 import { Group, Image, Stack, Text } from "@mantine/core";
 import { createRoot } from "react-dom/client";
 import { Canvas } from "@react-three/fiber";
@@ -202,6 +203,39 @@ export default function Home() {
                   More Info
                 </button>
               </>
+            ) : highlight &&
+              highlight.post_type === DbObjectType.BASIC_POST &&
+              highlight.valid_date &&
+              new Date(highlight.valid_date) > new Date() ? (
+              <>
+                <div className={"title"}>
+                  {highlight.title}
+                  <div className={styles.line}></div>
+                </div>
+                <div className="bold">SAVE THE DATE</div>
+                <div className={styles.date}>
+                  {highlight.valid_date &&
+                    new Date(highlight.valid_date).toLocaleDateString("nl-BE", {
+                      day: "numeric",
+                      month: "long",
+                      year: "numeric",
+                    })}
+                </div>
+                {highlight.description && (
+                  <div className="bold">{highlight.description}</div>
+                )}
+                {(highlight as BasicPost).link && (
+                  <a
+                    href={(highlight as BasicPost).link}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                  >
+                    <button className="btn-red">
+                      {(highlight as BasicPost).link_text || "Learn more"}
+                    </button>
+                  </a>
+                )}
+              </>
             ) : (
               <div className={"title"}>
                 Gentleman Productions
@@ -254,6 +288,12 @@ export default function Home() {
                     </Group>
                     {post.post_type === DbObjectType.EVENT && (
                       <EventCard event={post as Event} index={index} />
+                    )}
+                    {post.post_type === DbObjectType.BASIC_POST && (
+                      <BasicPostCard
+                        post={post as BasicPost}
+                        index={index}
+                      />
                     )}
                   </div>
                 ))}

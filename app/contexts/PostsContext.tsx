@@ -11,8 +11,11 @@ import React, {
 import {
   Event,
   Post,
+  BasicPost,
   HighlightedEvent,
+  HighlightedPost,
   isEvent,
+  isBasicPost,
   PaginatedResponse,
 } from "@/types";
 import { CacheKeys, saveToCache, loadFromCache, clearCache } from "@/lib/cache";
@@ -31,7 +34,7 @@ import {
 
 interface PostsState {
   posts: Post[];
-  highlight: HighlightedEvent | null;
+  highlight: HighlightedPost | null;
   loading: boolean;
   error: string | null;
 }
@@ -42,17 +45,22 @@ interface PostsContextValue extends PostsState {
   fetchPostById: (id: string) => Promise<Post | null>;
   removePost: (uuid: string) => Promise<void>;
 
-  // Event-specific operations (extend for other post types)
+  // Event-specific operations
   createEvent: (event: Event) => Promise<void>;
   updateEvent: (uuid: string, event: Event) => Promise<void>;
 
+  // BasicPost-specific operations
+  createBasicPost: (post: BasicPost) => Promise<void>;
+  updateBasicPost: (uuid: string, post: BasicPost) => Promise<void>;
+
   // Highlight operations
   fetchHighlight: (skipCache?: boolean) => Promise<void>;
-  setHighlight: (eventUuid: string, validDate?: string) => Promise<void>;
+  setHighlight: (postUuid: string, validDate?: string) => Promise<void>;
   clearHighlight: () => Promise<void>;
 
   // Computed values
   events: Event[];
+  basicPosts: BasicPost[];
 }
 
 // ============================================================================
@@ -93,13 +101,23 @@ const EventsAPI = {
   },
 };
 
-const HighlightAPI = {
-  async fetch(): Promise<HighlightedEvent[]> {
-    return apiGet<HighlightedEvent[]>("/api/highlight");
+const BasicPostsAPI = {
+  async create(post: BasicPost): Promise<BasicPost> {
+    return apiPost<BasicPost, BasicPost>("/api/basic-posts", post);
   },
 
-  async set(eventUuid: string, validDate: string): Promise<HighlightedEvent> {
-    return apiPut<HighlightedEvent, { event_uuid: string; valid_date: string }>(
+  async update(uuid: string, post: BasicPost): Promise<BasicPost> {
+    return apiPut<BasicPost, BasicPost>(`/api/basic-posts/${uuid}`, post);
+  },
+};
+
+const HighlightAPI = {
+  async fetch(): Promise<HighlightedPost[]> {
+    return apiGet<HighlightedPost[]>("/api/highlight");
+  },
+
+  async set(eventUuid: string, validDate: string): Promise<HighlightedPost> {
+    return apiPut<HighlightedPost, { event_uuid: string; valid_date: string }>(
       "/api/highlight",
       {
         event_uuid: eventUuid,
@@ -284,6 +302,68 @@ export const PostsProvider: React.FC<{ children: React.ReactNode }> = ({
   );
 
   // ============================================================================
+  // BasicPost Operations
+  // ============================================================================
+
+  const createBasicPost = useCallback(
+    async (post: BasicPost) => {
+      updateState({ loading: true, error: null });
+
+      try {
+        const createdPost = await BasicPostsAPI.create(post);
+        notifySuccess("Success", "Post created successfully");
+
+        // Update state directly and save to cache
+        setState((prev) => {
+          const updatedPosts = [...prev.posts, createdPost];
+          saveToCache(CacheKeys.POSTS, updatedPosts);
+          return {
+            ...prev,
+            posts: updatedPosts,
+            loading: false,
+          };
+        });
+      } catch (err) {
+        const message =
+          err instanceof Error ? err.message : "Failed to create post";
+        updateState({ error: message, loading: false });
+        notifyError("Error", message);
+      }
+    },
+    [updateState],
+  );
+
+  const updateBasicPost = useCallback(
+    async (uuid: string, post: BasicPost) => {
+      updateState({ loading: true, error: null });
+
+      try {
+        const updatedPost = await BasicPostsAPI.update(uuid, post);
+        notifySuccess("Success", "Post updated successfully");
+
+        // Update state directly and save to cache
+        setState((prev) => {
+          const updatedPosts = prev.posts.map((p) =>
+            p.uuid === uuid ? updatedPost : p
+          );
+          saveToCache(CacheKeys.POSTS, updatedPosts);
+          return {
+            ...prev,
+            posts: updatedPosts,
+            loading: false,
+          };
+        });
+      } catch (err) {
+        const message =
+          err instanceof Error ? err.message : "Failed to update post";
+        updateState({ error: message, loading: false });
+        notifyError("Error", message);
+      }
+    },
+    [updateState],
+  );
+
+  // ============================================================================
   // Highlight Operations
   // ============================================================================
 
@@ -294,7 +374,7 @@ export const PostsProvider: React.FC<{ children: React.ReactNode }> = ({
       try {
         // Try cache first if not skipping
         if (!skipCache) {
-          const cached = loadFromCache<HighlightedEvent>(CacheKeys.HIGHLIGHT);
+          const cached = loadFromCache<HighlightedPost>(CacheKeys.HIGHLIGHT);
           if (cached) {
             updateState({ highlight: cached, loading: false });
             return;
@@ -369,6 +449,12 @@ export const PostsProvider: React.FC<{ children: React.ReactNode }> = ({
   // Filter posts by type - useful for getting only events
   const events = useMemo(() => state.posts.filter(isEvent), [state.posts]);
 
+  // Filter posts by type - useful for getting only basic posts
+  const basicPosts = useMemo(
+    () => state.posts.filter(isBasicPost),
+    [state.posts],
+  );
+
   // ============================================================================
   // Effects
   // ============================================================================
@@ -400,6 +486,10 @@ export const PostsProvider: React.FC<{ children: React.ReactNode }> = ({
       createEvent,
       updateEvent,
 
+      // BasicPost operations
+      createBasicPost,
+      updateBasicPost,
+
       // Highlight operations
       fetchHighlight,
       setHighlight,
@@ -407,6 +497,7 @@ export const PostsProvider: React.FC<{ children: React.ReactNode }> = ({
 
       // Computed
       events,
+      basicPosts,
 
       // Legacy compatibility aliases
       highlightPost: state.highlight,
@@ -418,11 +509,14 @@ export const PostsProvider: React.FC<{ children: React.ReactNode }> = ({
     [
       state,
       events,
+      basicPosts,
       fetchPosts,
       fetchPostById,
       removePost,
       createEvent,
       updateEvent,
+      createBasicPost,
+      updateBasicPost,
       fetchHighlight,
       setHighlight,
       clearHighlight,
