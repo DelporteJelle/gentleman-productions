@@ -173,8 +173,9 @@ export default function CreateEventModal({
     form.validate();
     if (!form.isValid()) return;
 
-    const eventData = {
+    const eventData: Event = {
       ...form.values,
+      post_type: DbObjectType.EVENT,
       updated_at: new Date().toISOString(),
       dates: form.values.dates.map((date) => {
         const startTime = date.timeLine[0].time.split(":").map(Number);
@@ -196,7 +197,7 @@ export default function CreateEventModal({
     console.log(eventData);
 
     if (event) {
-      updateEvent(event.uuid, { ...eventData });
+      updateEvent(event.uuid, eventData);
     } else {
       createEvent(eventData);
     }
