@@ -205,8 +205,8 @@ export default function Home() {
               </>
             ) : highlight &&
               highlight.post_type === DbObjectType.BASIC_POST &&
-              highlight.valid_date &&
-              new Date(highlight.valid_date) > new Date() ? (
+              highlight.date &&
+              new Date(highlight.date) > new Date() ? (
               <>
                 <div className={"title"}>
                   {highlight.title}
@@ -214,8 +214,8 @@ export default function Home() {
                 </div>
                 <div className="bold">SAVE THE DATE</div>
                 <div className={styles.date}>
-                  {highlight.valid_date &&
-                    new Date(highlight.valid_date).toLocaleDateString("nl-BE", {
+                  {(highlight as BasicPost).date &&
+                    new Date(highlight.date).toLocaleDateString("nl-BE", {
                       day: "numeric",
                       month: "long",
                       year: "numeric",
