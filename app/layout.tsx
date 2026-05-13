@@ -19,6 +19,7 @@ import { useDisclosure } from "@mantine/hooks";
 import { PostsProvider } from "./contexts/PostsContext";
 import { AboutProvider } from "./contexts/AboutContext";
 import { Notifications } from "@mantine/notifications";
+import { QueryProvider } from "./providers/QueryProvider";
 
 const RootLayout: React.FC<React.PropsWithChildren> = ({ children }) => {
   const [opened, { toggle }] = useDisclosure(false);
@@ -31,6 +32,7 @@ const RootLayout: React.FC<React.PropsWithChildren> = ({ children }) => {
       <body className={"root"}>
         <MantineProvider defaultColorScheme="dark">
           <Notifications />
+          <QueryProvider>
           <PostsProvider>
             <AboutProvider>
               <AppShell
@@ -72,6 +74,7 @@ const RootLayout: React.FC<React.PropsWithChildren> = ({ children }) => {
               </AppShell>
             </AboutProvider>
           </PostsProvider>
+          </QueryProvider>
         </MantineProvider>
       </body>
     </html>

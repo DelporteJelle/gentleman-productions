@@ -3,22 +3,19 @@
 import React, {
   createContext,
   useContext,
-  useState,
-  useEffect,
   useCallback,
   useMemo,
 } from "react";
+import { useQuery, useQueryClient, useIsRestoring } from "@tanstack/react-query";
 import {
   Event,
   Post,
   BasicPost,
-  HighlightedEvent,
   HighlightedPost,
   isEvent,
   isBasicPost,
   PaginatedResponse,
 } from "@/types";
-import { CacheKeys, saveToCache, loadFromCache, clearCache } from "@/lib/cache";
 import {
   apiGet,
   apiPost,
@@ -62,6 +59,16 @@ interface PostsContextValue extends PostsState {
   events: Event[];
   basicPosts: BasicPost[];
 }
+
+// ============================================================================
+// Query Keys
+// ============================================================================
+
+export const postsQueryKeys = {
+  all: ["posts"] as const,
+  byId: (id: string) => ["posts", id] as const,
+  highlight: ["highlight"] as const,
+};
 
 // ============================================================================
 // Context
@@ -138,105 +145,77 @@ const HighlightAPI = {
 export const PostsProvider: React.FC<{ children: React.ReactNode }> = ({
   children,
 }) => {
-  const [state, setState] = useState<PostsState>({
-    posts: [],
-    highlight: null,
-    loading: false,
-    error: null,
+  const queryClient = useQueryClient();
+  const isRestoring = useIsRestoring();
+
+  const {
+    data: posts = [],
+    isLoading: postsLoading,
+    error: postsError,
+  } = useQuery({
+    queryKey: postsQueryKeys.all,
+    queryFn: async () => {
+      const response = await PostsAPI.fetchAll();
+      return response.data;
+    },
   });
 
-  // Helper to update state partially
-  const updateState = useCallback((updates: Partial<PostsState>) => {
-    setState((prev) => ({ ...prev, ...updates }));
-  }, []);
+  const {
+    data: highlight = null,
+    isLoading: highlightLoading,
+    error: highlightError,
+  } = useQuery({
+    queryKey: postsQueryKeys.highlight,
+    queryFn: async () => {
+      const data = await HighlightAPI.fetch();
+      return data[0] ?? null;
+    },
+  });
+
+  const loading = postsLoading || highlightLoading || isRestoring;
+  const error = postsError?.message ?? highlightError?.message ?? null;
 
   // ============================================================================
   // Post Operations
   // ============================================================================
 
   const fetchPosts = useCallback(
-    async (skipCache = false) => {
-      updateState({ loading: true, error: null });
-
-      try {
-        // Try cache first if not skipping
-        if (!skipCache) {
-          const cached = loadFromCache<Post[]>(CacheKeys.POSTS);
-          if (cached) {
-            updateState({ posts: cached, loading: false });
-            return;
-          }
-        }
-
-        // Fetch from API
-        const response = await PostsAPI.fetchAll();
-        saveToCache(CacheKeys.POSTS, response.data);
-        updateState({ posts: response.data, loading: false });
-      } catch (err) {
-        const message =
-          err instanceof Error ? err.message : "Failed to fetch posts";
-        updateState({ error: message, loading: false });
-        notifyError("Error", message);
-      }
+    async (_skipCache?: boolean) => {
+      await queryClient.invalidateQueries({ queryKey: postsQueryKeys.all });
     },
-    [updateState],
+    [queryClient],
   );
 
   const fetchPostById = useCallback(
     async (id: string): Promise<Post | null> => {
-      // Check if already in state
-      const existing = state.posts.find((post) => post.uuid === id);
+      const cached = queryClient.getQueryData<Post[]>(postsQueryKeys.all);
+      const existing = cached?.find((p) => p.uuid === id);
       if (existing) return existing;
-
-      updateState({ loading: true, error: null });
 
       try {
         const post = await PostsAPI.fetchById(id);
-
-        // Add to posts array
-        setState((prev) => ({
-          ...prev,
-          posts: [...prev.posts, post],
-          loading: false,
-        }));
-
+        queryClient.setQueryData(postsQueryKeys.byId(id), post);
         return post;
-      } catch (err) {
-        const message =
-          err instanceof Error ? err.message : "Failed to fetch post";
-        updateState({ error: message, loading: false });
+      } catch {
         return null;
       }
     },
-    [state.posts, updateState],
+    [queryClient],
   );
 
   const removePost = useCallback(
     async (uuid: string) => {
-      updateState({ loading: true, error: null });
-
       try {
         await PostsAPI.delete(uuid);
         notifySuccess("Success", "Post deleted successfully");
-
-        // Update state directly and save to cache
-        setState((prev) => {
-          const updatedPosts = prev.posts.filter((p) => p.uuid !== uuid);
-          saveToCache(CacheKeys.POSTS, updatedPosts);
-          return {
-            ...prev,
-            posts: updatedPosts,
-            loading: false,
-          };
-        });
+        await queryClient.invalidateQueries({ queryKey: postsQueryKeys.all });
       } catch (err) {
         const message =
           err instanceof Error ? err.message : "Failed to delete post";
-        updateState({ error: message, loading: false });
         notifyError("Error", message);
       }
     },
-    [updateState],
+    [queryClient],
   );
 
   // ============================================================================
@@ -245,60 +224,32 @@ export const PostsProvider: React.FC<{ children: React.ReactNode }> = ({
 
   const createEvent = useCallback(
     async (event: Event) => {
-      updateState({ loading: true, error: null });
-
       try {
-        const createdEvent = await EventsAPI.create(event);
+        await EventsAPI.create(event);
         notifySuccess("Success", "Event created successfully");
-
-        // Update state directly and save to cache
-        setState((prev) => {
-          const updatedPosts = [...prev.posts, createdEvent];
-          saveToCache(CacheKeys.POSTS, updatedPosts);
-          return {
-            ...prev,
-            posts: updatedPosts,
-            loading: false,
-          };
-        });
+        await queryClient.invalidateQueries({ queryKey: postsQueryKeys.all });
       } catch (err) {
         const message =
           err instanceof Error ? err.message : "Failed to create event";
-        updateState({ error: message, loading: false });
         notifyError("Error", message);
       }
     },
-    [updateState],
+    [queryClient],
   );
 
   const updateEvent = useCallback(
     async (uuid: string, event: Event) => {
-      updateState({ loading: true, error: null });
-
       try {
-        const updatedEvent = await EventsAPI.update(uuid, event);
+        await EventsAPI.update(uuid, event);
         notifySuccess("Success", "Event updated successfully");
-
-        // Update state directly and save to cache
-        setState((prev) => {
-          const updatedPosts = prev.posts.map((p) =>
-            p.uuid === uuid ? updatedEvent : p
-          );
-          saveToCache(CacheKeys.POSTS, updatedPosts);
-          return {
-            ...prev,
-            posts: updatedPosts,
-            loading: false,
-          };
-        });
+        await queryClient.invalidateQueries({ queryKey: postsQueryKeys.all });
       } catch (err) {
         const message =
           err instanceof Error ? err.message : "Failed to update event";
-        updateState({ error: message, loading: false });
         notifyError("Error", message);
       }
     },
-    [updateState],
+    [queryClient],
   );
 
   // ============================================================================
@@ -307,60 +258,32 @@ export const PostsProvider: React.FC<{ children: React.ReactNode }> = ({
 
   const createBasicPost = useCallback(
     async (post: BasicPost) => {
-      updateState({ loading: true, error: null });
-
       try {
-        const createdPost = await BasicPostsAPI.create(post);
+        await BasicPostsAPI.create(post);
         notifySuccess("Success", "Post created successfully");
-
-        // Update state directly and save to cache
-        setState((prev) => {
-          const updatedPosts = [...prev.posts, createdPost];
-          saveToCache(CacheKeys.POSTS, updatedPosts);
-          return {
-            ...prev,
-            posts: updatedPosts,
-            loading: false,
-          };
-        });
+        await queryClient.invalidateQueries({ queryKey: postsQueryKeys.all });
       } catch (err) {
         const message =
           err instanceof Error ? err.message : "Failed to create post";
-        updateState({ error: message, loading: false });
         notifyError("Error", message);
       }
     },
-    [updateState],
+    [queryClient],
   );
 
   const updateBasicPost = useCallback(
     async (uuid: string, post: BasicPost) => {
-      updateState({ loading: true, error: null });
-
       try {
-        const updatedPost = await BasicPostsAPI.update(uuid, post);
+        await BasicPostsAPI.update(uuid, post);
         notifySuccess("Success", "Post updated successfully");
-
-        // Update state directly and save to cache
-        setState((prev) => {
-          const updatedPosts = prev.posts.map((p) =>
-            p.uuid === uuid ? updatedPost : p
-          );
-          saveToCache(CacheKeys.POSTS, updatedPosts);
-          return {
-            ...prev,
-            posts: updatedPosts,
-            loading: false,
-          };
-        });
+        await queryClient.invalidateQueries({ queryKey: postsQueryKeys.all });
       } catch (err) {
         const message =
           err instanceof Error ? err.message : "Failed to update post";
-        updateState({ error: message, loading: false });
         notifyError("Error", message);
       }
     },
-    [updateState],
+    [queryClient],
   );
 
   // ============================================================================
@@ -368,102 +291,50 @@ export const PostsProvider: React.FC<{ children: React.ReactNode }> = ({
   // ============================================================================
 
   const fetchHighlight = useCallback(
-    async (skipCache = false) => {
-      updateState({ loading: true, error: null });
-
-      try {
-        // Try cache first if not skipping
-        if (!skipCache) {
-          const cached = loadFromCache<HighlightedPost>(CacheKeys.HIGHLIGHT);
-          if (cached) {
-            updateState({ highlight: cached, loading: false });
-            return;
-          }
-        }
-
-        // Fetch from API
-        const data = await HighlightAPI.fetch();
-        const highlight = data[0] || null;
-
-        if (highlight) {
-          saveToCache(CacheKeys.HIGHLIGHT, highlight);
-        }
-        updateState({ highlight, loading: false });
-      } catch (err) {
-        const message =
-          err instanceof Error ? err.message : "Failed to fetch highlight";
-        updateState({ error: message, loading: false });
-      }
+    async (_skipCache?: boolean) => {
+      await queryClient.invalidateQueries({ queryKey: postsQueryKeys.highlight });
     },
-    [updateState],
+    [queryClient],
   );
 
   const setHighlight = useCallback(
     async (eventUuid: string, validDate?: string) => {
-      updateState({ loading: true, error: null });
-
-      // Default to 1 year from now if no date provided
       const date =
         validDate ||
         new Date(Date.now() + 365 * 24 * 60 * 60 * 1000).toISOString();
 
       try {
-        const updatedHighlight = await HighlightAPI.set(eventUuid, date);
+        await HighlightAPI.set(eventUuid, date);
         notifySuccess("Success", "Highlight updated successfully");
-
-        // Update state and cache directly
-        saveToCache(CacheKeys.HIGHLIGHT, updatedHighlight);
-        updateState({ highlight: updatedHighlight, loading: false });
+        await queryClient.invalidateQueries({ queryKey: postsQueryKeys.highlight });
       } catch (err) {
         const message =
           err instanceof Error ? err.message : "Failed to update highlight";
-        updateState({ error: message, loading: false });
         notifyError("Error", message);
       }
     },
-    [updateState],
+    [queryClient],
   );
 
   const clearHighlight = useCallback(async () => {
-    updateState({ loading: true, error: null });
-
     try {
       await HighlightAPI.clear();
       notifySuccess("Success", "Highlight cleared successfully");
-
-      // Update state and cache directly
-      clearCache(CacheKeys.HIGHLIGHT);
-      updateState({ highlight: null, loading: false });
+      queryClient.setQueryData(postsQueryKeys.highlight, null);
+      await queryClient.invalidateQueries({ queryKey: postsQueryKeys.highlight });
     } catch (err) {
       const message =
         err instanceof Error ? err.message : "Failed to clear highlight";
-      updateState({ error: message, loading: false });
       notifyError("Error", message);
     }
-  }, [updateState]);
+  }, [queryClient]);
 
   // ============================================================================
   // Computed Values
   // ============================================================================
 
-  // Filter posts by type - useful for getting only events
-  const events = useMemo(() => state.posts.filter(isEvent), [state.posts]);
-
-  // Filter posts by type - useful for getting only basic posts
-  const basicPosts = useMemo(
-    () => state.posts.filter(isBasicPost),
-    [state.posts],
-  );
-
-  // ============================================================================
-  // Effects
-  // ============================================================================
-
-  // Initial data fetch
-  useEffect(() => {
-    fetchPosts();
-    fetchHighlight();
-  }, []); // eslint-disable-line react-hooks/exhaustive-deps
+  const events = useMemo(() => posts.filter(isEvent), [posts]);
+  const basicPosts = useMemo(() => posts.filter(isBasicPost), [posts]);
 
   // ============================================================================
   // Context Value
@@ -471,43 +342,40 @@ export const PostsProvider: React.FC<{ children: React.ReactNode }> = ({
 
   const value: PostsContextValue = useMemo(
     () => ({
-      // State
-      posts: state.posts,
-      highlight: state.highlight,
-      loading: state.loading,
-      error: state.error,
+      posts,
+      highlight,
+      loading,
+      error,
 
-      // Post operations
       fetchPosts,
       fetchPostById,
       removePost,
 
-      // Event operations
       createEvent,
       updateEvent,
 
-      // BasicPost operations
       createBasicPost,
       updateBasicPost,
 
-      // Highlight operations
       fetchHighlight,
       setHighlight,
       clearHighlight,
 
-      // Computed
       events,
       basicPosts,
 
       // Legacy compatibility aliases
-      highlightPost: state.highlight,
+      highlightPost: highlight,
       editHighlight: setHighlight,
       deleteHighlight: clearHighlight,
       fetchEventById: fetchPostById,
       editEvent: updateEvent,
     }),
     [
-      state,
+      posts,
+      highlight,
+      loading,
+      error,
       events,
       basicPosts,
       fetchPosts,

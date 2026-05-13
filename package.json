@@ -18,6 +18,9 @@
     "@neondatabase/serverless": "^1.0.0",
     "@react-three/fiber": "^8.0.27",
     "@tabler/icons-react": "^3.11.0",
+    "@tanstack/query-sync-storage-persister": "^5.100.10",
+    "@tanstack/react-query": "^5.100.10",
+    "@tanstack/react-query-persist-client": "^5.100.10",
     "@types/jsonwebtoken": "^9.0.10",
     "@types/react-scroll": "^1.8.10",
     "@vercel/edge-config": "^1.4.0",
@@ -36,6 +39,7 @@
     "three": "^0.173.0"
   },
   "devDependencies": {
+    "@tanstack/react-query-devtools": "^5.100.10",
     "@types/bcrypt": "^6.0.0",
     "@types/dat.gui": "^0.7.13",
     "@types/node": "20.17.16",

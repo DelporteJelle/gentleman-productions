@@ -3,13 +3,11 @@
 import React, {
   createContext,
   useContext,
-  useState,
-  useEffect,
   useCallback,
   useMemo,
 } from "react";
+import { useQuery, useQueryClient, useIsRestoring } from "@tanstack/react-query";
 import { Partner, TeamMember } from "@/types";
-import { CacheKeys, saveToCache, loadFromCache } from "@/lib/cache";
 import {
   apiGet,
   apiPost,
@@ -44,6 +42,15 @@ interface AboutContextValue extends AboutState {
   updatePartner: (partner: Partner) => Promise<void>;
   deletePartner: (uuid: string) => Promise<void>;
 }
+
+// ============================================================================
+// Query Keys
+// ============================================================================
+
+export const aboutQueryKeys = {
+  teamMembers: ["teamMembers"] as const,
+  partners: ["partners"] as const,
+};
 
 // ============================================================================
 // Context
@@ -98,75 +105,40 @@ const PartnersAPI = {
 export const AboutProvider: React.FC<{ children: React.ReactNode }> = ({
   children,
 }) => {
-  const [state, setState] = useState<AboutState>({
-    teamMembers: [],
-    partners: [],
-    loading: false,
-    error: null,
+  const queryClient = useQueryClient();
+  const isRestoring = useIsRestoring();
+
+  const {
+    data: teamMembers = [],
+    isLoading: teamLoading,
+    error: teamError,
+  } = useQuery({
+    queryKey: aboutQueryKeys.teamMembers,
+    queryFn: TeamAPI.fetchAll,
   });
 
-  // Helper to update state partially
-  const updateState = useCallback((updates: Partial<AboutState>) => {
-    setState((prev) => ({ ...prev, ...updates }));
-  }, []);
+  const {
+    data: partners = [],
+    isLoading: partnersLoading,
+    error: partnersError,
+  } = useQuery({
+    queryKey: aboutQueryKeys.partners,
+    queryFn: PartnersAPI.fetchAll,
+  });
+
+  const loading = teamLoading || partnersLoading || isRestoring;
+  const error = teamError?.message ?? partnersError?.message ?? null;
 
   // ============================================================================
   // Data Fetching
   // ============================================================================
 
-  const fetchTeamMembers = useCallback(
-    async (skipCache = false): Promise<TeamMember[]> => {
-      // Try cache first if not skipping
-      if (!skipCache) {
-        const cached = loadFromCache<TeamMember[]>(CacheKeys.TEAM_MEMBERS);
-        if (cached) return cached;
-      }
-
-      // Fetch from API
-      const data = await TeamAPI.fetchAll();
-      saveToCache(CacheKeys.TEAM_MEMBERS, data);
-      return data;
-    },
-    [],
-  );
-
-  const fetchPartners = useCallback(
-    async (skipCache = false): Promise<Partner[]> => {
-      // Try cache first if not skipping
-      if (!skipCache) {
-        const cached = loadFromCache<Partner[]>(CacheKeys.PARTNERS);
-        if (cached) return cached;
-      }
-
-      // Fetch from API
-      const data = await PartnersAPI.fetchAll();
-      saveToCache(CacheKeys.PARTNERS, data);
-      return data;
-    },
-    [],
-  );
-
   const fetchData = useCallback(async () => {
-    updateState({ loading: true, error: null });
-
-    try {
-      const [teamMembers, partners] = await Promise.all([
-        fetchTeamMembers(),
-        fetchPartners(),
-      ]);
-
-      updateState({
-        teamMembers,
-        partners,
-        loading: false,
-      });
-    } catch (err) {
-      const message =
-        err instanceof Error ? err.message : "Failed to fetch data";
-      updateState({ error: message, loading: false });
-      notifyError("Error", message);
-    }
-  }, [fetchTeamMembers, fetchPartners, updateState]);
+    await Promise.all([
+      queryClient.invalidateQueries({ queryKey: aboutQueryKeys.teamMembers }),
+      queryClient.invalidateQueries({ queryKey: aboutQueryKeys.partners }),
+    ]);
+  }, [queryClient]);
 
   // ============================================================================
   // Team Member Operations
@@ -174,90 +146,47 @@ export const AboutProvider: React.FC<{ children: React.ReactNode }> = ({
 
   const createTeamMember = useCallback(
     async (member: TeamMember) => {
-      updateState({ loading: true, error: null });
-
       try {
-        const newMember = await TeamAPI.create(member);
+        await TeamAPI.create(member);
         notifySuccess("Success", "Team member created successfully");
-
-        // Update state and save to cache
-        setState((prev) => {
-          const updatedMembers = [...prev.teamMembers, newMember];
-          saveToCache(CacheKeys.TEAM_MEMBERS, updatedMembers);
-          return {
-            ...prev,
-            teamMembers: updatedMembers,
-            loading: false,
-          };
-        });
+        await queryClient.invalidateQueries({ queryKey: aboutQueryKeys.teamMembers });
       } catch (err) {
         const message =
           err instanceof Error ? err.message : "Failed to create team member";
-        updateState({ error: message, loading: false });
         notifyError("Error", message);
       }
     },
-    [updateState],
+    [queryClient],
   );
 
   const updateTeamMember = useCallback(
     async (member: TeamMember) => {
-      updateState({ loading: true, error: null });
-
       try {
-        const updatedMember = await TeamAPI.update(member);
+        await TeamAPI.update(member);
         notifySuccess("Success", "Team member updated successfully");
-
-        // Update state and save to cache
-        setState((prev) => {
-          const updatedMembers = prev.teamMembers.map((m) =>
-            m.uuid === updatedMember.uuid ? updatedMember : m,
-          );
-          saveToCache(CacheKeys.TEAM_MEMBERS, updatedMembers);
-          return {
-            ...prev,
-            teamMembers: updatedMembers,
-            loading: false,
-          };
-        });
+        await queryClient.invalidateQueries({ queryKey: aboutQueryKeys.teamMembers });
       } catch (err) {
         const message =
           err instanceof Error ? err.message : "Failed to update team member";
-        updateState({ error: message, loading: false });
         notifyError("Error", message);
       }
     },
-    [updateState],
+    [queryClient],
   );
 
   const deleteTeamMember = useCallback(
     async (uuid: string) => {
-      updateState({ loading: true, error: null });
-
       try {
         await TeamAPI.delete(uuid);
         notifySuccess("Success", "Team member deleted successfully");
-
-        // Update state and save to cache
-        setState((prev) => {
-          const updatedMembers = prev.teamMembers.filter(
-            (m) => m.uuid !== uuid,
-          );
-          saveToCache(CacheKeys.TEAM_MEMBERS, updatedMembers);
-          return {
-            ...prev,
-            teamMembers: updatedMembers,
-            loading: false,
-          };
-        });
+        await queryClient.invalidateQueries({ queryKey: aboutQueryKeys.teamMembers });
       } catch (err) {
         const message =
           err instanceof Error ? err.message : "Failed to delete team member";
-        updateState({ error: message, loading: false });
         notifyError("Error", message);
       }
     },
-    [updateState],
+    [queryClient],
   );
 
   // ============================================================================
@@ -266,98 +195,48 @@ export const AboutProvider: React.FC<{ children: React.ReactNode }> = ({
 
   const createPartner = useCallback(
     async (partner: Partner) => {
-      updateState({ loading: true, error: null });
-
       try {
-        const newPartner = await PartnersAPI.create(partner);
+        await PartnersAPI.create(partner);
         notifySuccess("Success", "Partner created successfully");
-
-        // Update state and save to cache
-        setState((prev) => {
-          const updatedPartners = [...prev.partners, newPartner];
-          saveToCache(CacheKeys.PARTNERS, updatedPartners);
-          return {
-            ...prev,
-            partners: updatedPartners,
-            loading: false,
-          };
-        });
+        await queryClient.invalidateQueries({ queryKey: aboutQueryKeys.partners });
       } catch (err) {
         const message =
           err instanceof Error ? err.message : "Failed to create partner";
-        updateState({ error: message, loading: false });
         notifyError("Error", message);
       }
     },
-    [updateState],
+    [queryClient],
   );
 
   const updatePartner = useCallback(
     async (partner: Partner) => {
-      updateState({ loading: true, error: null });
-
       try {
-        const updatedPartner = await PartnersAPI.update(partner);
+        await PartnersAPI.update(partner);
         notifySuccess("Success", "Partner updated successfully");
-
-        // Update state and save to cache
-        setState((prev) => {
-          const updatedPartners = prev.partners.map((p) =>
-            p.uuid === updatedPartner.uuid ? updatedPartner : p,
-          );
-          saveToCache(CacheKeys.PARTNERS, updatedPartners);
-          return {
-            ...prev,
-            partners: updatedPartners,
-            loading: false,
-          };
-        });
+        await queryClient.invalidateQueries({ queryKey: aboutQueryKeys.partners });
       } catch (err) {
         const message =
           err instanceof Error ? err.message : "Failed to update partner";
-        updateState({ error: message, loading: false });
         notifyError("Error", message);
       }
     },
-    [updateState],
+    [queryClient],
   );
 
   const deletePartner = useCallback(
     async (uuid: string) => {
-      updateState({ loading: true, error: null });
-
       try {
         await PartnersAPI.delete(uuid);
         notifySuccess("Success", "Partner deleted successfully");
-
-        // Update state and save to cache
-        setState((prev) => {
-          const updatedPartners = prev.partners.filter((p) => p.uuid !== uuid);
-          saveToCache(CacheKeys.PARTNERS, updatedPartners);
-          return {
-            ...prev,
-            partners: updatedPartners,
-            loading: false,
-          };
-        });
+        await queryClient.invalidateQueries({ queryKey: aboutQueryKeys.partners });
       } catch (err) {
         const message =
           err instanceof Error ? err.message : "Failed to delete partner";
-        updateState({ error: message, loading: false });
         notifyError("Error", message);
       }
     },
-    [updateState],
+    [queryClient],
   );
-
-  // ============================================================================
-  // Effects
-  // ============================================================================
-
-  // Initial data fetch
-  useEffect(() => {
-    fetchData();
-  }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
   // ============================================================================
   // Context Value
@@ -365,27 +244,26 @@ export const AboutProvider: React.FC<{ children: React.ReactNode }> = ({
 
   const value: AboutContextValue = useMemo(
     () => ({
-      // State
-      teamMembers: state.teamMembers,
-      partners: state.partners,
-      loading: state.loading,
-      error: state.error,
+      teamMembers,
+      partners,
+      loading,
+      error,
 
-      // Data fetching
       fetchData,
 
-      // Team member operations
       createTeamMember,
       updateTeamMember,
       deleteTeamMember,
 
-      // Partner operations
       createPartner,
       updatePartner,
       deletePartner,
     }),
     [
-      state,
+      teamMembers,
+      partners,
+      loading,
+      error,
       fetchData,
       createTeamMember,
       updateTeamMember,

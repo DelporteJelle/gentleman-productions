@@ -64,6 +64,7 @@ export async function apiGet<T>(
 ): Promise<T> {
   return baseFetch<T>(url, {
     method: "GET",
+    cache: "no-store",
     ...options,
   });
 }

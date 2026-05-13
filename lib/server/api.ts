@@ -6,6 +6,7 @@
 import { NextResponse } from "next/server";
 import { neon, NeonQueryFunction } from "@neondatabase/serverless";
 import jwt from "jsonwebtoken";
+import { revalidatePath } from "next/cache";
 
 // ============================================================================
 // Database
@@ -78,11 +79,17 @@ export interface TokenPayload {
  */
 export function verifyAuth(request: Request): TokenPayload | null {
   const cookieHeader = request.headers.get("cookie");
-  const token = cookieHeader?.split("token=")[1]?.split(";")[0];
+  if (!cookieHeader) return null;
 
-  if (!token) {
-    return null;
-  }
+  const cookies = Object.fromEntries(
+    cookieHeader.split(";").map((c) => {
+      const idx = c.indexOf("=");
+      return [c.slice(0, idx).trim(), c.slice(idx + 1).trim()];
+    }),
+  );
+  const token = cookies["token"];
+
+  if (!token) return null;
 
   try {
     return jwt.verify(token, process.env.JWT_SECRET!) as TokenPayload;
@@ -138,8 +145,22 @@ export type CacheTag = (typeof CacheTags)[keyof typeof CacheTags];
  * Invalidate a cache tag
  */
 export function invalidateCache(tag: CacheTag): void {
-  // Cache invalidation handled by Next.js 16+ automatically
-  // revalidateTag can be called from route handlers if needed
+  switch (tag) {
+    case CacheTags.POSTS:
+      revalidatePath("/api/posts");
+      revalidatePath("/");
+      break;
+    case CacheTags.HIGHLIGHT:
+      revalidatePath("/api/highlight");
+      revalidatePath("/");
+      break;
+    case CacheTags.TEAM:
+      revalidatePath("/api/team");
+      break;
+    case CacheTags.PARTNERS:
+      revalidatePath("/api/partners");
+      break;
+  }
 }
 
 // ============================================================================

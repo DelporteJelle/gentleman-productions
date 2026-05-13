@@ -1,0 +1,8 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(npm install *)",
+      "Bash(Remove-Item \"h:\\\\Projects\\\\gentleman-productions\\\\lib\\\\cache.ts\" -Force)"
+    ]
+  }
+}
