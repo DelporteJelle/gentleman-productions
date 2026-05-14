@@ -3,11 +3,12 @@ import styles from "./SectionLabel.module.css";
 
 interface SectionLabelProps {
   children: ReactNode;
+  id?: string;
 }
 
-export default function SectionLabel({ children }: SectionLabelProps) {
+export default function SectionLabel({ children, id }: SectionLabelProps) {
   return (
-    <h2 className={styles.label}>
+    <h2 id={id} className={styles.label}>
       <span className={styles.line}></span>
       <span className={styles.diamond}>&#9670;</span>
       {children}
