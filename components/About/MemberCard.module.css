@@ -1,0 +1,61 @@
+.card {
+  width: 220px;
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+}
+
+.photoWrap {
+  position: relative;
+  width: 100%;
+  aspect-ratio: 3 / 4;
+  border: 1px solid rgba(245, 233, 213, 0.08);
+  overflow: hidden;
+  background: rgba(22, 16, 18, 0.4);
+}
+
+.photo {
+  object-fit: cover;
+  filter: brightness(0.92);
+  transition: filter 0.3s ease;
+}
+
+.card:hover .photo {
+  filter: brightness(1);
+}
+
+.divider {
+  display: block;
+  width: 24px;
+  height: 1px;
+  background: var(--red);
+  margin: 18px 0 10px;
+}
+
+.name {
+  font-family: var(--font-display);
+  font-size: 22px;
+  letter-spacing: 0.01em;
+  line-height: 1.1;
+  color: var(--cream);
+  margin: 0 0 6px;
+  text-transform: uppercase;
+}
+
+.nameAccent {
+  font-family: var(--font-italic);
+  font-style: italic;
+  font-weight: 700;
+  color: var(--red);
+  text-transform: none;
+  letter-spacing: 0;
+}
+
+.role {
+  font-family: var(--font-deco);
+  font-size: 9px;
+  letter-spacing: 0.3em;
+  color: var(--cream-muted);
+  text-transform: uppercase;
+  margin: 0;
+}

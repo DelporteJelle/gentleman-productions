@@ -1,36 +1,37 @@
+import Image from "next/image";
 import { TeamMember } from "@/types";
-import { Image, Stack, Text } from "@mantine/core";
+import { splitTitleAccent } from "@/lib/text";
+import styles from "./MemberCard.module.css";
 
 export interface MemberCardProps {
   member: TeamMember;
 }
-export default function MemerCard({ member }: MemberCardProps) {
-  return (
-    <Stack
-      align="center"
-      gap={0}
-      p={5}
-      style={{
-        width: "220px",
-        height: "310px",
-        backgroundColor: "var(--gray-800)",
-        borderRadius: "10px",
-        overflow: "hidden",
-      }}
-    >
-      <div
-        style={{
-          width: "100%",
-          height: "220px",
-          backgroundImage: `url(${member.image ?? "/Placeholders/Person.jpg"})`,
-          backgroundSize: "cover",
-          backgroundPosition: "center",
-          borderRadius: "5px",
-        }}
-      />
-      <h3 style={{ margin: "0" }}>{member.member_name}</h3>
 
-      <Text>{member.member_role}</Text>
-    </Stack>
+export default function MemberCard({ member }: MemberCardProps) {
+  const { main, accent } = splitTitleAccent(member.member_name);
+  return (
+    <article className={styles.card}>
+      <div className={styles.photoWrap}>
+        <Image
+          src={member.image || "/Placeholders/Person.jpg"}
+          alt={member.member_name}
+          fill
+          sizes="220px"
+          className={styles.photo}
+          unoptimized
+        />
+      </div>
+      <span className={styles.divider} aria-hidden="true" />
+      <h3 className={styles.name}>
+        {main}
+        {accent && (
+          <>
+            {" "}
+            <span className={styles.nameAccent}>{accent}</span>
+          </>
+        )}
+      </h3>
+      <p className={styles.role}>{member.member_role}</p>
+    </article>
   );
 }
