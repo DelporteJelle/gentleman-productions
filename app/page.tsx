@@ -261,7 +261,7 @@ export default function Home() {
                       ? `/event/${highlight.uuid}/ticket`
                       : `/event/${highlight.uuid}`;
                     const ctaLabel = isFutureEvent
-                      ? "Reserve Your Seat"
+                      ? "More Info"
                       : isEventHighlight
                         ? "View Event"
                         : "Learn More";

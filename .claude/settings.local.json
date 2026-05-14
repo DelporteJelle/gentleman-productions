@@ -2,7 +2,16 @@
   "permissions": {
     "allow": [
       "Bash(npm install *)",
-      "Bash(Remove-Item \"h:\\\\Projects\\\\gentleman-productions\\\\lib\\\\cache.ts\" -Force)"
+      "Bash(Remove-Item \"h:\\\\Projects\\\\gentleman-productions\\\\lib\\\\cache.ts\" -Force)",
+      "Bash(yarn lint *)",
+      "PowerShell(yarn lint 2>&1)",
+      "PowerShell(npm --version)",
+      "PowerShell(node --version)",
+      "PowerShell(npm run lint 2>&1)",
+      "PowerShell(npx eslint app/globals.css app/page.module.css variables.css 2>&1)",
+      "PowerShell(npm run build 2>&1)",
+      "Bash(git add *)",
+      "Bash(git commit *)"
     ]
   }
 }
