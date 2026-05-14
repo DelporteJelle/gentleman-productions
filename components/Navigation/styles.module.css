@@ -35,20 +35,189 @@
 }
 /** FOOTER */
 
-.a {
-  text-decoration: none;
-  color: var(--text-color);
-  margin: 0 10px;
+.footer {
+  position: relative;
+  background: linear-gradient(180deg, var(--noir) 0%, var(--black) 100%);
+  border-top: 1px solid rgba(245, 233, 213, 0.08);
+  color: var(--cream-muted);
+  font-family: var(--font-body);
 }
 
-.footer {
-  font-size: 14px;
-  color: var(--gray-800);
-  background-color: var(--white);
-  height: 65px;
+.footerTopOrnament {
   display: flex;
-  flex-direction: row;
-  justify-content: space-between;
-  padding: 10px 15px;
   align-items: center;
+  justify-content: center;
+  gap: 24px;
+  padding: 36px 0 8px;
+}
+
+.ftopLine {
+  height: 1px;
+  width: 80px;
+  background: rgba(245, 233, 213, 0.12);
+}
+
+.ftopMark {
+  color: rgba(184, 35, 42, 0.7);
+  font-size: 9px;
+}
+
+.footerBody {
+  padding: 50px 80px 50px;
+  display: grid;
+  grid-template-columns: 1.4fr 1fr 1fr 1fr;
+  gap: 60px;
+  max-width: 1400px;
+  margin: 0 auto;
+}
+
+.footerLogoMark {
+  font-family: var(--font-italic);
+  font-style: italic;
+  font-weight: 600;
+  font-size: 36px;
+  line-height: 1;
+  color: var(--cream-muted);
+  margin-bottom: 12px;
+}
+
+.footerLogoMark .gp {
+  color: rgba(200, 16, 46, 0.85);
+  font-size: 1.2em;
+}
+
+.footerLogoSub {
+  font-family: var(--font-deco);
+  font-weight: 500;
+  font-size: 10px;
+  letter-spacing: 0.5em;
+  color: var(--cream-muted);
+  margin-bottom: 22px;
+  opacity: 0.7;
+  text-transform: uppercase;
+}
+
+.footerTagline {
+  font-family: var(--font-italic);
+  font-style: italic;
+  color: var(--cream-muted);
+  font-size: 13px;
+  line-height: 1.65;
+  margin-bottom: 22px;
+  max-width: 280px;
+  opacity: 0.7;
+}
+
+.footerEst {
+  display: inline-flex;
+  align-items: center;
+  gap: 12px;
+  font-family: var(--font-deco);
+  font-size: 9px;
+  letter-spacing: 0.35em;
+  color: var(--cream-muted);
+  padding-top: 16px;
+  border-top: 1px solid rgba(245, 233, 213, 0.08);
+  opacity: 0.55;
+  text-transform: uppercase;
+}
+
+.footerEstStar { color: rgba(184, 35, 42, 0.7); }
+
+.footerCol h4 {
+  font-family: var(--font-deco);
+  font-weight: 500;
+  font-size: 10px;
+  letter-spacing: 0.45em;
+  color: var(--cream-muted);
+  margin: 0 0 20px;
+  padding-bottom: 12px;
+  border-bottom: 1px solid rgba(245, 233, 213, 0.06);
+  text-transform: uppercase;
+  opacity: 0.85;
+}
+
+.footerCol p,
+.footerCol a {
+  font-family: var(--font-body);
+  font-size: 13px;
+  line-height: 1.85;
+  color: var(--cream-muted);
+  text-decoration: none;
+  display: block;
+  transition: color 0.3s;
+  opacity: 0.75;
+  margin: 0;
+}
+
+.footerCol a:hover {
+  color: var(--cream);
+  opacity: 1;
+}
+
+.footerCol .accent {
+  font-family: var(--font-italic);
+  font-style: italic;
+  color: var(--cream-muted);
+  font-size: 15px;
+  opacity: 0.9;
+}
+
+.footerSocials {
+  display: flex;
+  gap: 14px;
+  margin-top: 4px;
+}
+
+.footerSocialLink {
+  width: 40px;
+  height: 40px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: transparent;
+  border: 1px solid rgba(245, 233, 213, 0.1);
+  color: var(--cream-muted);
+  transition: border-color 0.3s, color 0.3s;
+  text-decoration: none;
+}
+
+.footerSocialLink:hover {
+  border-color: rgba(245, 233, 213, 0.3);
+  color: var(--cream);
+}
+
+.footerBottom {
+  border-top: 1px solid rgba(245, 233, 213, 0.05);
+  padding: 22px 80px;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  font-family: var(--font-deco);
+  font-size: 9px;
+  letter-spacing: 0.35em;
+  color: var(--gray-600);
+  max-width: 1400px;
+  margin: 0 auto;
+  text-transform: uppercase;
+  opacity: 0.6;
+}
+
+.footerBottomDeco {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.footerBottomDeco span {
+  color: rgba(184, 35, 42, 0.5);
+}
+
+@media (max-width: 1100px) {
+  .footerBody { grid-template-columns: 1fr 1fr; padding: 50px 40px; }
+}
+
+@media (max-width: 700px) {
+  .footerBody { grid-template-columns: 1fr; padding: 40px 24px; }
+  .footerBottom { flex-direction: column; gap: 12px; padding: 20px 24px; }
 }
