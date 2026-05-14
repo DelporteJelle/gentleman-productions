@@ -1,7 +1,5 @@
-@import url("https://fonts.googleapis.com/css2?family=Bebas+Neue&display=swap");
-@import url("https://fonts.googleapis.com/css2?family=Questrial&display=swap");
-@import url("https://fonts.googleapis.com/css2?family=Poppins:ital,wght@0,100;0,200;0,300;0,400;0,500;0,600;0,700;0,800;0,900;1,100;1,200;1,300;1,400;1,500;1,600;1,700;1,800;1,900&display=swap");
-@import url("https://fonts.googleapis.com/css2?family=Overpass:ital,wght@0,100..900;1,100..900&display=swap");
+@import url("https://fonts.googleapis.com/css2?family=Bebas+Neue&family=Cinzel:wght@400;500;700&family=Fjalla+One&family=Playfair+Display:ital,wght@1,500;1,600;1,700&family=Questrial&display=swap");
+
 main {
   min-height: calc(100vh - 125px);
   margin: 30px;
@@ -14,26 +12,27 @@ main {
   background-position: center;
   background-repeat: no-repeat;
   background-size: cover;
-  font-family: "Questrial", sans-serif;
+  font-family: var(--font-body);
+  color: var(--cream);
 }
 
 a {
-  font-family: "Poppins", sans-serif;
-  text-decoration: none; /* Removes the underline */
-  cursor: pointer; /* Optional: Ensures it still looks clickable */
-  color: var(--white);
+  font-family: var(--font-body);
+  text-decoration: none;
+  cursor: pointer;
+  color: var(--cream);
 }
 
 a:hover {
-  transition: color 0.3s ease, transform 0.3s ease;
-  transform: scale(1.1);
-  color: var(--primary-red) !important;
+  transition: color 0.3s ease;
+  color: var(--red);
 }
 
 a.active {
-  color: var(--primary-red) !important;
+  color: var(--red);
 }
 
+/* Legacy button classes — kept for non-landing pages */
 .btn-red {
   background-color: var(--red-2);
   color: var(--white);
@@ -43,18 +42,12 @@ a.active {
   cursor: pointer;
   font-size: 24px;
   transition: transform 0.5s;
-  max-width: -moz-fit-content;
   max-width: fit-content;
   margin: 20px auto;
 }
-.btn-red :hover {
-  color: var(--white);
-}
-
 .btn-red:hover {
   background-color: var(--primary-red);
   transform: scale(1.05);
-  transition: transform 0.5s;
 }
 
 .btn-yellow {
@@ -67,64 +60,33 @@ a.active {
   font-size: 18px;
   font-weight: bold;
   text-align: center;
-  max-width: -moz-fit-content;
   max-width: fit-content;
   margin: 10px auto;
 }
 
 .title {
-  font-family: "Fjalla One", sans-serif;
+  font-family: var(--font-display);
   text-transform: uppercase;
   font-size: 64px;
-  font-weight: bold;
+  font-weight: 400;
+  letter-spacing: 0.01em;
   margin-bottom: 30px;
 }
 
-h1 {
-  font-size: 36px;
-  font-weight: bold;
-  font-family: "Roboto", sans-serif;
-}
-
-h2 {
-  font-size: 25px;
-  font-weight: bold;
-  font-family: "Poppins", sans-serif;
-}
-
-h3 {
-  font-size: 20px;
-  font-weight: 600;
-  font-family: "Poppins", sans-serif;
-}
+h1 { font-size: 36px; font-weight: bold; font-family: var(--font-display); letter-spacing: 0.01em; }
+h2 { font-size: 25px; font-weight: bold; font-family: var(--font-display); letter-spacing: 0.01em; }
+h3 { font-size: 20px; font-weight: 600; font-family: var(--font-deco); letter-spacing: 0.05em; }
 
 .date {
   font-size: 20px;
   text-transform: uppercase;
-  font-family: "Bebas Neue", sans-serif;
-  color: var(--gray-200);
+  font-family: var(--font-display);
+  color: var(--cream-muted);
 }
 
-.fs14 {
-  font-size: 16px;
-}
-
-.bold {
-  font-weight: bold;
-}
-
-.underline {
-  text-decoration: underline;
-}
-
-.upper {
-  text-transform: uppercase;
-}
-
-.gray-800 {
-  color: var(--gray-800);
-}
-
-.gray-600 {
-  color: var(--gray-600);
-}/*# sourceMappingURL=globals.css.map */
+.fs14 { font-size: 16px; }
+.bold { font-weight: bold; }
+.underline { text-decoration: underline; }
+.upper { text-transform: uppercase; }
+.gray-800 { color: var(--gray-800); }
+.gray-600 { color: var(--gray-600); }
