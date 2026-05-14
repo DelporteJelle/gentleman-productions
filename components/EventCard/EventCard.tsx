@@ -4,151 +4,145 @@ import { Image } from "@mantine/core";
 import styles from "./EventCard.module.css";
 import { useRouter } from "next/navigation";
 import { Event } from "@/types";
-import React, { createRef, useEffect, useRef, useState } from "react";
-import { gsap } from "gsap";
-import TextPlugin from "gsap/TextPlugin";
+import React, { useEffect, useRef, useState } from "react";
 import { IconPhotoOff } from "@tabler/icons-react";
-interface props {
+
+interface Props {
   event: Event;
-  index: any;
+  index: number;
 }
 
-export default function ImageTextCard({ event, index }: props) {
-  gsap.registerPlugin(TextPlugin);
+const ROMANS = ["I", "II", "III", "IV", "V", "VI", "VII", "VIII", "IX", "X"];
+function actLabel(index: number): string {
+  return `Act ${index < ROMANS.length ? ROMANS[index] : index + 1}`;
+}
+
+function splitTitleAccent(title: string): { main: string; accent: string } {
+  const words = title.trim().split(/\s+/);
+  if (words.length < 2) return { main: title, accent: "" };
+  return {
+    main: words.slice(0, -1).join(" "),
+    accent: words[words.length - 1],
+  };
+}
+
+export default function EventCard({ event, index }: Props) {
   const router = useRouter();
-  const cardRef = useRef(null);
-  const titleRef = useRef(null);
-  const dateRef = useRef(null);
-  const descriptionRef = useRef(null);
-  const btnRef = useRef(null);
+  const cardRef = useRef<HTMLDivElement>(null);
   const [imageLoaded, setImageLoaded] = useState(false);
   const [imageError, setImageError] = useState(false);
+  const [visible, setVisible] = useState(false);
 
-  // Set a timeout for image loading
   useEffect(() => {
-    const timeout = setTimeout(() => {
-      if (!imageLoaded) {
-        setImageError(true);
-      }
-    }, 10000); // 10 second timeout
-
-    return () => clearTimeout(timeout);
+    const t = setTimeout(() => {
+      if (!imageLoaded) setImageError(true);
+    }, 10_000);
+    return () => clearTimeout(t);
   }, [imageLoaded]);
 
   useEffect(() => {
-    if (cardRef.current) {
-      const observer = new IntersectionObserver(
-        (entries) => {
-          entries.forEach((entry) => {
-            if (entry.isIntersecting) {
-              const tl = gsap.timeline();
-              tl.to(cardRef.current, { duration: 1, opacity: 1, width: "100%" }) // Expand the card
-                .to(
-                  titleRef.current,
-                  { duration: 1, text: event.title, opacity: 1 },
-                  "+0.1",
-                ) // Animate the title as if being written
-                .to(
-                  dateRef.current,
-                  {
-                    duration: 2,
-                    text: event.dates
-                      .map((date: any) =>
-                        new Date(date.start_time).toLocaleDateString("nl-BE", {
-                          day: "numeric",
-                          month: "long",
-                          year: "numeric",
-                        }),
-                      )
-                      .join(" - "),
-                    opacity: 1,
-                  },
-                  "+0.5",
-                ) // Then the date
-                .to(
-                  descriptionRef.current,
-                  { duration: 2, text: event.description, opacity: 1 },
-                  "+1",
-                )
-                .to(btnRef.current, { duration: 1, opacity: 1 }, "+=0");
-              observer.unobserve(cardRef!.current!);
-            }
-          });
-        },
-        {
-          threshold: 0.1,
-        },
-      );
+    if (!cardRef.current) return;
+    const obs = new IntersectionObserver(
+      (entries) => {
+        entries.forEach((e) => {
+          if (e.isIntersecting) {
+            setVisible(true);
+            obs.unobserve(e.target);
+          }
+        });
+      },
+      { threshold: 0.15 },
+    );
+    obs.observe(cardRef.current);
+    return () => obs.disconnect();
+  }, []);
 
-      observer.observe(cardRef.current);
-
-      // Clean up function
-      return () => {
-        if (cardRef.current) {
-          observer.unobserve(cardRef.current);
-        }
-      };
-    }
-  }, [event.dates, event.description, event.title]);
+  const { main, accent } = splitTitleAccent(event.title);
+  const location =
+    event.eventlocation?.location || event.eventlocation?.city;
 
   return (
-    <div className={styles.card_wrapper}>
+    <div className={styles.cardWrapper}>
       <div
         ref={cardRef}
-        key={index}
-        className={index % 2 ? styles.card_reverse : styles.card}
-        style={{ opacity: 0, transformOrigin: "center center", width: "0%" }}
+        className={`${index % 2 ? styles.reverse : ""} ${styles.card} ${visible ? styles.visible : ""}`}
       >
-        <div className={styles.card_img}>
-          <div
-            className={styles.image_skeleton}
-            style={{
-              opacity: imageLoaded || imageError ? 0 : 0.7,
-              transition: "opacity 0.3s ease",
-            }}
-          />
-          {imageError ? (
-            <div className={styles.image_error}>
-              <IconPhotoOff size={64} stroke={1.5} />
-              <p>Image not available</p>
-            </div>
-          ) : (
-            <Image
-              src={event.display_image}
-              alt={event.title}
-              height={450}
-              style={{
-                objectFit: "cover",
-                opacity: imageLoaded ? 1 : 0,
-                transition: "opacity 0.3s ease",
-              }}
-              onLoad={() => setImageLoaded(true)}
-              onError={() => setImageError(true)}
-            />
-          )}
-        </div>
-        <div className={styles.card_txt}>
-          <h2 ref={titleRef}>{event.title}</h2>
-          <div className="date mt-4" ref={dateRef}>
-            {event.dates.map((date: any, index: number) => (
-              <span key={index}>
-                {index === 0 && event.dates.length > 1 ? " - " : ""}
-              </span>
-            ))}
+        <div className={styles.spotlightFrame}>
+          <div className={styles.frameInner}>
+            {!imageLoaded && !imageError && (
+              <div className={styles.imageSkeleton} />
+            )}
+            {imageError ? (
+              <div className={styles.imageError}>
+                <IconPhotoOff size={64} stroke={1.5} />
+                <p>Image not available</p>
+              </div>
+            ) : (
+              <Image
+                src={event.display_image}
+                alt={event.title}
+                className={styles.frameImg}
+                style={{
+                  opacity: imageLoaded ? 1 : 0,
+                  transition: "opacity 0.4s ease",
+                }}
+                onLoad={() => setImageLoaded(true)}
+                onError={() => setImageError(true)}
+              />
+            )}
           </div>
-          <div style={{ whiteSpace: "pre-wrap" }} ref={descriptionRef}></div>
-          {/* {new Date(event.dates[0]) > new Date() && ( */}
-          <button
-            ref={btnRef}
-            className="btn-yellow"
-            onClick={() => {
-              router.push("/event/" + event.uuid);
-            }}
-            style={{ opacity: 0 }}
+        </div>
+
+        <div className={styles.cardText}>
+          <div className={styles.actNum}>
+            {actLabel(index)} &nbsp;·&nbsp; Event
+          </div>
+
+          <h2 className={styles.cardTitle}>
+            {main}
+            {accent && (
+              <>
+                {" "}
+                <span className={styles.it}>{accent}</span>
+              </>
+            )}
+          </h2>
+
+          <div className={styles.cardInfo}>
+            {event.dates.map((d, i) => (
+              <React.Fragment key={i}>
+                {i > 0 && (
+                  <span className={styles.cardInfoSep}>&#9670;</span>
+                )}
+                <span>
+                  {new Date(d.start_time).toLocaleDateString("nl-BE", {
+                    day: "numeric",
+                    month: "long",
+                    year: "numeric",
+                  })}
+                </span>
+              </React.Fragment>
+            ))}
+            {location && (
+              <>
+                <span className={styles.cardInfoSep}>&#9670;</span>
+                <span>{location}</span>
+              </>
+            )}
+          </div>
+
+          {event.description && (
+            <p className={styles.cardDesc}>{event.description}</p>
+          )}
+
+          <a
+            className={styles.cardCta}
+            onClick={() => router.push("/event/" + event.uuid)}
+            style={{ cursor: "pointer" }}
           >
-            View event
-          </button>
-          {/* )} */}
+            View Event
+            <span className={styles.cardCtaArrow}>&rarr;</span>
+          </a>
         </div>
       </div>
     </div>

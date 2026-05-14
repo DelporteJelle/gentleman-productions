@@ -1,124 +1,225 @@
-.card_wrapper {
-  margin-top: 10px;
+.cardWrapper {
+  width: 100%;
   max-width: 1200px;
-  min-width: 1200px;
+  margin: 0 auto;
 }
 
 .card {
-  display: flex;
-  flex-direction: row;
-  /* min-width: 1000px; */
-}
-.card_reverse {
-  display: flex;
-  flex-direction: row-reverse;
-  /* min-width: 1000px; */
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 80px;
+  align-items: center;
+  opacity: 0;
+  transform: translateY(40px);
+  transition: opacity 0.9s ease-out, transform 0.9s ease-out;
 }
 
-.card_img {
-  width: 54%;
+.card.reverse > .spotlightFrame { order: 2; }
+.card.reverse > .cardText { order: 1; }
+
+.card.visible {
+  opacity: 1;
+  transform: translateY(0);
+}
+
+.spotlightFrame {
   position: relative;
-  /* display: flex;
-  flex-direction: column;
-  justify-content: center; */
 }
 
-.image_skeleton {
+.spotlightFrame::before {
+  content: '';
+  position: absolute;
+  inset: -80px;
+  background: radial-gradient(ellipse at center, rgba(200, 16, 46, 0.25) 0%, transparent 60%);
+  pointer-events: none;
+  z-index: 0;
+  filter: blur(40px);
+}
+
+.frameInner {
+  position: relative;
+  z-index: 1;
+  overflow: hidden;
+  box-shadow:
+    0 30px 80px rgba(0, 0, 0, 0.7),
+    0 10px 30px rgba(120, 10, 25, 0.25);
+}
+
+.frameInner::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background:
+    radial-gradient(ellipse at center, transparent 55%, rgba(0, 0, 0, 0.45) 100%),
+    linear-gradient(180deg, rgba(245, 197, 67, 0.06) 0%, transparent 25%, transparent 75%, rgba(0, 0, 0, 0.35) 100%);
+  pointer-events: none;
+  z-index: 2;
+  mix-blend-mode: multiply;
+}
+
+.frameInner::before {
+  content: '';
+  position: absolute;
+  bottom: 0;
+  left: 0;
+  width: 35%;
+  height: 2px;
+  background: linear-gradient(90deg, var(--red) 0%, transparent 100%);
+  z-index: 3;
+}
+
+.frameImg {
+  display: block;
+  width: 100%;
+  height: auto;
+  position: relative;
+  z-index: 1;
+  filter: contrast(1.08) saturate(0.92) brightness(0.94);
+}
+
+.imageSkeleton {
   position: absolute;
   top: 0;
   left: 0;
   width: 100%;
-  height: 100%;
+  aspect-ratio: 3 / 2;
   background: linear-gradient(
     135deg,
-    var(--gray-900) 25%,
+    var(--noir) 25%,
     var(--gray-800) 50%,
-    var(--gray-900) 75%
+    var(--noir) 75%
   );
   background-size: 200% 100%;
   animation: loading 1.5s ease-in-out infinite;
+  z-index: 2;
 }
 
 @keyframes loading {
-  0% {
-    background-position: 200% 0;
-  }
-  100% {
-    background-position: -200% 0;
-  }
+  0% { background-position: 200% 0; }
+  100% { background-position: -200% 0; }
 }
 
-.image_error {
-  height: 450px;
-  /* position: absolute; */
-  /* top: 0; */
-  /* left: 0; */
-  /* width: 100%; */
-  /* height: 100%; */
+.imageError {
+  aspect-ratio: 3 / 2;
   display: flex;
   flex-direction: column;
   align-items: center;
   justify-content: center;
-  background-color: var(--gray-900);
-  color: var(--gray-400);
+  background-color: var(--noir);
+  color: var(--cream-muted);
   gap: 12px;
 }
 
-.image_error p {
-  margin: 0;
-  font-size: 14px;
-}
-.card_txt {
-  background-color: var(--gray-800);
-  width: 46%;
+.imageError p { margin: 0; font-size: 14px; }
+
+.cardText {
+  padding: 16px 0;
   display: flex;
   flex-direction: column;
-  justify-content: center;
-  padding: 20px;
-  /* border-bottom: 5px solid var(--red-2); */
-}
-.rounded_left {
-  border-radius: 0 10px 10px 0;
-}
-.rounded_right {
-  border-radius: 10px 0 0 10px;
-}
-.subheader_line {
-  height: 3px;
-  width: 60%;
-  background-color: var(--red-2);
 }
 
-@media screen and (max-width: 1200px) {
-  .card_wrapper {
-    width: 100%;
-    min-width: 100%;
-  }
-  .card {
-    display: flex;
-    flex-direction: column;
-    justify-content: center;
-    align-items: center;
-  }
-  .card_reverse {
-    display: flex;
-    flex-direction: column;
-    justify-content: center;
-    align-items: center;
-  }
+.actNum {
+  font-family: var(--font-italic);
+  font-style: italic;
+  font-weight: 600;
+  font-size: 14px;
+  letter-spacing: 0.4em;
+  color: var(--red);
+  margin-bottom: 26px;
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  text-transform: uppercase;
+}
 
-  .card_right {
-    width: 100%;
-  }
-  .card_left {
-    width: 100%;
-  }
-  .card_img {
-    width: 100%;
-    border-radius: 10px 10px 0 0;
-  }
-  .card_txt {
-    width: 100%;
-    border-radius: 0 0 10px 10px;
-  }
+.actNum::after {
+  content: '';
+  flex: 1;
+  height: 1px;
+  background: linear-gradient(90deg, var(--red-deep), transparent);
+  max-width: 200px;
+}
+
+.cardTitle {
+  font-family: var(--font-display);
+  font-size: clamp(40px, 5vw, 64px);
+  line-height: 0.95;
+  letter-spacing: 0.01em;
+  color: var(--cream);
+  margin: 0 0 24px;
+}
+
+.cardTitle .it {
+  font-family: var(--font-italic);
+  font-style: italic;
+  font-weight: 600;
+  color: var(--red);
+  font-size: 0.92em;
+}
+
+.cardInfo {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 14px;
+  font-family: var(--font-deco);
+  font-size: 10px;
+  letter-spacing: 0.3em;
+  color: var(--cream-muted);
+  margin-bottom: 28px;
+  text-transform: uppercase;
+}
+
+.cardInfoSep { color: var(--red); font-size: 8px; }
+
+.cardDesc {
+  font-family: var(--font-body);
+  font-size: 16px;
+  line-height: 1.75;
+  color: var(--cream-muted);
+  margin-bottom: 36px;
+  max-width: 500px;
+  white-space: pre-wrap;
+}
+
+.cardCta {
+  display: inline-flex;
+  align-items: center;
+  gap: 14px;
+  padding: 14px 0;
+  font-family: var(--font-deco);
+  font-weight: 700;
+  font-size: 12px;
+  letter-spacing: 0.4em;
+  color: var(--gold-bright);
+  background: none;
+  border: none;
+  cursor: pointer;
+  position: relative;
+  text-decoration: none;
+  text-transform: uppercase;
+  align-self: flex-start;
+}
+
+.cardCta::after {
+  content: '';
+  position: absolute;
+  bottom: 8px;
+  left: 0;
+  width: 100%;
+  height: 1px;
+  background: var(--gold-soft);
+  transition: background 0.4s;
+}
+
+.cardCta:hover { color: #fff; }
+.cardCta:hover::after { background: var(--gold-bright); }
+
+.cardCtaArrow { display: inline-block; transition: transform 0.4s; }
+.cardCta:hover .cardCtaArrow { transform: translateX(8px); }
+
+@media (max-width: 1100px) {
+  .card { grid-template-columns: 1fr; gap: 40px; }
+  .card.reverse > .spotlightFrame { order: 1; }
+  .card.reverse > .cardText { order: 2; }
 }
