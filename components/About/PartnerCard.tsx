@@ -1,26 +1,27 @@
 import { Partner } from "@/types";
-import { Image, Stack, Text } from "@mantine/core";
+import styles from "./PartnerCard.module.css";
 
-interface props {
+interface PartnerCardProps {
   partner: Partner;
 }
-export default function PartnerCard({ partner }: props) {
-  return (
-    <Stack
-      align="center"
-      gap={0}
-      p={5}
-      style={{
-        width: "320px",
-        height: "220px",
-        // backgroundColor: "var(--gray-800)",
-        borderRadius: "10px",
-      }}
-    >
-      <Image src={partner.logo} alt={partner.partner_name} h="150px" />
-      <h3 style={{ margin: "0" }}>{partner.partner_name}</h3>
 
-      <Text>{partner.description}</Text>
-    </Stack>
+export default function PartnerCard({ partner }: PartnerCardProps) {
+  return (
+    <article className={styles.card} tabIndex={0}>
+      <div className={styles.logoTile}>
+        {partner.logo && (
+          // eslint-disable-next-line @next/next/no-img-element
+          <img
+            src={partner.logo}
+            alt={partner.partner_name}
+            className={styles.logo}
+          />
+        )}
+      </div>
+      <h3 className={styles.name}>{partner.partner_name}</h3>
+      {partner.description && (
+        <p className={styles.description}>{partner.description}</p>
+      )}
+    </article>
   );
 }
