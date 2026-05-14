@@ -1,8 +1,9 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { useParams, useRouter } from "next/navigation";
-import { Event } from "@/types";
+import { useParams } from "next/navigation";
+import Link from "next/link";
+import { Event, isEvent } from "@/types";
 import { usePosts } from "@/app/contexts/PostsContext";
 import { splitTitleAccent, toRomanNumerals } from "@/lib/text";
 import CanvasBackground from "@/components/Background/CanvasBackground";
@@ -42,22 +43,39 @@ function eyebrowFor(dates: Event["dates"]): string {
   return `Archived · ${toRomanNumerals(year)}`;
 }
 
+type Status = "loading" | "ready" | "notFound" | "error";
+
 export default function EventPage() {
-  const router = useRouter();
   const { id } = useParams();
-  const { fetchPostById, loading, error } = usePosts();
+  const { fetchPostById } = usePosts();
   const [event, setEvent] = useState<Event | null>(null);
-  const [notFound, setNotFound] = useState(false);
+  const [status, setStatus] = useState<Status>("loading");
+  const [errorMessage, setErrorMessage] = useState<string | undefined>(undefined);
 
   useEffect(() => {
     let cancelled = false;
+    setStatus("loading");
+    setEvent(null);
+    setErrorMessage(undefined);
+
     const run = async () => {
-      const fetched = await fetchPostById(id as string);
-      if (cancelled) return;
-      if (!fetched) {
-        setNotFound(true);
-      } else {
-        setEvent(fetched as Event);
+      try {
+        const fetched = await fetchPostById(id as string);
+        if (cancelled) return;
+        if (!fetched) {
+          setStatus("notFound");
+          return;
+        }
+        if (!isEvent(fetched)) {
+          setStatus("notFound");
+          return;
+        }
+        setEvent(fetched);
+        setStatus("ready");
+      } catch (e) {
+        if (cancelled) return;
+        setErrorMessage(e instanceof Error ? e.message : String(e));
+        setStatus("error");
       }
     };
     run();
@@ -66,9 +84,9 @@ export default function EventPage() {
     };
   }, [id, fetchPostById]);
 
-  if (loading) return <LoadingScreen />;
-  if (error) return <ErrorScreen message={error} />;
-  if (notFound || !event) return <NotFoundScreen />;
+  if (status === "loading") return <LoadingScreen />;
+  if (status === "error") return <ErrorScreen message={errorMessage} />;
+  if (status === "notFound" || !event) return <NotFoundScreen />;
 
   const { main: titleMain, accent: titleAccent } = splitTitleAccent(event.title);
   const dateText = computeDateText(event.dates);
@@ -86,13 +104,9 @@ export default function EventPage() {
       </div>
 
       <section className={styles.hero} aria-label="Production details">
-        <button
-          type="button"
-          className={styles.backLink}
-          onClick={() => router.push("/#programme")}
-        >
+        <Link href="/#programme" className={styles.backLink}>
           &larr; Back to programme
-        </button>
+        </Link>
 
         <div className={styles.heroContent}>
           <div className={styles.eyebrow}>{eyebrow}</div>
