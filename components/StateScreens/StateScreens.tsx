@@ -63,9 +63,10 @@ export function LoadingScreen() {
 
 interface ErrorScreenProps {
   message?: string;
+  onRetry?: () => void;
 }
 
-export function ErrorScreen({ message }: ErrorScreenProps) {
+export function ErrorScreen({ message, onRetry }: ErrorScreenProps) {
   const router = useRouter();
   return (
     <StateScreen
@@ -86,7 +87,7 @@ export function ErrorScreen({ message }: ErrorScreenProps) {
           <button
             type="button"
             className={styles.ghostButton}
-            onClick={() => router.refresh()}
+            onClick={onRetry ?? (() => router.refresh())}
           >
             Try again
           </button>
