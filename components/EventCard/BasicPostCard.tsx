@@ -1,160 +1,130 @@
-import React from "react";
-import { BasicPost, Post } from "@/types";
+"use client";
+
+import React, { useEffect, useRef, useState } from "react";
+import { BasicPost } from "@/types";
 import styles from "./EventCard.module.css";
 import { Image } from "@mantine/core";
-import { useRef, useEffect, useState } from "react";
-import { gsap } from "gsap";
-import TextPlugin from "gsap/TextPlugin";
 import { IconPhotoOff } from "@tabler/icons-react";
 
-interface BasicPostCardProps {
+interface Props {
   post: BasicPost;
   index?: number;
 }
 
-const BasicPostCard: React.FC<BasicPostCardProps> = ({ post, index = 0 }) => {
-  gsap.registerPlugin(TextPlugin);
-  const cardRef = useRef(null);
-  const titleRef = useRef(null);
-  const descriptionRef = useRef(null);
-  const btnRef = useRef(null);
+const ROMANS = ["I", "II", "III", "IV", "V", "VI", "VII", "VIII", "IX", "X"];
+function actLabel(index: number): string {
+  return `Act ${index < ROMANS.length ? ROMANS[index] : index + 1}`;
+}
+
+function splitTitleAccent(title: string): { main: string; accent: string } {
+  const words = title.trim().split(/\s+/);
+  if (words.length < 2) return { main: title, accent: "" };
+  return {
+    main: words.slice(0, -1).join(" "),
+    accent: words[words.length - 1],
+  };
+}
+
+const BasicPostCard: React.FC<Props> = ({ post, index = 0 }) => {
+  const cardRef = useRef<HTMLDivElement>(null);
   const [imageLoaded, setImageLoaded] = useState(false);
   const [imageError, setImageError] = useState(false);
-  const [isVertical, setIsVertical] = useState(false);
-
-  // Detect image orientation by preloading
-  useEffect(() => {
-    if (!post.display_image) return;
-    const img = new window.Image();
-    img.onload = () => {
-      setIsVertical(img.naturalHeight > img.naturalWidth);
-      setImageLoaded(true);
-    };
-    img.onerror = () => setImageError(true);
-    img.src = post.display_image;
-  }, [post.display_image]);
+  const [visible, setVisible] = useState(false);
 
   useEffect(() => {
-    if (cardRef.current) {
-      const observer = new IntersectionObserver(
-        (entries) => {
-          entries.forEach((entry) => {
-            if (entry.isIntersecting) {
-              const tl = gsap.timeline();
-              tl.to(cardRef.current, {
-                duration: 1,
-                opacity: 1,
-                width: "100%",
-              })
-                .to(
-                  titleRef.current,
-                  { duration: 1, text: post.title, opacity: 1 },
-                  "+0.1",
-                );
+    if (!cardRef.current) return;
+    const obs = new IntersectionObserver(
+      (entries) => {
+        entries.forEach((e) => {
+          if (e.isIntersecting) {
+            setVisible(true);
+            obs.unobserve(e.target);
+          }
+        });
+      },
+      { threshold: 0.15 },
+    );
+    obs.observe(cardRef.current);
+    return () => obs.disconnect();
+  }, []);
 
-              if (post.description) {
-                tl.to(
-                  descriptionRef.current,
-                  { duration: 2, text: post.description, opacity: 1 },
-                  "+0.5",
-                );
-              }
-
-              if (post.link) {
-                tl.to(btnRef.current, { duration: 1, opacity: 1 }, "+=0");
-              }
-
-              observer.unobserve(cardRef!.current!);
-            }
-          });
-        },
-        {
-          threshold: 0.1,
-        },
-      );
-
-      observer.observe(cardRef.current);
-
-      return () => {
-        if (cardRef.current) {
-          observer.unobserve(cardRef.current);
-        }
-      };
-    }
-  }, [post.title, post.description, post.link]);
+  const { main, accent } = splitTitleAccent(post.title);
 
   return (
-    <div className={styles.card_wrapper}>
+    <div className={styles.cardWrapper}>
       <div
         ref={cardRef}
-        className={index % 2 ? styles.card_reverse : styles.card}
-        style={{ opacity: 0, transformOrigin: "center center", width: "0%" }}
+        className={`${index % 2 ? styles.reverse : ""} ${styles.card} ${visible ? styles.visible : ""}`}
       >
-        <div
-          className={styles.card_img}
-          style={{ width: isVertical ? "35%" : undefined }}
-        >
-          <div
-            className={styles.image_skeleton}
-            style={{
-              opacity: imageLoaded || imageError ? 0 : 0.7,
-              transition: "opacity 0.3s ease",
-            }}
-          />
-          {imageError ? (
-            <div className={styles.image_error}>
-              <IconPhotoOff size={64} stroke={1.5} />
-              <p>Image not available</p>
-            </div>
-          ) : (
-            <Image
-              src={post.display_image}
-              alt={post.title}
-              height={450}
-              style={{
-                objectFit: "cover",
-                opacity: imageLoaded ? 1 : 0,
-                transition: "opacity 0.3s ease",
-              }}
-              onLoad={() => setImageLoaded(true)}
-              onError={() => setImageError(true)}
-            />
-          )}
+        <div className={styles.spotlightFrame}>
+          <div className={styles.frameInner}>
+            {imageError ? (
+              <div className={styles.imageError}>
+                <IconPhotoOff size={64} stroke={1.5} />
+                <p>Image not available</p>
+              </div>
+            ) : (
+              <Image
+                src={post.display_image}
+                alt={post.title}
+                className={styles.frameImg}
+                style={{
+                  opacity: imageLoaded ? 1 : 0,
+                  transition: "opacity 0.4s ease",
+                }}
+                onLoad={() => setImageLoaded(true)}
+                onError={() => setImageError(true)}
+              />
+            )}
+          </div>
         </div>
-        <div
-          className={styles.card_txt}
-          style={{ width: isVertical ? "65%" : undefined }}
-        >
-          <h2 ref={titleRef}></h2>
+
+        <div className={styles.cardText}>
+          <div className={styles.actNum}>
+            {actLabel(index)} &nbsp;·&nbsp; Post
+          </div>
+
+          <h2 className={styles.cardTitle}>
+            {main}
+            {accent && (
+              <>
+                {" "}
+                <span className={styles.it}>{accent}</span>
+              </>
+            )}
+          </h2>
+
           {(post.date || post.location) && (
-            <div className="date mt-4" style={{ opacity: 0.8 }}>
-              {post.date &&
-                new Date(post.date).toLocaleDateString("nl-BE", {
-                  day: "numeric",
-                  month: "long",
-                  year: "numeric",
-                })}
-              {post.date && post.location && " — "}
-              {post.location}
+            <div className={styles.cardInfo}>
+              {post.date && (
+                <span>
+                  {new Date(post.date).toLocaleDateString("nl-BE", {
+                    day: "numeric",
+                    month: "long",
+                    year: "numeric",
+                  })}
+                </span>
+              )}
+              {post.date && post.location && (
+                <span className={styles.cardInfoSep}>&#9670;</span>
+              )}
+              {post.location && <span>{post.location}</span>}
             </div>
           )}
+
           {post.description && (
-            <div style={{ whiteSpace: "pre-wrap" }} ref={descriptionRef}></div>
+            <p className={styles.cardDesc}>{post.description}</p>
           )}
+
           {post.link && (
             <a
+              className={styles.cardCta}
               href={post.link}
               target="_blank"
               rel="noopener noreferrer"
-              style={{ textDecoration: "none" }}
             >
-              <button
-                ref={btnRef}
-                className="btn-yellow"
-                style={{ opacity: 0 }}
-              >
-                {post.link_text || "Learn more"}
-              </button>
+              {post.link_text || "Learn More"}
+              <span className={styles.cardCtaArrow}>&rarr;</span>
             </a>
           )}
         </div>
