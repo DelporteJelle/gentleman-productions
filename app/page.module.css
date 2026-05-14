@@ -339,7 +339,9 @@
 @media (max-width: 700px) {
   .hero {
     padding: 70px 24px 40px;
-    min-height: auto;
+    min-height: 100vh;
+    min-height: 100svh;
+    align-items: flex-start;
   }
   .heroTitle {
     font-size: clamp(40px, 11vw, 64px);
@@ -350,5 +352,17 @@
   .tagline { display: none; }
   .countdownWrap { display: none; }
   .dateRow { margin-bottom: 28px; }
+  .cta {
+    padding: 14px 26px;
+    font-size: 11px;
+    letter-spacing: 0.25em;
+    gap: 12px;
+    box-shadow:
+      0 0 0 1px rgba(212, 160, 23, 0.7),
+      0 0 0 3px rgba(20, 8, 10, 0.95),
+      0 0 0 4px rgba(212, 160, 23, 0.4),
+      0 10px 28px rgba(184, 35, 42, 0.4);
+  }
+  .ctaArrow { font-size: 16px; }
   .postsSection { padding: 60px 24px; }
 }
