@@ -43,7 +43,7 @@
 }
 
 .heroContent {
-  max-width: 920px;
+  max-width: 1400px;
   position: relative;
   z-index: 2;
   animation: heroFadeUp 1s ease-out 0.1s both;
@@ -66,8 +66,8 @@
 
 .title {
   font-family: var(--font-display);
-  font-size: clamp(56px, 8.5vw, 124px);
-  line-height: 0.88;
+  font-size: clamp(28px, 4.25vw, 62px);
+  line-height: 0.92;
   letter-spacing: 0.005em;
   color: var(--cream);
   margin: 0 0 24px;
