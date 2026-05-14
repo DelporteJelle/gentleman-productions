@@ -14,6 +14,7 @@ import { DbObjectType, Event, BasicPost, Post } from "@/types";
 import { Image } from "@mantine/core";
 import CanvasBackground from "@/components/Background/CanvasBackground";
 import { usePosts } from "./contexts/PostsContext";
+import { splitTitleAccent } from "@/lib/text";
 
 gsap.registerPlugin(useGSAP, ScrollTrigger, ScrollToPlugin);
 
@@ -36,15 +37,6 @@ function getHighlightDate(highlight: any): Date | null {
     return new Date(highlight.date);
   }
   return null;
-}
-
-function splitTitleAccent(title: string): { main: string; accent: string } {
-  const words = title.trim().split(/\s+/);
-  if (words.length < 2) return { main: title, accent: "" };
-  return {
-    main: words.slice(0, -1).join(" "),
-    accent: words[words.length - 1],
-  };
 }
 
 export default function Home() {

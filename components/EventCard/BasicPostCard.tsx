@@ -2,6 +2,7 @@
 
 import React, { useEffect, useRef, useState } from "react";
 import { BasicPost } from "@/types";
+import { splitTitleAccent } from "@/lib/text";
 import styles from "./EventCard.module.css";
 import { Image } from "@mantine/core";
 import { IconPhotoOff } from "@tabler/icons-react";
@@ -14,15 +15,6 @@ interface Props {
 const ROMANS = ["I", "II", "III", "IV", "V", "VI", "VII", "VIII", "IX", "X"];
 function actLabel(index: number): string {
   return `Act ${index < ROMANS.length ? ROMANS[index] : index + 1}`;
-}
-
-function splitTitleAccent(title: string): { main: string; accent: string } {
-  const words = title.trim().split(/\s+/);
-  if (words.length < 2) return { main: title, accent: "" };
-  return {
-    main: words.slice(0, -1).join(" "),
-    accent: words[words.length - 1],
-  };
 }
 
 const BasicPostCard: React.FC<Props> = ({ post, index = 0 }) => {
