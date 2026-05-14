@@ -1,0 +1,25 @@
+.label {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 22px;
+  font-family: var(--font-deco);
+  font-weight: 500;
+  font-size: 11px;
+  letter-spacing: 0.55em;
+  color: var(--cream-muted);
+  margin: 0 0 80px;
+  text-align: center;
+  text-transform: uppercase;
+}
+
+.line {
+  height: 1px;
+  width: 120px;
+  background: linear-gradient(90deg, transparent, rgba(245, 233, 213, 0.25), transparent);
+}
+
+.diamond {
+  color: var(--red);
+  font-size: 9px;
+}

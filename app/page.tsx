@@ -8,6 +8,7 @@ import { ScrollTrigger } from "gsap/ScrollTrigger";
 import { ScrollToPlugin } from "gsap/ScrollToPlugin";
 import EventCard from "@/components/EventCard/EventCard";
 import BasicPostCard from "@/components/EventCard/BasicPostCard";
+import SectionLabel from "@/components/SectionLabel/SectionLabel";
 import Countdown from "@/components/Countdown/Countdown";
 import { useEffect, useState } from "react";
 import { DbObjectType, Event, BasicPost, Post } from "@/types";
@@ -280,13 +281,7 @@ export default function Home() {
 
         {/* Posts section */}
         <section className={styles.postsSection}>
-          <div className={styles.sectionLabel}>
-            <span className={styles.sectionLabelLine}></span>
-            <span className={styles.sectionLabelDiamond}>&#9670;</span>
-            The Programme
-            <span className={styles.sectionLabelDiamond}>&#9670;</span>
-            <span className={styles.sectionLabelLine}></span>
-          </div>
+          <SectionLabel>The Programme</SectionLabel>
           <div className={styles.postsStack}>
             {posts &&
               posts
