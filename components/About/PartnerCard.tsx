@@ -7,7 +7,11 @@ interface PartnerCardProps {
 
 export default function PartnerCard({ partner }: PartnerCardProps) {
   return (
-    <article className={styles.card} tabIndex={0}>
+    <article
+      className={styles.card}
+      tabIndex={0}
+      aria-label={partner.partner_name}
+    >
       <div className={styles.logoTile}>
         {partner.logo && (
           // eslint-disable-next-line @next/next/no-img-element
