@@ -18,6 +18,7 @@ import {
   IconArticle,
 } from "@tabler/icons-react";
 import { Tooltip } from "@mantine/core";
+import { LoadingScreen } from "@/components/StateScreens/StateScreens";
 
 export default function PostsPage() {
   const [type, setType] = useState<DbObjectType | undefined>(); // Filter type
@@ -56,7 +57,7 @@ export default function PostsPage() {
 
   const totalPages = Math.ceil(total / limit) + 1;
 
-  if (loading) return <p>Loading...</p>;
+  if (loading) return <LoadingScreen />;
 
   return (
     <Stack align="center">

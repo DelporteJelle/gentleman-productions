@@ -9,6 +9,7 @@ import { ScrollToPlugin } from "gsap/ScrollToPlugin";
 import EventCard from "@/components/EventCard/EventCard";
 import BasicPostCard from "@/components/EventCard/BasicPostCard";
 import SectionLabel from "@/components/SectionLabel/SectionLabel";
+import { LoadingScreen } from "@/components/StateScreens/StateScreens";
 import Countdown from "@/components/Countdown/Countdown";
 import { useEffect, useState } from "react";
 import { DbObjectType, Event, BasicPost, Post } from "@/types";
@@ -120,7 +121,7 @@ export default function Home() {
         : `translateY(${viewportHeight - scrollY}px)`
       : "translateY(100%)";
 
-  if (loading) return <p>Loading events...</p>;
+  if (loading) return <LoadingScreen />;
 
   const showDate = getHighlightDate(highlight);
   const hasActiveHighlight =

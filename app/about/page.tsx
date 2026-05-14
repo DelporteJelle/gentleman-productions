@@ -9,12 +9,13 @@ import { Partner, TeamMember } from "@/types";
 import { useEffect, useState } from "react";
 import { useAbout } from "../contexts/AboutContext";
 import CanvasBackground from "@/components/Background/CanvasBackground";
+import { LoadingScreen, ErrorScreen } from "@/components/StateScreens/StateScreens";
 
 export default function About() {
   const { teamMembers, partners, error, loading } = useAbout();
 
-  if (loading) return <p>Loading...</p>;
-  if (error) return <p>Error: {error}</p>;
+  if (loading) return <LoadingScreen />;
+  if (error) return <ErrorScreen message={error} />;
 
   return (
     <>

@@ -13,6 +13,7 @@ import { ActionIcon } from "@mantine/core";
 import { showNotification } from "@mantine/notifications";
 import { IconEdit, IconTrashFilled } from "@tabler/icons-react";
 import CreatePartnerModal from "@/components/Modals/CreatePartnerModal";
+import { LoadingScreen } from "@/components/StateScreens/StateScreens";
 
 export default function About() {
   const {
@@ -59,7 +60,7 @@ export default function About() {
     }
   };
 
-  if (loading) return <p>Loading...</p>;
+  if (loading) return <LoadingScreen />;
   return (
     <Stack align="center">
       <h1>Meet the team</h1>

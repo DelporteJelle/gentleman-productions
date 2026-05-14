@@ -6,6 +6,7 @@ import { useRouter } from "next/navigation";
 import { useParams } from "next/navigation";
 import { Event } from "@/types";
 import CanvasBackground from "@/components/Background/CanvasBackground";
+import { LoadingScreen } from "@/components/StateScreens/StateScreens";
 
 export default function Tickets() {
   const [activeCard, setActiveCard] = useState<string | undefined>(undefined);
@@ -21,7 +22,7 @@ export default function Tickets() {
   }, [id]);
 
   if (!event) {
-    return <div>Loading...</div>;
+    return <LoadingScreen />;
   }
   return (
     <>
