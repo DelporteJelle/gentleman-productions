@@ -24,11 +24,11 @@ export default function Footer() {
             Storytelling in motion — where every evening ends with a standing
             ovation.
           </p>
-          <div className={styles.footerEst}>
+          {/* <div className={styles.footerEst}>
             <span className={styles.footerEstStar}>&#9733;</span>
             Est · MMXIV · Merelbeke
             <span className={styles.footerEstStar}>&#9733;</span>
-          </div>
+          </div> */}
         </div>
 
         <div className={styles.footerCol}>
@@ -79,7 +79,7 @@ export default function Footer() {
         </div>
       </div>
 
-      <div className={styles.footerBottom}>
+      {/* <div className={styles.footerBottom}>
         <div className={styles.footerBottomDeco}>
           <span>&#9670;</span> &copy; {new Date().getFullYear()} Gentleman
           Productions <span>&#9670;</span> All rights reserved
@@ -87,7 +87,7 @@ export default function Footer() {
         <div className={styles.footerBottomDeco}>
           Designed for the stage <span>&#9670;</span>
         </div>
-      </div>
+      </div> */}
     </div>
   );
 }

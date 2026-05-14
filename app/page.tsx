@@ -254,30 +254,28 @@ export default function Home() {
                 )}
 
                 <div className={styles.ctaRow}>
-                  {isEventHighlight ? (
-                    <a
-                      className={styles.cta}
-                      onClick={() =>
-                        router.push("/event/" + highlight.uuid + "/ticket")
-                      }
-                      style={{ cursor: "pointer" }}
-                    >
-                      Reserve Your Seat
-                      <span className={styles.ctaArrow}>&rarr;</span>
-                    </a>
-                  ) : (
-                    (highlight as BasicPost).link && (
+                  {(() => {
+                    const isFutureEvent =
+                      isEventHighlight && showDate && showDate > new Date();
+                    const ctaHref = isFutureEvent
+                      ? `/event/${highlight.uuid}/ticket`
+                      : `/event/${highlight.uuid}`;
+                    const ctaLabel = isFutureEvent
+                      ? "Reserve Your Seat"
+                      : isEventHighlight
+                        ? "View Event"
+                        : "Learn More";
+                    return (
                       <a
                         className={styles.cta}
-                        href={(highlight as BasicPost).link}
-                        target="_blank"
-                        rel="noopener noreferrer"
+                        onClick={() => router.push(ctaHref)}
+                        style={{ cursor: "pointer" }}
                       >
-                        {(highlight as BasicPost).link_text || "Learn More"}
+                        {ctaLabel}
                         <span className={styles.ctaArrow}>&rarr;</span>
                       </a>
-                    )
-                  )}
+                    );
+                  })()}
                 </div>
               </>
             ) : (
