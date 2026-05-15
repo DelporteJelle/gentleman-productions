@@ -87,7 +87,7 @@ export default function EventCard({ event, index }: Props) {
 
         <div className={styles.cardText}>
           <div className={styles.actNum}>
-            {actLabel(index)} &nbsp;·&nbsp; Event
+            Event
           </div>
 
           <h2 className={styles.cardTitle}>

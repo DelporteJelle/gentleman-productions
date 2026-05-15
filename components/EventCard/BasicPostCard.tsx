@@ -73,7 +73,7 @@ const BasicPostCard: React.FC<Props> = ({ post, index = 0 }) => {
 
         <div className={styles.cardText}>
           <div className={styles.actNum}>
-            {actLabel(index)} &nbsp;·&nbsp; Post
+            Post
           </div>
 
           <h2 className={styles.cardTitle}>

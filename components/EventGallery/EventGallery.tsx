@@ -66,7 +66,7 @@ export default function EventGallery({ images, title }: EventGalleryProps) {
 
   return (
     <section className={styles.section} aria-label="Production gallery">
-      <SectionLabel>The Production Gallery</SectionLabel>
+      <SectionLabel>Gallery</SectionLabel>
       <ResponsiveMasonry columnsCountBreakPoints={{ 400: 1, 800: 2, 1200: 3, 1600: 3 }}>
         <Masonry gutter="24px">
           {validImages.map((src, i) => (

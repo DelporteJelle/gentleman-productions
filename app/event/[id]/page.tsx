@@ -37,11 +37,6 @@ function computeDateText(dates: Event["dates"]): string {
   return `${formatNL(first)} — ${formatNL(last)}`;
 }
 
-function eyebrowFor(dates: Event["dates"]): string {
-  if (!dates || dates.length === 0) return "Archived";
-  const year = new Date(dates[0].start_time).getFullYear();
-  return `Archived · ${toRomanNumerals(year)}`;
-}
 
 type Status = "loading" | "ready" | "notFound" | "error";
 
@@ -90,7 +85,6 @@ export default function EventPage() {
 
   const { main: titleMain, accent: titleAccent } = splitTitleAccent(event.title);
   const dateText = computeDateText(event.dates);
-  const eyebrow = eyebrowFor(event.dates);
   const venue =
     event.eventlocation?.location || event.eventlocation?.city || "";
   const description = event.description?.trim() ?? "";
@@ -105,11 +99,10 @@ export default function EventPage() {
 
       <section className={styles.hero} aria-label="Production details">
         <Link href="/#programme" className={styles.backLink}>
-          &larr; Back to programme
+          &larr; Back to home
         </Link>
 
         <div className={styles.heroContent}>
-          <div className={styles.eyebrow}>{eyebrow}</div>
           <h1 className={styles.title}>
             {titleMain}
             {titleAccent && (
@@ -131,7 +124,7 @@ export default function EventPage() {
 
       {paragraphs.length > 0 && (
         <section className={styles.programme} aria-label="Programme notes">
-          <SectionLabel>Programme Notes</SectionLabel>
+          <SectionLabel>Description</SectionLabel>
           <div className={styles.programmeBody}>
             {paragraphs.map((p, i) => (
               <p key={i}>{p}</p>

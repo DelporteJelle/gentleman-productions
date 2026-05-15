@@ -46,8 +46,8 @@
 .titleAccent::after {
   content: '';
   position: absolute;
-  bottom: 12px;
-  left: 0;
+  bottom: -0.03em;
+  left: 5px;
   right: 0;
   height: 4px;
   background: linear-gradient(90deg, var(--red), transparent);

@@ -282,7 +282,7 @@ export default function Home() {
 
         {/* Posts section */}
         <section className={styles.postsSection}>
-          <SectionLabel>The Programme</SectionLabel>
+          <SectionLabel>Past events</SectionLabel>
           <div className={styles.postsStack}>
             {posts &&
               posts
