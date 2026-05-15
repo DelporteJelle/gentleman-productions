@@ -35,7 +35,7 @@ function formatTime(iso: string): string {
 }
 
 function formatStartDate(iso: string): string {
-  return new Date(iso).toLocaleDateString("en-GB", {
+  return new Date(iso).toLocaleDateString("nl-BE", {
     day: "2-digit",
     month: "2-digit",
     year: "numeric",
@@ -55,7 +55,7 @@ export default function TicketDateExpanded({
 
   const locationEntries = event.eventlocation
     ? (Object.entries(event.eventlocation) as Array<
-        [keyof EventLocation, string | undefined]
+        [keyof EventLocation, string]
       >).filter(([, value]) => Boolean(value))
     : [];
 
