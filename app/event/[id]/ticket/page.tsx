@@ -1,54 +1,154 @@
 "use client";
-import TicketCard from "@/components/tickets/TicketCard";
-import styles from "./styles.module.css";
-import { useState, useEffect } from "react";
-import { useRouter } from "next/navigation";
-import { useParams } from "next/navigation";
-import { Event } from "@/types";
-import CanvasBackground from "@/components/Background/CanvasBackground";
-import { LoadingScreen } from "@/components/StateScreens/StateScreens";
 
-export default function Tickets() {
-  const [activeCard, setActiveCard] = useState<string | undefined>(undefined);
-  const [event, setEvent] = useState<Event | undefined>(undefined);
-  const router = useRouter();
+import { useEffect, useState } from "react";
+import { useParams } from "next/navigation";
+import Link from "next/link";
+import { Event, isEvent } from "@/types";
+import { usePosts } from "@/app/contexts/PostsContext";
+import { splitTitleAccent } from "@/lib/text";
+import CanvasBackground from "@/components/Background/CanvasBackground";
+import SectionLabel from "@/components/SectionLabel/SectionLabel";
+import {
+  LoadingScreen,
+  ErrorScreen,
+  NotFoundScreen,
+} from "@/components/StateScreens/StateScreens";
+import TicketDateCard from "./TicketDateCard";
+import TicketDateExpanded from "./TicketDateExpanded";
+import styles from "./styles.module.css";
+
+type Status = "loading" | "ready" | "notFound" | "error";
+
+function formatNL(d: Date): string {
+  return d.toLocaleDateString("nl-BE", {
+    day: "numeric",
+    month: "long",
+    year: "numeric",
+  });
+}
+
+function computeDateRange(dates: Event["dates"]): string {
+  if (!dates || dates.length === 0) return "";
+  const sorted = [...dates].sort(
+    (a, b) =>
+      new Date(a.start_time).getTime() - new Date(b.start_time).getTime(),
+  );
+  const first = new Date(sorted[0].start_time);
+  const last = new Date(sorted[sorted.length - 1].start_time);
+  if (first.toDateString() === last.toDateString()) {
+    return formatNL(first);
+  }
+  return `${formatNL(first)} — ${formatNL(last)}`;
+}
+
+export default function TicketsPage() {
   const { id } = useParams();
+  const { fetchPostById } = usePosts();
+  const [event, setEvent] = useState<Event | null>(null);
+  const [status, setStatus] = useState<Status>("loading");
+  const [errorMessage, setErrorMessage] = useState<string | undefined>(undefined);
+  const [activeCard, setActiveCard] = useState<string | undefined>(undefined);
 
   useEffect(() => {
-    fetch(`/api/events/${id}`)
-      .then((response) => response.json())
-      .then((data) => setEvent(data))
-      .catch((error) => console.error("Error fetching data:", error));
-  }, [id]);
+    let cancelled = false;
+    setStatus("loading");
+    setEvent(null);
+    setErrorMessage(undefined);
 
-  if (!event) {
-    return <LoadingScreen />;
-  }
+    const run = async () => {
+      try {
+        const fetched = await fetchPostById(id as string);
+        if (cancelled) return;
+        if (!fetched || !isEvent(fetched)) {
+          setStatus("notFound");
+          return;
+        }
+        setEvent(fetched);
+        setStatus("ready");
+      } catch (e) {
+        if (cancelled) return;
+        setErrorMessage(e instanceof Error ? e.message : String(e));
+        setStatus("error");
+      }
+    };
+    run();
+    return () => {
+      cancelled = true;
+    };
+  }, [id, fetchPostById]);
+
+  if (status === "loading") return <LoadingScreen />;
+  if (status === "error") return <ErrorScreen message={errorMessage} />;
+  if (status === "notFound" || !event) return <NotFoundScreen />;
+
+  const { main: titleMain, accent: titleAccent } = splitTitleAccent(event.title);
+  const dateRange = computeDateRange(event.dates);
+  const venue =
+    event.eventlocation?.location ?? event.eventlocation?.city ?? "";
+
   return (
-    <>
-      <div
-        style={{
-          position: "fixed",
-          top: 0,
-          left: 0,
-          width: "100%",
-          height: "100%",
-          zIndex: -1,
-        }}
-      >
+    <div>
+      <div className={styles.canvasLayer}>
         <CanvasBackground />
       </div>
-      <div className={styles.page}>
-        {event.dates.map((d) => (
-          <TicketCard
-            key={d.uuid}
-            date={d}
-            event={event}
-            activeCard={activeCard}
-            setActiveCard={setActiveCard}
-          />
-        ))}
+
+      <section className={styles.hero} aria-label="Ticket selection">
+        <div className={styles.heroSide} aria-hidden="true">
+          <span className={styles.heroSideLine}></span>
+          RESERVE YOUR SEAT · GENTLEMAN PRODUCTIONS
+          <span className={styles.heroSideLine}></span>
+        </div>
+
+        <Link href={`/event/${event.uuid}`} className={styles.backLink}>
+          &larr; Back to event
+        </Link>
+
+        <div className={styles.heroContent}>
+          <p className={styles.eyebrow}>Tickets</p>
+          <h1 className={styles.title}>
+            {titleMain}
+            {titleAccent && (
+              <>
+                {" "}
+                <span className={styles.titleAccent}>{titleAccent}</span>
+              </>
+            )}
+          </h1>
+          {dateRange && (
+            <div className={styles.dateRow}>
+              <span className={styles.dateChevron}>&#9656;</span>
+              <span className={styles.dateMain}>{dateRange}</span>
+              {venue && <span className={styles.dateVenue}>{venue}</span>}
+            </div>
+          )}
+        </div>
+      </section>
+
+      <SectionLabel>Available Dates</SectionLabel>
+
+      <div className={styles.grid}>
+        {event.dates.map((d) => {
+          if (d.uuid === activeCard) {
+            return (
+              <TicketDateExpanded
+                key={d.uuid}
+                date={d}
+                event={event}
+                onClose={() => setActiveCard(undefined)}
+              />
+            );
+          }
+          return (
+            <TicketDateCard
+              key={d.uuid}
+              date={d}
+              event={event}
+              inactive={activeCard !== undefined}
+              onSelect={() => setActiveCard(d.uuid)}
+            />
+          );
+        })}
       </div>
-    </>
+    </div>
   );
 }
