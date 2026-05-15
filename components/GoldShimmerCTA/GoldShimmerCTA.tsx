@@ -3,39 +3,42 @@
 import { ReactNode, MouseEventHandler } from "react";
 import styles from "./GoldShimmerCTA.module.css";
 
-interface GoldShimmerCTAProps {
+type CommonProps = {
   children: ReactNode;
-  href?: string;
-  onClick?: MouseEventHandler<HTMLAnchorElement | HTMLButtonElement>;
+  ariaLabel?: string;
+};
+
+type AnchorProps = CommonProps & {
+  href: string;
   target?: string;
   rel?: string;
-  ariaLabel?: string;
-}
+  onClick?: MouseEventHandler<HTMLAnchorElement>;
+};
 
-export default function GoldShimmerCTA({
-  children,
-  href,
-  onClick,
-  target,
-  rel,
-  ariaLabel,
-}: GoldShimmerCTAProps) {
+type ButtonProps = CommonProps & {
+  href?: undefined;
+  onClick?: MouseEventHandler<HTMLButtonElement>;
+};
+
+type GoldShimmerCTAProps = AnchorProps | ButtonProps;
+
+export default function GoldShimmerCTA(props: GoldShimmerCTAProps) {
   const content = (
     <>
-      {children}
+      {props.children}
       <span className={styles.arrow} aria-hidden="true">&rarr;</span>
     </>
   );
 
-  if (href) {
+  if (props.href !== undefined) {
     return (
       <a
         className={styles.cta}
-        href={href}
-        onClick={onClick as MouseEventHandler<HTMLAnchorElement>}
-        target={target}
-        rel={rel}
-        aria-label={ariaLabel}
+        href={props.href}
+        onClick={props.onClick}
+        target={props.target}
+        rel={props.rel}
+        aria-label={props.ariaLabel}
       >
         {content}
       </a>
@@ -46,8 +49,8 @@ export default function GoldShimmerCTA({
     <button
       type="button"
       className={styles.cta}
-      onClick={onClick as MouseEventHandler<HTMLButtonElement>}
-      aria-label={ariaLabel}
+      onClick={props.onClick}
+      aria-label={props.ariaLabel}
     >
       {content}
     </button>
