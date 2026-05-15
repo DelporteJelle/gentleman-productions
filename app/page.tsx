@@ -15,6 +15,7 @@ import { useEffect, useState } from "react";
 import { DbObjectType, Event, BasicPost, Post } from "@/types";
 import { Image } from "@mantine/core";
 import CanvasBackground from "@/components/Background/CanvasBackground";
+import GoldShimmerCTA from "@/components/GoldShimmerCTA/GoldShimmerCTA";
 import { usePosts } from "./contexts/PostsContext";
 import { splitTitleAccent } from "@/lib/text";
 
@@ -260,14 +261,9 @@ export default function Home() {
                         ? "View Event"
                         : "Learn More";
                     return (
-                      <a
-                        className={styles.cta}
-                        onClick={() => router.push(ctaHref)}
-                        style={{ cursor: "pointer" }}
-                      >
+                      <GoldShimmerCTA onClick={() => router.push(ctaHref)}>
                         {ctaLabel}
-                        <span className={styles.ctaArrow}>&rarr;</span>
-                      </a>
+                      </GoldShimmerCTA>
                     );
                   })()}
                 </div>
