@@ -1,0 +1,151 @@
+.card {
+  width: 320px;
+  background: rgba(20, 8, 10, 0.55);
+  border: 1px solid rgba(245, 233, 213, 0.1);
+  position: relative;
+  cursor: pointer;
+  text-align: left;
+  padding: 0;
+  font-family: inherit;
+  color: inherit;
+  transition:
+    transform 0.4s cubic-bezier(0.22, 1, 0.36, 1),
+    border-color 0.4s,
+    box-shadow 0.4s,
+    opacity 0.4s,
+    filter 0.4s;
+}
+
+.card:hover {
+  transform: translateY(-4px);
+  border-color: rgba(212, 160, 23, 0.4);
+  box-shadow: 0 20px 50px rgba(0, 0, 0, 0.55);
+}
+
+.card:focus-visible {
+  outline: none;
+  border-color: var(--gold-bright);
+  box-shadow: 0 0 0 2px var(--gold-bright);
+}
+
+.corner {
+  position: absolute;
+  width: 14px;
+  height: 14px;
+  border: 2px solid var(--red);
+  border-right: none;
+  border-bottom: none;
+  top: -1px;
+  left: -1px;
+  z-index: 2;
+  transition: border-color 0.4s;
+  pointer-events: none;
+}
+
+.cornerBr {
+  top: auto;
+  left: auto;
+  bottom: -1px;
+  right: -1px;
+  border: 2px solid var(--red);
+  border-left: none;
+  border-top: none;
+}
+
+.card:hover .corner,
+.card:hover .cornerBr {
+  border-color: var(--gold-bright);
+}
+
+.imageWrap {
+  width: 100%;
+  height: 190px;
+  position: relative;
+  overflow: hidden;
+}
+
+.imageWrap img,
+.imageWrap > span > img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  display: block;
+}
+
+.imageWrap::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(180deg, rgba(13, 6, 8, 0) 55%, rgba(13, 6, 8, 0.55) 100%);
+  pointer-events: none;
+}
+
+.info {
+  padding: 20px 22px 22px;
+}
+
+.titleRow {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  gap: 14px;
+}
+
+.title {
+  font-family: var(--font-italic);
+  font-size: 22px;
+  line-height: 1.05;
+  color: var(--cream);
+  margin: 0;
+  font-weight: 500;
+}
+
+.titleAccent {
+  font-style: italic;
+  font-weight: 700;
+  color: var(--red);
+}
+
+.price {
+  font-family: var(--font-italic);
+  font-style: italic;
+  font-weight: 700;
+  font-size: 22px;
+  color: var(--gold-bright);
+  white-space: nowrap;
+}
+
+.meta {
+  font-family: var(--font-deco);
+  font-size: 10px;
+  letter-spacing: 0.25em;
+  color: rgba(245, 233, 213, 0.75);
+  text-transform: uppercase;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin: 10px 0 0;
+}
+
+.chev {
+  color: var(--red);
+  font-size: 9px;
+  flex-shrink: 0;
+}
+
+.inactive {
+  opacity: 0.32;
+  filter: saturate(0.5);
+}
+
+.inactive:hover {
+  opacity: 0.55;
+  filter: saturate(0.7);
+}
+
+@media (max-width: 700px) {
+  .card {
+    width: 100%;
+    max-width: 360px;
+  }
+}
