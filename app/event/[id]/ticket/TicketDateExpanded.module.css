@@ -1,0 +1,332 @@
+.card {
+  width: 720px;
+  max-width: 100%;
+  background: rgba(20, 8, 10, 0.55);
+  border: 1px solid rgba(245, 233, 213, 0.1);
+  position: relative;
+  animation: expandFade 0.4s ease-out both;
+}
+
+@keyframes expandFade {
+  0%   { opacity: 0; transform: translateY(6px); }
+  100% { opacity: 1; transform: translateY(0); }
+}
+
+.corner {
+  position: absolute;
+  width: 14px;
+  height: 14px;
+  border: 2px solid var(--red);
+  border-right: none;
+  border-bottom: none;
+  top: -1px;
+  left: -1px;
+  z-index: 2;
+  pointer-events: none;
+}
+
+.cornerTr {
+  top: -1px;
+  left: auto;
+  right: -1px;
+  border: 2px solid var(--red);
+  border-left: none;
+  border-bottom: none;
+}
+
+.cornerBl {
+  top: auto;
+  left: -1px;
+  bottom: -1px;
+  border: 2px solid var(--red);
+  border-right: none;
+  border-top: none;
+}
+
+.cornerBr {
+  top: auto;
+  left: auto;
+  bottom: -1px;
+  right: -1px;
+  border: 2px solid var(--red);
+  border-left: none;
+  border-top: none;
+}
+
+.heroImage {
+  width: 100%;
+  height: 280px;
+  position: relative;
+  overflow: hidden;
+}
+
+.heroImage img,
+.heroImage > span > img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  display: block;
+}
+
+.heroImage::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(180deg, rgba(13, 6, 8, 0) 50%, rgba(13, 6, 8, 0.7) 100%);
+  pointer-events: none;
+}
+
+.close {
+  position: absolute;
+  top: 14px;
+  right: 14px;
+  z-index: 3;
+  width: 32px;
+  height: 32px;
+  border-radius: 50%;
+  background: rgba(13, 6, 8, 0.7);
+  border: 1px solid rgba(212, 160, 23, 0.4);
+  color: var(--cream);
+  font-family: var(--font-deco);
+  font-size: 13px;
+  line-height: 1;
+  cursor: pointer;
+  transition: border-color 0.3s, color 0.3s;
+}
+
+.close:hover {
+  border-color: var(--gold-bright);
+  color: var(--gold-bright);
+}
+
+.body {
+  padding: 28px 36px 32px;
+}
+
+.titleRow {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  gap: 24px;
+  margin-bottom: 22px;
+  padding-bottom: 22px;
+  border-bottom: 1px dashed rgba(212, 160, 23, 0.3);
+}
+
+.title {
+  font-family: var(--font-italic);
+  font-size: 38px;
+  line-height: 1;
+  color: var(--cream);
+  margin: 0 0 12px;
+  font-weight: 500;
+}
+
+.titleAccent {
+  font-style: italic;
+  font-weight: 700;
+  color: var(--red);
+  display: inline-block;
+  position: relative;
+  padding: 0 6px;
+}
+
+.titleAccent::after {
+  content: '';
+  position: absolute;
+  bottom: -0.08em;
+  left: 0;
+  right: 0;
+  height: 3px;
+  background: linear-gradient(90deg, var(--red), transparent);
+}
+
+.dateRow {
+  font-family: 'Fjalla One', sans-serif;
+  font-size: 13px;
+  letter-spacing: 0.18em;
+  color: var(--cream);
+  text-transform: uppercase;
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  flex-wrap: wrap;
+}
+
+.dateChev {
+  color: var(--red);
+  font-size: 12px;
+}
+
+.dateVenue {
+  font-family: var(--font-deco);
+  font-size: 10px;
+  letter-spacing: 0.3em;
+  color: var(--cream-muted);
+  border-left: 1px solid rgba(245, 233, 213, 0.2);
+  padding-left: 14px;
+  text-transform: uppercase;
+}
+
+.priceCol {
+  text-align: right;
+  flex-shrink: 0;
+}
+
+.price {
+  font-family: var(--font-italic);
+  font-style: italic;
+  font-weight: 700;
+  font-size: 44px;
+  color: var(--gold-bright);
+  line-height: 1;
+}
+
+.desc {
+  font-family: var(--font-body);
+  font-size: 14px;
+  line-height: 1.85;
+  color: rgba(245, 233, 213, 0.8);
+  max-width: 580px;
+  margin: 0 0 32px;
+}
+
+.desc p { margin: 0; }
+.desc p + p { margin-top: 1.4em; }
+
+.twoCol {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 48px;
+  padding-top: 24px;
+  border-top: 1px solid rgba(245, 233, 213, 0.1);
+}
+
+.colHead {
+  font-family: var(--font-deco);
+  font-size: 10px;
+  letter-spacing: 0.4em;
+  color: var(--gold-soft);
+  text-transform: uppercase;
+  margin: 0 0 20px;
+  padding-bottom: 10px;
+  border-bottom: 1px solid rgba(212, 160, 23, 0.25);
+  font-weight: 500;
+}
+
+.timeline {
+  position: relative;
+  padding-left: 28px;
+  list-style: none;
+  margin: 0;
+}
+
+.timeline::before {
+  content: '';
+  position: absolute;
+  left: 7px;
+  top: 6px;
+  bottom: 6px;
+  width: 1px;
+  background: linear-gradient(180deg, var(--red), rgba(212, 160, 23, 0.25));
+}
+
+.timelineItem {
+  position: relative;
+  margin-bottom: 16px;
+}
+
+.timelineItem:last-child { margin-bottom: 0; }
+
+.timelineItem::before {
+  content: '\25B8'; /* ▸ */
+  position: absolute;
+  left: -28px;
+  top: -2px;
+  color: var(--red);
+  font-size: 16px;
+  background: var(--background-color, #0d0608);
+  padding-right: 4px;
+  line-height: 1.2;
+}
+
+.timeLabel {
+  font-family: 'Fjalla One', sans-serif;
+  font-size: 13px;
+  letter-spacing: 0.18em;
+  color: var(--cream);
+  text-transform: uppercase;
+}
+
+.timeDesc {
+  font-family: var(--font-body);
+  font-size: 13px;
+  color: rgba(245, 233, 213, 0.7);
+  margin-top: 2px;
+}
+
+.locationList {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+}
+
+.locationItem {
+  display: flex;
+  gap: 14px;
+  align-items: flex-start;
+}
+
+.locationIcon {
+  color: var(--red);
+  font-size: 14px;
+  margin-top: 3px;
+  width: 14px;
+  flex-shrink: 0;
+}
+
+.locationLabel {
+  font-family: var(--font-deco);
+  font-size: 9px;
+  letter-spacing: 0.3em;
+  color: rgba(245, 233, 213, 0.5);
+  text-transform: uppercase;
+  display: block;
+  margin-bottom: 2px;
+}
+
+.locationValue {
+  font-family: var(--font-body);
+  font-size: 14px;
+  color: var(--cream);
+}
+
+.ctaRow {
+  margin-top: 36px;
+  padding-top: 28px;
+  border-top: 1px dashed rgba(212, 160, 23, 0.3);
+  display: flex;
+  justify-content: center;
+}
+
+@media (max-width: 1100px) {
+  .card { width: 100%; }
+}
+
+@media (max-width: 700px) {
+  .body { padding: 22px 20px 24px; }
+  .titleRow {
+    flex-direction: column;
+    gap: 14px;
+    padding-bottom: 18px;
+    margin-bottom: 18px;
+  }
+  .priceCol { text-align: left; }
+  .price { font-size: 36px; }
+  .title { font-size: 30px; }
+  .twoCol {
+    grid-template-columns: 1fr;
+    gap: 32px;
+  }
+  .heroImage { height: 200px; }
+}
