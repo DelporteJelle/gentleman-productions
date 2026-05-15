@@ -2,13 +2,18 @@ import styles from "./styles.module.css";
 import Socials from "./Socials";
 import { Burger, Group, Image } from "@mantine/core";
 import { usePathname, useRouter } from "next/navigation";
+import { useQuery } from "@tanstack/react-query";
 
-interface NavigationProps {
-  userRole?: string | null;
-}
-
-export default function Navigation({ userRole }: NavigationProps) {
+export default function Navigation() {
   const pathname = usePathname();
+  const { data: userRole } = useQuery({
+    queryKey: ["auth-me"],
+    queryFn: async () => {
+      const res = await fetch("/api/auth/me");
+      const data = await res.json();
+      return (data.user?.role as string | null) ?? null;
+    },
+  });
   const hasCreateAccess = userRole === "ADMIN" || userRole === "CREATE_ONLY";
 
   return (
