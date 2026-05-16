@@ -32,7 +32,9 @@
       "Bash(git -C \"h:/Projects/gentleman-productions\" diff 23ac9ad..6002bca -- \"app/event/[id]/page.tsx\")",
       "Bash(git -C \"h:/Projects/gentleman-productions\" log -1 --format=\"%B\" 6002bca)",
       "Skill(superpowers:subagent-driven-development)",
-      "Skill(superpowers:subagent-driven-development:*)"
+      "Skill(superpowers:subagent-driven-development:*)",
+      "Skill(superpowers:systematic-debugging)",
+      "Skill(superpowers:systematic-debugging:*)"
     ]
   }
 }

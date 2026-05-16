@@ -1,12 +1,14 @@
 "use client";
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
+import { useQueryClient } from "@tanstack/react-query";
 
 export default function LogoutPage() {
   const [status, setStatus] = useState<"logging-out" | "success" | "error">(
     "logging-out",
   );
   const router = useRouter();
+  const queryClient = useQueryClient();
 
   useEffect(() => {
     async function logout() {
@@ -17,6 +19,7 @@ export default function LogoutPage() {
         });
 
         if (res.ok) {
+          await queryClient.invalidateQueries({ queryKey: ["auth-me"] });
           setStatus("success");
           // Redirect to home page after a brief delay
           setTimeout(() => {
@@ -31,7 +34,7 @@ export default function LogoutPage() {
     }
 
     logout();
-  }, [router]);
+  }, [router, queryClient]);
 
   return (
     <div
