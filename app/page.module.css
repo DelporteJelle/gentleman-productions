@@ -33,7 +33,7 @@
 .hero {
   min-height: 100vh;
   position: relative;
-  padding: 90px 80px 80px;
+  padding: 70px 80px 80px;
   display: flex;
   align-items: center;
   color: var(--cream);
