@@ -6,13 +6,13 @@ import { PersistQueryClientProvider } from "@tanstack/react-query-persist-client
 import { createSyncStoragePersister } from "@tanstack/query-sync-storage-persister";
 import { ReactQueryDevtools } from "@tanstack/react-query-devtools";
 
-const SEVEN_DAYS_MS = 7 * 24 * 60 * 60 * 1000;
+const ONE_HOUR_MS = 60 * 60 * 1000;
 
 const queryClient = new QueryClient({
   defaultOptions: {
     queries: {
-      staleTime: Infinity,
-      gcTime: SEVEN_DAYS_MS,
+      staleTime: ONE_HOUR_MS,
+      gcTime: ONE_HOUR_MS,
       retry: 1,
       refetchOnWindowFocus: false,
       refetchOnReconnect: false,
@@ -33,7 +33,7 @@ export function QueryProvider({ children }: { children: React.ReactNode }) {
       client={queryClient}
       persistOptions={{
         persister: persister!,
-        maxAge: SEVEN_DAYS_MS,
+        maxAge: ONE_HOUR_MS,
         buster: "v1",
       }}
     >
