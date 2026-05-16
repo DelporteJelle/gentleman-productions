@@ -2,12 +2,12 @@
   position: relative;
   display: inline-flex;
   align-items: center;
-  gap: 16px;
-  padding: 22px 48px;
+  gap: 14px;
+  padding: 16px 36px;
   font-family: var(--font-deco);
   font-weight: 700;
-  font-size: 14px;
-  letter-spacing: 0.35em;
+  font-size: 12px;
+  letter-spacing: 0.32em;
   color: #1a0a0a;
   background: linear-gradient(135deg, #f5c543 0%, #d4a017 45%, #b08a3e 100%);
   border: none;
@@ -51,7 +51,7 @@
 }
 
 .arrow {
-  font-size: 20px;
+  font-size: 17px;
   transition: transform 0.4s;
 }
 

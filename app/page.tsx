@@ -42,6 +42,24 @@ function getHighlightDate(highlight: any): Date | null {
   return null;
 }
 
+// For an event, use its last scheduled date so multi-day events stay
+// "upcoming" until every occurrence has passed.
+function getPostSortDate(post: Post): Date | null {
+  if (post.post_type === DbObjectType.EVENT) {
+    const event = post as Event;
+    if (!event.dates?.length) return null;
+    const max = Math.max(
+      ...event.dates.map((d) => new Date(d.start_time).getTime()),
+    );
+    return new Date(max);
+  }
+  if (post.post_type === DbObjectType.BASIC_POST) {
+    const bp = post as BasicPost;
+    return bp.date ? new Date(bp.date) : null;
+  }
+  return null;
+}
+
 export default function Home() {
   const router = useRouter();
   const { posts, loading, highlight } = usePosts();
@@ -277,41 +295,72 @@ export default function Home() {
         </section>
 
         {/* Posts section */}
-        <section className={styles.postsSection}>
-          <SectionLabel>Past events</SectionLabel>
-          <div className={styles.postsStack}>
-            {posts &&
-              posts
-                .sort(
-                  (a: Post, b: Post) =>
-                    new Date(b.created_at).getTime() -
-                    new Date(a.created_at).getTime(),
-                )
-                .map((post: Post, index: number) => (
-                  <article key={post.uuid}>
-                    <div className={styles.postMeta}>
-                      <span className={styles.postMetaLine}></span>
-                      Posted ·{" "}
-                      {new Date(post.created_at).toLocaleDateString("nl-BE", {
-                        day: "numeric",
-                        month: "long",
-                        year: "numeric",
-                      })}
-                      <span className={styles.postMetaLine}></span>
-                    </div>
-                    {post.post_type === DbObjectType.EVENT && (
-                      <EventCard event={post as Event} index={index} />
-                    )}
-                    {post.post_type === DbObjectType.BASIC_POST && (
-                      <BasicPostCard
-                        post={post as BasicPost}
-                        index={index}
-                      />
-                    )}
-                  </article>
-                ))}
-          </div>
-        </section>
+        {(() => {
+          const now = new Date();
+          const upcomingPosts: Post[] = [];
+          const pastPosts: Post[] = [];
+          (posts ?? []).forEach((post: Post) => {
+            const d = getPostSortDate(post);
+            if (d && d >= now) upcomingPosts.push(post);
+            else pastPosts.push(post);
+          });
+
+          // Upcoming: soonest first. Past: most recent first.
+          upcomingPosts.sort((a, b) => {
+            const da = getPostSortDate(a)?.getTime() ?? 0;
+            const db = getPostSortDate(b)?.getTime() ?? 0;
+            return da - db;
+          });
+          pastPosts.sort((a, b) => {
+            const da =
+              getPostSortDate(a)?.getTime() ?? new Date(a.created_at).getTime();
+            const db =
+              getPostSortDate(b)?.getTime() ?? new Date(b.created_at).getTime();
+            return db - da;
+          });
+
+          const renderPost = (post: Post, index: number) => (
+            <article key={post.uuid}>
+              <div className={styles.postMeta}>
+                <span className={styles.postMetaLine}></span>
+                Posted ·{" "}
+                {new Date(post.created_at).toLocaleDateString("nl-BE", {
+                  day: "numeric",
+                  month: "long",
+                  year: "numeric",
+                })}
+                <span className={styles.postMetaLine}></span>
+              </div>
+              {post.post_type === DbObjectType.EVENT && (
+                <EventCard event={post as Event} index={index} />
+              )}
+              {post.post_type === DbObjectType.BASIC_POST && (
+                <BasicPostCard post={post as BasicPost} index={index} />
+              )}
+            </article>
+          );
+
+          return (
+            <>
+              {upcomingPosts.length > 0 && (
+                <section className={styles.postsSection}>
+                  <SectionLabel>Upcoming events</SectionLabel>
+                  <div className={styles.postsStack}>
+                    {upcomingPosts.map(renderPost)}
+                  </div>
+                </section>
+              )}
+              {pastPosts.length > 0 && (
+                <section className={styles.postsSection}>
+                  <SectionLabel>Past events</SectionLabel>
+                  <div className={styles.postsStack}>
+                    {pastPosts.map(renderPost)}
+                  </div>
+                </section>
+              )}
+            </>
+          );
+        })()}
       </div>
     </div>
   );
