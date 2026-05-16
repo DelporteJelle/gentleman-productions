@@ -41,7 +41,7 @@ export async function POST(request: Request) {
       INSERT INTO events (
         created_at, updated_at, created_by, uuid, title,
         post_type, description, display_image, images,
-        eventLocation, dates
+        eventLocation, dates, tickets_open
       ) VALUES (
         ${body.created_at || new Date().toISOString()},
         ${body.updated_at || null},
@@ -53,7 +53,8 @@ export async function POST(request: Request) {
         ${body.display_image},
         ${body.images},
         ${JSON.stringify(body.eventlocation)},
-        ${JSON.stringify(body.dates)}
+        ${JSON.stringify(body.dates)},
+        ${body.tickets_open ?? false}
       )
       RETURNING *;
     `;

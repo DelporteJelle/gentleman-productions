@@ -3,42 +3,42 @@
 import { ReactNode, MouseEventHandler } from "react";
 import styles from "./GoldShimmerCTA.module.css";
 
-type CommonProps = {
+type GoldShimmerCTAProps = {
   children: ReactNode;
+  href?: string;
+  target?: string;
+  rel?: string;
+  onClick?: MouseEventHandler<HTMLAnchorElement | HTMLButtonElement>;
+  disabled?: boolean;
   ariaLabel?: string;
 };
 
-type AnchorProps = CommonProps & {
-  href: string;
-  target?: string;
-  rel?: string;
-  onClick?: MouseEventHandler<HTMLAnchorElement>;
-};
-
-type ButtonProps = CommonProps & {
-  href?: undefined;
-  onClick?: MouseEventHandler<HTMLButtonElement>;
-};
-
-type GoldShimmerCTAProps = AnchorProps | ButtonProps;
-
-export default function GoldShimmerCTA(props: GoldShimmerCTAProps) {
+export default function GoldShimmerCTA({
+  children,
+  href,
+  target,
+  rel,
+  onClick,
+  disabled,
+  ariaLabel,
+}: GoldShimmerCTAProps) {
   const content = (
     <>
-      {props.children}
+      {children}
       <span className={styles.arrow} aria-hidden="true">&rarr;</span>
     </>
   );
 
-  if (props.href !== undefined) {
+  if (href !== undefined) {
     return (
       <a
         className={styles.cta}
-        href={props.href}
-        onClick={props.onClick}
-        target={props.target}
-        rel={props.rel}
-        aria-label={props.ariaLabel}
+        href={href}
+        onClick={onClick as MouseEventHandler<HTMLAnchorElement>}
+        target={target}
+        rel={rel}
+        aria-label={ariaLabel}
+        data-disabled={disabled ? "true" : undefined}
       >
         {content}
       </a>
@@ -49,8 +49,9 @@ export default function GoldShimmerCTA(props: GoldShimmerCTAProps) {
     <button
       type="button"
       className={styles.cta}
-      onClick={props.onClick}
-      aria-label={props.ariaLabel}
+      onClick={onClick as MouseEventHandler<HTMLButtonElement>}
+      disabled={disabled}
+      aria-label={ariaLabel}
     >
       {content}
     </button>

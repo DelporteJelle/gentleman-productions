@@ -57,7 +57,8 @@ export async function PUT(request: Request) {
         display_image = ${body.display_image},
         images = ${body.images},
         eventLocation = ${JSON.stringify(body.eventlocation)},
-        dates = ${JSON.stringify(body.dates)}
+        dates = ${JSON.stringify(body.dates)},
+        tickets_open = ${body.tickets_open ?? false}
       WHERE uuid = ${id};
     `;
 

@@ -157,6 +157,37 @@ export default function Home() {
       ? (highlight as BasicPost).location
       : undefined;
 
+  let ctaLabel: string | null = null;
+  let ctaHref: string | undefined;
+  let ctaTarget: string | undefined;
+  let ctaRel: string | undefined;
+  let ctaDisabled = false;
+
+  if (hasActiveHighlight) {
+    if (isEventHighlight) {
+      const isFuture = showDate && showDate > new Date();
+      if (!isFuture) {
+        ctaLabel = "View Event";
+        ctaHref = `/event/${highlight.uuid}`;
+      } else if ((highlight as Event).tickets_open) {
+        ctaLabel = "More Info";
+        ctaHref = `/event/${highlight.uuid}/ticket`;
+      } else {
+        ctaLabel = "Tickets available soon";
+        ctaDisabled = true;
+      }
+    } else {
+      const bp = highlight as BasicPost;
+      if (bp.link) {
+        ctaLabel = bp.link_text || "More Info";
+        ctaHref = bp.link;
+        ctaTarget = "_blank";
+        ctaRel = "noopener noreferrer";
+      }
+    }
+  }
+  const ctaIsExternal = !!ctaTarget;
+
   return (
     <div className={`${styles.main}`}>
       {/* Background image */}
@@ -266,25 +297,23 @@ export default function Home() {
                   </div>
                 )}
 
-                <div className={styles.ctaRow}>
-                  {(() => {
-                    const isFutureEvent =
-                      isEventHighlight && showDate && showDate > new Date();
-                    const ctaHref = isFutureEvent
-                      ? `/event/${highlight.uuid}/ticket`
-                      : `/event/${highlight.uuid}`;
-                    const ctaLabel = isFutureEvent
-                      ? "More Info"
-                      : isEventHighlight
-                        ? "View Event"
-                        : "Learn More";
-                    return (
-                      <GoldShimmerCTA onClick={() => router.push(ctaHref)}>
-                        {ctaLabel}
-                      </GoldShimmerCTA>
-                    );
-                  })()}
-                </div>
+                {ctaLabel && (
+                  <div className={styles.ctaRow}>
+                    <GoldShimmerCTA
+                      href={ctaIsExternal ? ctaHref : undefined}
+                      target={ctaTarget}
+                      rel={ctaRel}
+                      onClick={
+                        !ctaIsExternal && !ctaDisabled && ctaHref
+                          ? () => router.push(ctaHref!)
+                          : undefined
+                      }
+                      disabled={ctaDisabled}
+                    >
+                      {ctaLabel}
+                    </GoldShimmerCTA>
+                  </div>
+                )}
               </>
             ) : (
               <h1 className={styles.heroFallback}>
