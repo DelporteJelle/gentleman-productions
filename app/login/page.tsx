@@ -18,7 +18,7 @@ export default function LoginPage() {
         body: JSON.stringify({ username, password }),
       });
       if (res.ok) {
-        router.push("/private");
+        router.push("/");
       } else {
         setError(await res.text());
       }

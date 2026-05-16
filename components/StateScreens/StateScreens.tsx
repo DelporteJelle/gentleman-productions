@@ -82,7 +82,7 @@ export function ErrorScreen({ message, onRetry }: ErrorScreenProps) {
             className={styles.linkAction}
             onClick={() => router.push("/")}
           >
-            &larr; Back to programme
+            &larr; Back to home
           </button>
           <button
             type="button"
@@ -102,7 +102,7 @@ export function NotFoundScreen() {
   return (
     <StateScreen
       immediate
-      eyebrow="Act not in programme"
+      eyebrow=""
       title="Production"
       titleAccent="not found"
       body="The page you sought is not listed in our archive."
@@ -113,7 +113,7 @@ export function NotFoundScreen() {
             className={styles.linkAction}
             onClick={() => router.push("/")}
           >
-            &larr; Back to programme
+            &larr; Back to home
           </button>
         </div>
       }
