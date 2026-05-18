@@ -44,6 +44,7 @@ export interface Event extends Post {
   images?: string[];
   dates: EventDateEntry[];
   eventlocation?: EventLocation;
+  tickets_open?: boolean;
 }
 
 /**

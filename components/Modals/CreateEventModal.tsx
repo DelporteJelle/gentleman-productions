@@ -11,6 +11,7 @@ import {
   Paper,
   CloseButton,
   Badge,
+  Switch,
 } from "@mantine/core";
 import { DbObjectType, Event } from "@/types";
 import { formRootRule, isNotEmpty, useForm } from "@mantine/form";
@@ -51,6 +52,7 @@ export default function CreateEventModal({
       title: "",
       description: "",
       display_image: "",
+      tickets_open: false,
       eventlocation: {
         country: "België",
         city: "",
@@ -92,9 +94,6 @@ export default function CreateEventModal({
         for (const date of value) {
           if (!date.start_time) {
             return "Date value is required";
-          }
-          if (date.timeLine.length < 2) {
-            return "At least 2 timeline entries are required (start and end)";
           }
           for (const entry of date.timeLine) {
             if (!entry.time || !entry.description) {
@@ -177,13 +176,18 @@ export default function CreateEventModal({
       ...form.values,
       post_type: DbObjectType.EVENT,
       updated_at: new Date().toISOString(),
+      tickets_open: form.values.tickets_open ?? false,
       dates: form.values.dates.map((date) => {
+        const baseDate = new Date(date.start_time);
+        if (date.timeLine.length === 0) {
+          return { ...date, start_time: baseDate.toISOString(), end_time: baseDate.toISOString() };
+        }
         const startTime = date.timeLine[0].time.split(":").map(Number);
         const endTime = date.timeLine[date.timeLine.length - 1].time
           .split(":")
           .map(Number);
-        const startDate = new Date(date.start_time);
-        const endDate = new Date(date.start_time);
+        const startDate = new Date(baseDate);
+        const endDate = new Date(baseDate);
         startDate.setHours(startTime[0], startTime[1]);
         endDate.setHours(endTime[0], endTime[1]);
 
@@ -309,6 +313,12 @@ export default function CreateEventModal({
               placeholder="Enter event description"
               key={form.key("description")}
               {...form.getInputProps("description")}
+            />
+            <Switch
+              label="Tickets open"
+              description="Enable when ticket sales are open"
+              key={form.key("tickets_open")}
+              {...form.getInputProps("tickets_open", { type: "checkbox" })}
             />
           </Stack>
         </Stepper.Step>
