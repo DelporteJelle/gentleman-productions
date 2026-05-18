@@ -29,13 +29,19 @@ export default function About() {
     deletePartner,
   } = useAbout();
   const [memberModalOpened, setMemberModalOpened] = useState(false);
+  const [editingMember, setEditingMember] = useState<TeamMember | undefined>(undefined);
   const [partnerModalOpened, setPartnerModalOpened] = useState(false);
+  const [editingPartner, setEditingPartner] = useState<Partner | undefined>(undefined);
 
   const handleCreateMember = async (newMember: TeamMember) => {
     createTeamMember(newMember);
   };
   const handleUpdateMember = async (updatedMember: TeamMember) => {
     updateTeamMember(updatedMember);
+  };
+  const handleEditMember = (member: TeamMember) => {
+    setEditingMember(member);
+    setMemberModalOpened(true);
   };
   const handleDeleteMember = async (uuid: string) => {
     const confirmed = window.confirm(
@@ -50,6 +56,10 @@ export default function About() {
   };
   const handleUpdatePartner = async (updatedPartner: Partner) => {
     updatePartner(updatedPartner);
+  };
+  const handleEditPartner = (partner: Partner) => {
+    setEditingPartner(partner);
+    setPartnerModalOpened(true);
   };
   const handleDeletePartner = async (uuid: string) => {
     const confirmed = window.confirm(
@@ -72,8 +82,9 @@ export default function About() {
 
       <CreateMemberModal
         opened={memberModalOpened}
-        onClose={() => setMemberModalOpened(false)}
-        onSubmit={handleCreateMember}
+        onClose={() => { setMemberModalOpened(false); setEditingMember(undefined); }}
+        onSubmit={editingMember ? handleUpdateMember : handleCreateMember}
+        initialData={editingMember}
       />
       <Flex wrap="wrap" justify="center" maw={1200}>
         {teamMembers &&
@@ -86,7 +97,7 @@ export default function About() {
                 >
                   <IconTrashFilled />
                 </ActionIcon>
-                <ActionIcon color="yellow" onClick={() => {}}>
+                <ActionIcon color="yellow" onClick={() => handleEditMember(member)}>
                   <IconEdit />
                 </ActionIcon>
               </Group>
@@ -104,8 +115,9 @@ export default function About() {
 
       <CreatePartnerModal
         opened={partnerModalOpened}
-        onClose={() => setPartnerModalOpened(false)}
-        onSubmit={handleCreatePartner}
+        onClose={() => { setPartnerModalOpened(false); setEditingPartner(undefined); }}
+        onSubmit={editingPartner ? handleUpdatePartner : handleCreatePartner}
+        initialData={editingPartner}
       />
 
       <Flex wrap="wrap" justify="center" maw={1200}>
@@ -119,7 +131,7 @@ export default function About() {
                 >
                   <IconTrashFilled />
                 </ActionIcon>
-                <ActionIcon color="yellow" onClick={() => {}}>
+                <ActionIcon color="yellow" onClick={() => handleEditPartner(partner)}>
                   <IconEdit />
                 </ActionIcon>
               </Group>

@@ -285,9 +285,7 @@ export default function Home() {
                             year: "numeric",
                           })}
                     </span>
-                    {venue && (
-                      <span className={styles.dateVenue}>{venue}</span>
-                    )}
+                    {venue && <span className={styles.dateVenue}>{venue}</span>}
                   </div>
                 )}
 
@@ -370,7 +368,7 @@ export default function Home() {
           );
 
           return (
-            <>
+            <div id="posts-section">
               {upcomingPosts.length > 0 && (
                 <section className={styles.postsSection}>
                   <SectionLabel>Upcoming events</SectionLabel>
@@ -387,7 +385,7 @@ export default function Home() {
                   </div>
                 </section>
               )}
-            </>
+            </div>
           );
         })()}
       </div>
