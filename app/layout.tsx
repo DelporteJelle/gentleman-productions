@@ -20,6 +20,7 @@ import { PostsProvider } from "./contexts/PostsContext";
 import { AboutProvider } from "./contexts/AboutContext";
 import { Notifications } from "@mantine/notifications";
 import { QueryProvider } from "./providers/QueryProvider";
+import { Analytics } from "@vercel/analytics/next";
 
 const RootLayout: React.FC<React.PropsWithChildren> = ({ children }) => {
   const [opened, { toggle }] = useDisclosure(false);
@@ -76,6 +77,7 @@ const RootLayout: React.FC<React.PropsWithChildren> = ({ children }) => {
           </PostsProvider>
           </QueryProvider>
         </MantineProvider>
+        <Analytics />
       </body>
     </html>
   );
