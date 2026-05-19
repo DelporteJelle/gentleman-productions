@@ -9,6 +9,7 @@ export interface MemberCardProps {
 
 export default function MemberCard({ member }: MemberCardProps) {
   const { main, accent } = splitTitleAccent(member.member_name);
+  console.log(member.image);
   return (
     <article className={styles.card}>
       <div className={styles.photoWrap}>

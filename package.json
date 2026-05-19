@@ -23,6 +23,7 @@
     "@tanstack/react-query-persist-client": "^5.100.10",
     "@types/jsonwebtoken": "^9.0.10",
     "@types/react-scroll": "^1.8.10",
+    "@vercel/analytics": "^2.0.1",
     "@vercel/edge-config": "^1.4.0",
     "bcrypt": "^6.0.0",
     "bootstrap-icons": "^1.11.3",

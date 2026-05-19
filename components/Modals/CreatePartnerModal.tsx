@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import {
   Modal,
   Button,
@@ -14,14 +14,17 @@ interface CreatePartnerModalProps {
   opened: boolean;
   onClose: () => void;
   onSubmit: (values: Partner) => Promise<void>;
+  initialData?: Partner;
 }
 
 const CreatePartnerModal: React.FC<CreatePartnerModalProps> = ({
   opened,
   onClose,
   onSubmit,
+  initialData,
 }) => {
   const [loading, setLoading] = useState(false);
+  const isEditing = !!initialData;
 
   const form = useForm({
     initialValues: {
@@ -41,25 +44,40 @@ const CreatePartnerModal: React.FC<CreatePartnerModalProps> = ({
     },
   });
 
+  useEffect(() => {
+    if (opened) {
+      if (initialData) {
+        form.setValues({
+          partner_name: initialData.partner_name,
+          logo: initialData.logo,
+          description: initialData.description,
+          created_by: initialData.created_by ?? "",
+        });
+      } else {
+        form.reset();
+      }
+    }
+  }, [opened, initialData]);
+
   const handleSubmit = async (values: typeof form.values) => {
     setLoading(true);
     try {
       await onSubmit({
         ...values,
-        uuid: crypto.randomUUID(),
-        created_at: new Date().toDateString(),
+        uuid: initialData?.uuid ?? crypto.randomUUID(),
+        created_at: initialData?.created_at ?? new Date().toDateString(),
       });
       form.reset();
       onClose();
     } catch (error) {
-      console.error("Error creating partner:", error);
+      console.error("Error saving partner:", error);
     } finally {
       setLoading(false);
     }
   };
 
   return (
-    <Modal opened={opened} onClose={onClose} title="Create Partner" centered>
+    <Modal opened={opened} onClose={onClose} title={isEditing ? "Edit Partner" : "Create Partner"} centered>
       <LoadingOverlay visible={loading} />
       <form onSubmit={form.onSubmit(handleSubmit)}>
         <TextInput
@@ -90,7 +108,7 @@ const CreatePartnerModal: React.FC<CreatePartnerModalProps> = ({
             Cancel
           </Button>
           <Button color="red" type="submit">
-            Create
+            {isEditing ? "Save" : "Create"}
           </Button>
         </Group>
       </form>
