@@ -1,82 +1,153 @@
-"use client";
-
 import "../variables.css";
 import "./globals.css";
-import "@mantine/core/styles.css";
-import "@mantine/dates/styles.css";
-import "@mantine/core/styles.css";
-import "@mantine/notifications/styles.css";
 
-import NavBar from "../components/Navigation/Navbar";
-import Footer from "../components/Navigation/Footer";
-import React from "react";
-import Navbar from "../components/Navigation/Navbar";
-import Navigation from "@/components/Navigation/Navigation";
-
-import { MantineProvider, ColorSchemeScript, Stack } from "@mantine/core";
-import { AppShell, Burger } from "@mantine/core";
-import { useDisclosure } from "@mantine/hooks";
-import { PostsProvider } from "./contexts/PostsContext";
-import { AboutProvider } from "./contexts/AboutContext";
-import { Notifications } from "@mantine/notifications";
-import { QueryProvider } from "./providers/QueryProvider";
+import type { Metadata, Viewport } from "next";
+import { ColorSchemeScript } from "@mantine/core";
 import { Analytics } from "@vercel/analytics/next";
 
-const RootLayout: React.FC<React.PropsWithChildren> = ({ children }) => {
-  const [opened, { toggle }] = useDisclosure(false);
+import ClientShell from "./ClientShell";
 
+const SITE_URL = "https://gentlemanproductions.be";
+const SITE_NAME = "Gentleman Productions";
+const SITE_DESCRIPTION =
+  "Gentleman Productions is een dans- en theaterproductiehuis uit Merelbeke. Elk jaar brengen we een nieuwe voorstelling die dans, theater en muziek samenbrengt op één podium.";
+
+export const metadata: Metadata = {
+  metadataBase: new URL(SITE_URL),
+  title: {
+    default: "Gentleman Productions — Dans- & theaterproductie in Merelbeke",
+    template: "%s — Gentleman Productions",
+  },
+  description: SITE_DESCRIPTION,
+  applicationName: SITE_NAME,
+  keywords: [
+    "Gentleman Productions",
+    "dansproductie",
+    "theaterproductie",
+    "dansvoorstelling",
+    "theatervoorstelling",
+    "Merelbeke",
+    "Gent",
+    "Oost-Vlaanderen",
+    "België",
+    "dans",
+    "theater",
+    "podiumkunsten",
+    "voorstelling",
+  ],
+  authors: [{ name: SITE_NAME, url: SITE_URL }],
+  creator: SITE_NAME,
+  publisher: SITE_NAME,
+  category: "Performing Arts",
+  alternates: {
+    canonical: "/",
+  },
+  openGraph: {
+    type: "website",
+    locale: "nl_BE",
+    url: SITE_URL,
+    siteName: SITE_NAME,
+    title: "Gentleman Productions — Dans- & theaterproductie in Merelbeke",
+    description: SITE_DESCRIPTION,
+    images: [
+      {
+        url: "/GP-name.svg",
+        width: 1200,
+        height: 630,
+        alt: "Gentleman Productions",
+      },
+    ],
+  },
+  twitter: {
+    card: "summary_large_image",
+    title: "Gentleman Productions — Dans- & theaterproductie in Merelbeke",
+    description: SITE_DESCRIPTION,
+    images: ["/GP-name.svg"],
+  },
+  icons: {
+    icon: "/favicon.ico",
+  },
+  robots: {
+    index: true,
+    follow: true,
+    googleBot: {
+      index: true,
+      follow: true,
+      "max-image-preview": "large",
+      "max-snippet": -1,
+      "max-video-preview": -1,
+    },
+  },
+};
+
+export const viewport: Viewport = {
+  themeColor: "#000000",
+};
+
+const organizationJsonLd = {
+  "@context": "https://schema.org",
+  "@type": "PerformingGroup",
+  name: SITE_NAME,
+  alternateName: "GP",
+  url: SITE_URL,
+  logo: `${SITE_URL}/GP-logo.svg`,
+  image: `${SITE_URL}/GP-name.svg`,
+  description: SITE_DESCRIPTION,
+  email: "gentlemanproductions.official@gmail.com",
+  foundingLocation: {
+    "@type": "Place",
+    address: {
+      "@type": "PostalAddress",
+      addressLocality: "Merelbeke",
+      addressRegion: "Oost-Vlaanderen",
+      addressCountry: "BE",
+    },
+  },
+  address: {
+    "@type": "PostalAddress",
+    addressLocality: "Merelbeke",
+    addressRegion: "Oost-Vlaanderen",
+    addressCountry: "BE",
+  },
+  areaServed: {
+    "@type": "AdministrativeArea",
+    name: "Oost-Vlaanderen, België",
+  },
+  sameAs: [
+    "https://www.instagram.com/gentlemanproductions_official",
+    "https://www.facebook.com/gentlemanproductions.official",
+    "https://www.tiktok.com/@gentlemanproductions",
+  ],
+};
+
+const websiteJsonLd = {
+  "@context": "https://schema.org",
+  "@type": "WebSite",
+  name: SITE_NAME,
+  url: SITE_URL,
+  inLanguage: "nl-BE",
+};
+
+const RootLayout: React.FC<React.PropsWithChildren> = ({ children }) => {
   return (
-    <html lang="en" suppressHydrationWarning>
+    <html lang="nl-BE" suppressHydrationWarning>
       <head>
         <ColorSchemeScript />
+        <script
+          type="application/ld+json"
+          dangerouslySetInnerHTML={{
+            __html: JSON.stringify(organizationJsonLd),
+          }}
+        />
+        <script
+          type="application/ld+json"
+          dangerouslySetInnerHTML={{
+            __html: JSON.stringify(websiteJsonLd),
+          }}
+        />
       </head>
       <body className={"root"}>
-        <MantineProvider defaultColorScheme="dark">
-          <Notifications />
-          <QueryProvider>
-          <PostsProvider>
-            <AboutProvider>
-              <AppShell
-                layout="alt"
-                navbar={{
-                  width: 300,
-                  breakpoint: "sm",
-                  collapsed: { desktop: !opened, mobile: !opened },
-                }}
-                padding="md"
-              >
-                <AppShell.Navbar>
-                  <Stack m={40}>
-                    <Navigation />
-                  </Stack>
-                </AppShell.Navbar>
-
-                <header>
-                  <NavBar />
-                </header>
-                <main className="main">
-                  <Burger
-                    style={{
-                      zIndex: 1000,
-                      position: "fixed",
-                      top: 10,
-                      left: 10,
-                    }}
-                    opened={opened}
-                    onClick={toggle}
-                    hiddenFrom="sm"
-                  />
-
-                  {children}
-                </main>
-                <footer>
-                  <Footer />
-                </footer>
-              </AppShell>
-            </AboutProvider>
-          </PostsProvider>
-          </QueryProvider>
-        </MantineProvider>
+        <ClientShell>{children}</ClientShell>
         <Analytics />
       </body>
     </html>
