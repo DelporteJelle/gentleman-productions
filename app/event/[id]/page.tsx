@@ -1,141 +1,101 @@
-"use client";
-
-import { useEffect, useState } from "react";
-import { useParams } from "next/navigation";
-import Link from "next/link";
-import { Event, isEvent } from "@/types";
-import { usePosts } from "@/app/contexts/PostsContext";
-import { splitTitleAccent, toRomanNumerals } from "@/lib/text";
-import CanvasBackground from "@/components/Background/CanvasBackground";
-import SectionLabel from "@/components/SectionLabel/SectionLabel";
-import EventGallery from "@/components/EventGallery/EventGallery";
+import type { Metadata } from "next";
+import EventClient from "./EventClient";
 import {
-  LoadingScreen,
-  ErrorScreen,
-  NotFoundScreen,
-} from "@/components/StateScreens/StateScreens";
-import styles from "./page.module.css";
+  fetchEventForSeo,
+  buildEventJsonLd,
+  SITE_URL,
+} from "@/lib/server/seo";
 
-function formatNL(d: Date): string {
-  return d.toLocaleDateString("nl-BE", {
-    day: "numeric",
-    month: "long",
-    year: "numeric",
-  });
+export const revalidate = 3600;
+
+type RouteParams = { params: Promise<{ id: string }> };
+
+function plainDescription(raw: string | null | undefined, max = 160): string {
+  if (!raw) return "";
+  const collapsed = raw.replace(/\s+/g, " ").trim();
+  if (collapsed.length <= max) return collapsed;
+  return collapsed.slice(0, max - 1).trimEnd() + "…";
 }
 
-function computeDateText(dates: Event["dates"]): string {
-  if (!dates || dates.length === 0) return "";
+function dateRangeLabel(
+  dates: Array<{ start_time: string; end_time: string }> | undefined,
+): string {
+  if (!dates?.length) return "";
   const sorted = [...dates].sort(
-    (a, b) => new Date(a.start_time).getTime() - new Date(b.start_time).getTime(),
+    (a, b) =>
+      new Date(a.start_time).getTime() - new Date(b.start_time).getTime(),
   );
-  const first = new Date(sorted[0].start_time);
-  const last = new Date(sorted[sorted.length - 1].start_time);
-  if (first.toDateString() === last.toDateString()) {
-    return formatNL(first);
-  }
-  return `${formatNL(first)} — ${formatNL(last)}`;
+  const fmt = (s: string) =>
+    new Date(s).toLocaleDateString("nl-BE", {
+      day: "numeric",
+      month: "long",
+      year: "numeric",
+    });
+  const first = fmt(sorted[0].start_time);
+  const last = fmt(sorted[sorted.length - 1].start_time);
+  return first === last ? first : `${first} — ${last}`;
 }
 
+export async function generateMetadata({
+  params,
+}: RouteParams): Promise<Metadata> {
+  const { id } = await params;
+  const event = await fetchEventForSeo(id);
 
-type Status = "loading" | "ready" | "notFound" | "error";
-
-export default function EventPage() {
-  const { id } = useParams();
-  const { fetchPostById } = usePosts();
-  const [event, setEvent] = useState<Event | null>(null);
-  const [status, setStatus] = useState<Status>("loading");
-  const [errorMessage, setErrorMessage] = useState<string | undefined>(undefined);
-
-  useEffect(() => {
-    let cancelled = false;
-    setStatus("loading");
-    setEvent(null);
-    setErrorMessage(undefined);
-
-    const run = async () => {
-      try {
-        const fetched = await fetchPostById(id as string);
-        if (cancelled) return;
-        if (!fetched) {
-          setStatus("notFound");
-          return;
-        }
-        if (!isEvent(fetched)) {
-          setStatus("notFound");
-          return;
-        }
-        setEvent(fetched);
-        setStatus("ready");
-      } catch (e) {
-        if (cancelled) return;
-        setErrorMessage(e instanceof Error ? e.message : String(e));
-        setStatus("error");
-      }
+  if (!event) {
+    return {
+      title: "Voorstelling niet gevonden",
+      robots: { index: false, follow: false },
     };
-    run();
-    return () => {
-      cancelled = true;
-    };
-  }, [id, fetchPostById]);
+  }
 
-  if (status === "loading") return <LoadingScreen />;
-  if (status === "error") return <ErrorScreen message={errorMessage} />;
-  if (status === "notFound" || !event) return <NotFoundScreen />;
-
-  const { main: titleMain, accent: titleAccent } = splitTitleAccent(event.title);
-  const dateText = computeDateText(event.dates);
   const venue =
-    event.eventlocation?.location || event.eventlocation?.city || "";
-  const description = event.description?.trim() ?? "";
-  const paragraphs = description ? description.split(/\n\s*\n/) : [];
-  const images = event.images?.filter(Boolean) ?? [];
+    event.eventlocation?.location || event.eventlocation?.city || "Merelbeke";
+  const dateLabel = dateRangeLabel(event.dates);
+  const description =
+    plainDescription(event.description) ||
+    `Dans- en theatervoorstelling van Gentleman Productions${dateLabel ? ` op ${dateLabel}` : ""}${venue ? ` in ${venue}` : ""}.`;
+
+  const ogImage =
+    event.display_image && /^https?:\/\//.test(event.display_image)
+      ? event.display_image
+      : `${SITE_URL}/GP-name.svg`;
+
+  return {
+    title: event.title,
+    description,
+    alternates: { canonical: `/event/${id}` },
+    openGraph: {
+      title: `${event.title} — Gentleman Productions`,
+      description,
+      url: `${SITE_URL}/event/${id}`,
+      type: "article",
+      images: [{ url: ogImage, alt: event.title }],
+    },
+    twitter: {
+      card: "summary_large_image",
+      title: `${event.title} — Gentleman Productions`,
+      description,
+      images: [ogImage],
+    },
+  };
+}
+
+export default async function EventPage({ params }: RouteParams) {
+  const { id } = await params;
+  const event = await fetchEventForSeo(id);
 
   return (
-    <div>
-      <div className={styles.canvasLayer}>
-        <CanvasBackground />
-      </div>
-
-      <section className={styles.hero} aria-label="Production details">
-        <Link href="/#programme" className={styles.backLink}>
-          &larr; Back to home
-        </Link>
-
-        <div className={styles.heroContent}>
-          <h1 className={styles.title}>
-            {titleMain}
-            {titleAccent && (
-              <>
-                {" "}
-                <span className={styles.titleAccent}>{titleAccent}</span>
-              </>
-            )}
-          </h1>
-          {dateText && (
-            <div className={styles.dateRow}>
-              <span className={styles.dateChevron}>&#9656;</span>
-              <span className={styles.dateMain}>{dateText}</span>
-              {venue && <span className={styles.dateVenue}>{venue}</span>}
-            </div>
-          )}
-        </div>
-      </section>
-
-      {paragraphs.length > 0 && (
-        <section className={styles.programme} aria-label="Programme notes">
-          <SectionLabel>Description</SectionLabel>
-          <div className={styles.programmeBody}>
-            {paragraphs.map((p, i) => (
-              <p key={i}>{p}</p>
-            ))}
-          </div>
-        </section>
+    <>
+      {event && (
+        <script
+          type="application/ld+json"
+          dangerouslySetInnerHTML={{
+            __html: JSON.stringify(buildEventJsonLd(event)),
+          }}
+        />
       )}
-
-      {images.length > 0 && (
-        <EventGallery images={images} title={event.title} />
-      )}
-    </div>
+      <EventClient />
+    </>
   );
 }
