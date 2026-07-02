@@ -22,6 +22,17 @@ export async function provisionTicketsForEvent(sql: Sql, event: Event): Promise<
   if (openDates.length === 0) return;
   const seatRows = await sql`SELECT id FROM seats;`;
   const seatIds = seatRows.map((r) => r.id as string);
+  if (seatIds.length === 0) {
+    // The venue must be seeded (`npm run seed:venue`) before tickets can be
+    // provisioned. Without seats this silently creates nothing, which surfaces
+    // downstream as an empty (all-black) seat map — so fail loudly here.
+    console.warn(
+      `provisionTicketsForEvent: event "${event.title}" (${event.uuid}) has ` +
+        `${openDates.length} open date(s) but the seats table is empty — no tickets ` +
+        `were created. Run \`npm run seed:venue\` to seed the venue.`,
+    );
+    return;
+  }
   for (const date of openDates) {
     for (const seatId of seatIds) {
       await sql`

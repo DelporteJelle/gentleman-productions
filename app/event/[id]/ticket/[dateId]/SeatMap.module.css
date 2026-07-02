@@ -144,6 +144,29 @@
   padding: 0 24px 60px;
 }
 
+.emptyState {
+  max-width: 620px;
+  margin: 0 auto;
+  padding: 60px 24px 120px;
+  text-align: center;
+}
+
+.emptyTitle {
+  font-family: var(--font-deco);
+  font-size: 20px;
+  letter-spacing: 0.04em;
+  color: var(--cream);
+  margin: 0 0 12px;
+}
+
+.emptySub {
+  font-family: var(--font-body);
+  font-size: 14px;
+  line-height: 1.6;
+  color: var(--cream-muted);
+  margin: 0;
+}
+
 .legend {
   display: flex;
   gap: 8px;

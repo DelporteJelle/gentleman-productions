@@ -206,6 +206,15 @@ export default function SeatMapPage() {
 
       <SectionLabel>Choose Your Seats</SectionLabel>
 
+      {tickets.length === 0 ? (
+        <div className={styles.emptyState}>
+          <p className={styles.emptyTitle}>Seats aren&rsquo;t available for this date yet.</p>
+          <p className={styles.emptySub}>
+            Ticket sales for this performance haven&rsquo;t been set up. Please check back soon.
+          </p>
+        </div>
+      ) : (
+      <>
       <div className={styles.mapWrap}>
         <div className={styles.legend}>
           {[
@@ -311,6 +320,8 @@ export default function SeatMapPage() {
           </button>
         </div>
       </div>
+      </>
+      )}
     </div>
   );
 }

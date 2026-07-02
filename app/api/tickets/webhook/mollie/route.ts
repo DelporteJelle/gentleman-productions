@@ -1,14 +1,13 @@
-import { createMollieClient } from "@mollie/api-client";
 import { getDb } from "@/lib/server/api";
+import { getMollie } from "@/lib/server/mollie";
 import type { Event, Order } from "@/types";
-
-const mollie = createMollieClient({ apiKey: process.env.MOLLIE_API_KEY! });
 
 export async function POST(request: Request) {
   const form = await request.formData();
   const paymentId = form.get("id") as string | null;
   if (!paymentId) return new Response("No payment ID", { status: 400 });
 
+  const mollie = getMollie();
   const payment = await mollie.payments.get(paymentId);
   const orderId = (payment.metadata as { orderId?: string } | null)?.orderId;
   if (!orderId) return new Response("No order ID in metadata", { status: 400 });

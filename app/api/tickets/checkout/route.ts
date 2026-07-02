@@ -1,9 +1,7 @@
-import { createMollieClient } from "@mollie/api-client";
 import { getDb, jsonResponse, errorResponse, parseBody } from "@/lib/server/api";
 import { eurosToCents } from "@/lib/server/ticketing";
+import { getMollie } from "@/lib/server/mollie";
 import type { Event } from "@/types";
-
-const mollie = createMollieClient({ apiKey: process.env.MOLLIE_API_KEY! });
 
 interface CheckoutBody {
   eventUuid: string; dateUuid: string; ticketIds: string[]; name: string; email: string;
@@ -11,6 +9,7 @@ interface CheckoutBody {
 
 export async function POST(request: Request) {
   const sql = getDb();
+  const mollie = getMollie();
   try {
     const { eventUuid, dateUuid, ticketIds, name, email } = await parseBody<CheckoutBody>(request);
     if (!eventUuid || !dateUuid || !ticketIds?.length || !name || !email)
