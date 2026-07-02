@@ -1,6 +1,6 @@
 import { createMollieClient } from "@mollie/api-client";
 import { getDb } from "@/lib/server/api";
-import type { Event } from "@/types";
+import type { Event, Order } from "@/types";
 
 const mollie = createMollieClient({ apiKey: process.env.MOLLIE_API_KEY! });
 
@@ -17,7 +17,7 @@ export async function POST(request: Request) {
 
   if (payment.status === "paid") {
     const orders = await sql`UPDATE orders SET status = 'paid' WHERE id = ${orderId} RETURNING *;`;
-    const order = orders[0];
+    const order = orders[0] as Order | undefined;
     if (!order) return new Response("OK", { status: 200 });
 
     const soldTickets = await sql`
