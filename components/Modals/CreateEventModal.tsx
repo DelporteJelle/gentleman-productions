@@ -12,6 +12,7 @@ import {
   CloseButton,
   Badge,
   Switch,
+  ColorInput,
 } from "@mantine/core";
 import { DbObjectType, Event } from "@/types";
 import { formRootRule, isNotEmpty, useForm } from "@mantine/form";
@@ -36,6 +37,7 @@ export default function CreateEventModal({
       // Convert string dates to Date objects for editing
       return {
         ...event,
+        production_theme: event.production_theme ?? { accent1: "", accent2: "", bg: "", tagline: "" },
         dates: event.dates.map((date) => ({
           ...date,
           start_time: date.start_time ? new Date(date.start_time) : "",
@@ -53,6 +55,7 @@ export default function CreateEventModal({
       description: "",
       display_image: "",
       tickets_open: false,
+      production_theme: { accent1: "", accent2: "", bg: "", tagline: "" },
       eventlocation: {
         country: "België",
         city: "",
@@ -177,6 +180,13 @@ export default function CreateEventModal({
       post_type: DbObjectType.EVENT,
       updated_at: new Date().toISOString(),
       tickets_open: form.values.tickets_open ?? false,
+      production_theme: (() => {
+        const t = form.values.production_theme ?? {};
+        const cleaned = Object.fromEntries(
+          Object.entries(t).filter(([, v]) => typeof v === "string" && v.trim() !== "")
+        );
+        return Object.keys(cleaned).length ? cleaned : undefined;
+      })(),
       dates: form.values.dates.map((date) => {
         const baseDate = new Date(date.start_time);
         if (date.timeLine.length === 0) {
@@ -226,14 +236,6 @@ export default function CreateEventModal({
           placeholder="Enter ticket price"
           key={form.key(`dates.${index}.price`)}
           {...form.getInputProps(`dates.${index}.price`)}
-        />
-      </Group>
-      <Group grow>
-        <TextInput
-          label="Link to payment site"
-          placeholder="Enter link to external ticket site"
-          key={form.key(`dates.${index}.external_link`)}
-          {...form.getInputProps(`dates.${index}.external_link`)}
         />
       </Group>
 
@@ -377,7 +379,6 @@ export default function CreateEventModal({
                   uuid: crypto.randomUUID(),
                   start_time: "",
                   end_time: "",
-                  external_link: "",
                   timeLine: [
                     {
                       time: "",
@@ -432,6 +433,41 @@ export default function CreateEventModal({
           </Stack>
         </Stepper.Step>
 
+        {/* ====================== Ticket theme ==================== */}
+
+        <Stepper.Step
+          color="yellow"
+          label="Ticket theme"
+          description="Optional PDF ticket styling"
+        >
+          <Stack>
+            <ColorInput
+              label="Primary accent"
+              format="hex"
+              key={form.key("production_theme.accent1")}
+              {...form.getInputProps("production_theme.accent1")}
+            />
+            <ColorInput
+              label="Secondary accent"
+              format="hex"
+              key={form.key("production_theme.accent2")}
+              {...form.getInputProps("production_theme.accent2")}
+            />
+            <ColorInput
+              label="Background"
+              format="hex"
+              key={form.key("production_theme.bg")}
+              {...form.getInputProps("production_theme.bg")}
+            />
+            <TextInput
+              label="Tagline"
+              placeholder="e.g. Storytelling in motion"
+              key={form.key("production_theme.tagline")}
+              {...form.getInputProps("production_theme.tagline")}
+            />
+          </Stack>
+        </Stepper.Step>
+
         <Stepper.Completed>
           {/* {!form.isValid() && } */}
           {Object.keys(form.errors).length > 0 && (
@@ -450,8 +486,8 @@ export default function CreateEventModal({
         <Button variant="default" onClick={prevStep}>
           Back
         </Button>
-        <Button color="red" onClick={active === 4 ? handleSubmit : nextStep}>
-          {active === 4
+        <Button color="red" onClick={active === 5 ? handleSubmit : nextStep}>
+          {active === 5
             ? event
               ? "Update Event"
               : "Create Event"
