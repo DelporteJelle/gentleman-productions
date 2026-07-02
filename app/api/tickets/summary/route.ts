@@ -1,0 +1,31 @@
+import { getDb, jsonResponse, requireAuth } from "@/lib/server/api";
+
+export async function GET(request: Request) {
+  const authError = requireAuth(request);
+  if (authError) return authError;
+  const sql = getDb();
+
+  const perDate = await sql`
+    SELECT t.event_uuid, t.date_uuid,
+      COUNT(*) FILTER (WHERE t.status = 'sold')      AS sold,
+      COUNT(*) FILTER (WHERE t.status = 'held')      AS held,
+      COUNT(*) FILTER (WHERE t.status = 'available') AS available,
+      COUNT(*) AS total
+    FROM tickets t GROUP BY t.event_uuid, t.date_uuid;
+  `;
+  const orders = await sql`
+    SELECT o.id, o.customer_name, o.customer_email, o.total_amount, o.status,
+           o.created_at, o.event_uuid
+    FROM orders o ORDER BY o.created_at DESC LIMIT 100;
+  `;
+  const events = await sql`SELECT uuid, title, dates FROM events;`;
+
+  const byUuid = Object.fromEntries(events.map((e) => [e.uuid, e]));
+  const dates = perDate.map((d) => {
+    const ev = byUuid[d.event_uuid];
+    const de = ev?.dates?.find((x: { uuid: string }) => x.uuid === d.date_uuid);
+    return { ...d, title: ev?.title ?? "—", start_time: de?.start_time ?? null };
+  });
+  const orderRows = orders.map((o) => ({ ...o, event_title: byUuid[o.event_uuid]?.title ?? "—" }));
+  return jsonResponse({ dates, orders: orderRows });
+}
