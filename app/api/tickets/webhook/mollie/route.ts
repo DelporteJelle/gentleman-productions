@@ -44,8 +44,8 @@ export async function POST(request: Request) {
       console.error("Email send failed:", emailErr);
     }
   } else if (["expired", "canceled", "failed"].includes(payment.status)) {
-    await sql`UPDATE tickets SET status = 'available', held_until = NULL, order_id = NULL WHERE order_id = ${orderId};`;
-    await sql`UPDATE orders SET status = 'cancelled' WHERE id = ${orderId};`;
+    await sql`UPDATE tickets SET status = 'available', held_until = NULL, order_id = NULL WHERE order_id = ${orderId} AND status = 'held';`;
+    await sql`UPDATE orders SET status = 'cancelled' WHERE id = ${orderId} AND status = 'pending';`;
   }
 
   return new Response("OK", { status: 200 });

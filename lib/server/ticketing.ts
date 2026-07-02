@@ -1,6 +1,5 @@
 import type { NeonQueryFunction } from "@neondatabase/serverless";
 import type { Event, EventDateEntry } from "@/types";
-import { venueSeats } from "@/lib/venue";
 
 type Sql = NeonQueryFunction<false, false>;
 

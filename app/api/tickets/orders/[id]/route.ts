@@ -6,5 +6,5 @@ export async function GET(request: Request) {
   const sql = getDb();
   const rows = await sql`SELECT * FROM orders WHERE id = ${id};`;
   if (rows.length === 0) return errorResponse("Order not found", 404);
-  return jsonResponse(rows[0]);
+  return jsonResponse({ status: rows[0].status });
 }

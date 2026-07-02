@@ -208,8 +208,6 @@ export default function CreateEventModal({
         };
       }),
     };
-    console.log(eventData);
-
     if (event) {
       updateEvent(event.uuid, eventData);
     } else {
