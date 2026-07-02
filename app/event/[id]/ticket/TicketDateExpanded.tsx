@@ -156,13 +156,9 @@ export default function TicketDateExpanded({
           </div>
         </div>
 
-        {date.price != null && date.external_link && (
+        {event.tickets_open && date.price != null && (
           <div className={styles.ctaRow}>
-            <GoldShimmerCTA
-              href={date.external_link}
-              target="_blank"
-              rel="noopener noreferrer"
-            >
+            <GoldShimmerCTA href={`/event/${event.uuid}/ticket/${date.uuid}`}>
               Buy Tickets
             </GoldShimmerCTA>
           </div>
