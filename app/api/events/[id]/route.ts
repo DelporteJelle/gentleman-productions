@@ -9,6 +9,7 @@ import {
   invalidateCache,
   CacheTags,
 } from "@/lib/server/api";
+import { provisionTicketsForEvent } from "@/lib/server/ticketing";
 
 export async function GET(request: Request) {
   const sql = getDb();
@@ -58,7 +59,8 @@ export async function PUT(request: Request) {
         images = ${body.images},
         eventLocation = ${JSON.stringify(body.eventlocation)},
         dates = ${JSON.stringify(body.dates)},
-        tickets_open = ${body.tickets_open ?? false}
+        tickets_open = ${body.tickets_open ?? false},
+        production_theme = ${body.production_theme ? JSON.stringify(body.production_theme) : null}
       WHERE uuid = ${id};
     `;
 
@@ -68,6 +70,7 @@ export async function PUT(request: Request) {
       return errorResponse("Event not found", 404);
     }
 
+    await provisionTicketsForEvent(sql, { ...body, uuid: id });
     invalidateCache(CacheTags.POSTS);
 
     return jsonResponse(updatedEvent[0]);
