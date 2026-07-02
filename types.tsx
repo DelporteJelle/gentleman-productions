@@ -36,6 +36,16 @@ export interface Post extends DbObject {
 }
 
 /**
+ * Production theme customization for events
+ */
+export interface ProductionTheme {
+  accent1?: string;
+  accent2?: string;
+  bg?: string;
+  tagline?: string;
+}
+
+/**
  * Event post type - extends Post with event-specific fields
  */
 export interface Event extends Post {
@@ -45,6 +55,7 @@ export interface Event extends Post {
   dates: EventDateEntry[];
   eventlocation?: EventLocation;
   tickets_open?: boolean;
+  production_theme?: ProductionTheme;
 }
 
 /**
@@ -78,7 +89,6 @@ export interface EventDateEntry {
   end_time: string; // ISO date string
   timeLine: TimeLineEntry[];
   price?: number; // undefined if free
-  external_link?: string;
 }
 
 /**
@@ -175,4 +185,29 @@ export function isBasicPost(post: Post): post is BasicPost {
  */
 export function createUUID(): string {
   return crypto.randomUUID();
+}
+
+// ============================================================================
+// Ticketing Types
+// ============================================================================
+
+export type TicketStatus = "available" | "held" | "sold";
+
+export interface SeatTicket {
+  id: string;
+  status: TicketStatus;
+  held_until: string | null;
+  seat: { id: string; row: string; seat_number: number; reserved_for: string | null };
+}
+
+export interface Order {
+  id: string;
+  event_uuid: string;
+  date_uuid: string;
+  customer_name: string;
+  customer_email: string;
+  total_amount: number;
+  status: "pending" | "paid" | "cancelled";
+  mollie_payment_id: string | null;
+  created_at: string;
 }
