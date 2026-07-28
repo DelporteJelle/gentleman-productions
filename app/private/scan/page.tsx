@@ -115,6 +115,7 @@ export default function ScanPage() {
       .catch(() => setError("Camera access denied. Please allow camera permissions and reload."));
 
     return () => {
+      startedRef.current = false;
       scannerRef.current?.stop().catch(() => {});
     };
   }, [hasDate]);
@@ -153,7 +154,7 @@ export default function ScanPage() {
             value={dateUuid}
             onChange={(e) => setDateUuid(e.target.value)}
           >
-            <option value="">Select a performance…</option>
+            {!dateUuid && <option value="">Select a performance…</option>}
             {performances.map((p) => (
               <option key={p.date_uuid} value={p.date_uuid}>
                 {formatPerformance(p)}
