@@ -16,10 +16,14 @@ export function paymentAmountMatchesOrder(paymentValue: string, orderTotalCents:
 /**
  * Apply the current Mollie state of `paymentId` to its order.
  *
- * Safe to call any number of times for the same payment: the transition to
- * `paid` is claimed with a conditional UPDATE, so only the first caller ever
- * marks tickets sold or sends the email. Called by the Mollie webhook and, as
- * a self-healing fallback, by the order-status poll.
+ * Safe to call any number of times for the same payment. On the paid path,
+ * tickets are sold before the order is claimed: selling is naturally
+ * idempotent (a retry matches zero already-sold rows), so the order stays
+ * 'pending' — and thus retryable as a whole — until every mutation before
+ * the claim has succeeded. Only the conditional claim itself, `WHERE status
+ * <> 'paid'`, is the exactly-once gate; it guards the email, not the sale.
+ * Called by the Mollie webhook and, as a self-healing fallback, by the
+ * order-status poll.
  */
 export async function applyMolliePaymentToOrder(sql: Sql, paymentId: string): Promise<FulfillResult> {
   const payment = await getMollie().payments.get(paymentId);
@@ -53,7 +57,28 @@ export async function applyMolliePaymentToOrder(sql: Sql, paymentId: string): Pr
       return "ignored";
     }
 
-    // Idempotency claim: zero rows means another call already fulfilled this.
+    // Sell first, claim second. Selling is a harmless 0-row no-op on a retry
+    // that already sold these tickets, and if anything below throws, the
+    // order is still 'pending' — a retry re-enters this whole function and
+    // re-runs this UPDATE (still a no-op the second time) rather than being
+    // short-circuited by an order that's already 'paid' with tickets stuck
+    // 'held' forever.
+    await sql`
+      UPDATE tickets SET status = 'sold', held_until = NULL
+      WHERE order_id = ${orderId} AND status = 'held';
+    `;
+
+    // Re-read rather than trust the UPDATE's own RETURNING, so a retry that
+    // finds 0 rows above (because an earlier call already sold them) still
+    // sees the authoritative sold set here.
+    const soldTickets = await sql`
+      SELECT t.id, s."row" AS row, s.seat_number AS seat_number
+      FROM tickets t JOIN seats s ON s.id = t.seat_id
+      WHERE t.order_id = ${orderId} AND t.status = 'sold';
+    `;
+
+    // Idempotency claim: zero rows means another call already fulfilled
+    // this order (marked it paid and, if it got this far, sent the email).
     const claimed = await sql`
       UPDATE orders SET status = 'paid'
       WHERE id = ${orderId} AND status <> 'paid'
@@ -61,13 +86,6 @@ export async function applyMolliePaymentToOrder(sql: Sql, paymentId: string): Pr
     `;
     if (claimed.length === 0) return "ignored";
     const paidOrder = claimed[0] as Order;
-
-    const soldTickets = await sql`
-      UPDATE tickets SET status = 'sold', held_until = NULL
-      WHERE order_id = ${orderId} AND status = 'held'
-      RETURNING id, (SELECT "row" FROM seats WHERE seats.id = tickets.seat_id) AS row,
-                    (SELECT seat_number FROM seats WHERE seats.id = tickets.seat_id) AS seat_number;
-    `;
 
     if (soldTickets.length === 0) {
       // The order was paid but held no seats — they were taken by a later
