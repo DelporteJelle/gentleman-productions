@@ -7,7 +7,13 @@ export async function GET(request: Request) {
   const sql = getDb();
   try {
     const rows = await sql`
-      SELECT t.id, t.status, t.held_until,
+      SELECT CASE
+               WHEN t.status = 'available'
+                 OR (t.status = 'held' AND t.held_until IS NOT NULL AND t.held_until < now())
+               THEN t.id::text
+               ELSE NULL
+             END AS id,
+             t.status, t.held_until,
              s.id AS seat_id, s."row" AS seat_row,
              s.seat_number, s.reserved_for
       FROM tickets t

@@ -33,3 +33,30 @@ describe("seatSelection", () => {
     expect(effectiveStatus(t)).toBe("available");
   });
 });
+
+describe("seats with withheld ids", () => {
+  const sold: SeatTicket = {
+    id: null, status: "sold", held_until: null,
+    seat: { id: "s-sold", row: "A", seat_number: 5, reserved_for: null },
+  };
+  const free: SeatTicket = {
+    id: "t-free", status: "available", held_until: null,
+    seat: { id: "s-free", row: "A", seat_number: 6, reserved_for: null },
+  };
+
+  it("buildIndex keeps null-id seats out of ticketById", () => {
+    const index = buildIndex([sold, free]);
+    expect(Object.keys(index.ticketById)).toEqual(["t-free"]);
+    expect(index.seatMap["A-5"].id).toBeNull();
+  });
+
+  it("a seat with no id is not selectable", () => {
+    const index = buildIndex([sold, free]);
+    expect(isSelectable(index, [], false, "A", 5)).toBe(false);
+  });
+
+  it("toggling a seat with no id is a no-op", () => {
+    const index = buildIndex([sold, free]);
+    expect(toggleSeat(index, ["t-free"], false, "A", 5)).toEqual(["t-free"]);
+  });
+});

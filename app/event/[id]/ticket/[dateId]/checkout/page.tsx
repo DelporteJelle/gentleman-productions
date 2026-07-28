@@ -104,7 +104,7 @@ function CheckoutContent() {
   const total = pricePerSeat * ticketIds.length;
 
   const chosenSeats = seats
-    .filter((t) => ticketIds.includes(t.id))
+    .filter((t) => t.id !== null && ticketIds.includes(t.id))
     .sort((a, b) =>
       a.seat.row === b.seat.row
         ? a.seat.seat_number - b.seat.seat_number

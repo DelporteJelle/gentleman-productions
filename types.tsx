@@ -194,7 +194,8 @@ export function createUUID(): string {
 export type TicketStatus = "available" | "held" | "sold";
 
 export interface SeatTicket {
-  id: string;
+  /** null when the seat is not purchasable — the API withholds ids for sold/held seats. */
+  id: string | null;
   status: TicketStatus;
   held_until: string | null;
   seat: { id: string; row: string; seat_number: number; reserved_for: string | null };

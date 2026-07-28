@@ -2,7 +2,7 @@ import { ROWS, getRowSeats } from "@/lib/venue";
 import type { SeatTicket } from "@/types";
 
 export type SeatRef = { row: string; seatNum: number };
-type Cell = { id: string; status: string; reserved_for: string | null; held_until: string | null };
+type Cell = { id: string | null; status: string; reserved_for: string | null; held_until: string | null };
 export type TicketIndex = { ticketById: Record<string, SeatRef>; seatMap: Record<string, Cell> };
 
 export function buildIndex(tickets: SeatTicket[]): TicketIndex {
@@ -12,7 +12,7 @@ export function buildIndex(tickets: SeatTicket[]): TicketIndex {
     seatMap[`${t.seat.row}-${t.seat.seat_number}`] = {
       id: t.id, status: t.status, reserved_for: t.seat.reserved_for, held_until: t.held_until,
     };
-    ticketById[t.id] = { row: t.seat.row, seatNum: t.seat.seat_number };
+    if (t.id) ticketById[t.id] = { row: t.seat.row, seatNum: t.seat.seat_number };
   }
   return { seatMap, ticketById };
 }
@@ -143,7 +143,7 @@ export function isSelectable(index: TicketIndex, selected: string[], multiRow: b
 
 export function toggleSeat(index: TicketIndex, selected: string[], multiRow: boolean, row: string, seatNum: number): string[] {
   const ticket = index.seatMap[`${row}-${seatNum}`];
-  if (!ticket || !isSelectable(index, selected, multiRow, row, seatNum)) return selected;
+  if (!ticket || !ticket.id || !isSelectable(index, selected, multiRow, row, seatNum)) return selected;
 
   const ticketId = ticket.id;
   const byRow = selectionByRow(index, selected);
