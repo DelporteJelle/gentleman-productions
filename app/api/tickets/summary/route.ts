@@ -1,7 +1,7 @@
-import { getDb, jsonResponse, requireAuth } from "@/lib/server/api";
+import { getDb, jsonResponse, requireRole } from "@/lib/server/api";
 
 export async function GET(request: Request) {
-  const authError = requireAuth(request);
+  const authError = requireRole(request, ["ADMIN"]);
   if (authError) return authError;
   const sql = getDb();
 
