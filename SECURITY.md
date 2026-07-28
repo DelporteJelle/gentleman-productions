@@ -141,3 +141,18 @@ If upgrading from previous version:
 1. No breaking changes to database schema
 2. Existing sessions remain valid
 3. Rate limiting is automatic (no configuration needed)
+
+## Ticket Security
+
+### QR Ticket Tokens
+
+Ticket QR codes contain `<ticket-uuid>.<base64url HMAC-SHA256>`, signed with
+`TICKET_QR_SECRET`. The scanner (`/api/tickets/scan`) rejects any payload whose
+signature does not verify, so knowing a ticket id is not sufficient to enter.
+
+- `TICKET_QR_SECRET` must be a high-entropy random value (32 bytes hex) and must
+  be **identical** in every environment that issues or scans tickets.
+- Rotating the secret invalidates every ticket already emailed. Re-send tickets
+  for all `sold` rows after any rotation.
+- The scan endpoint is restricted to the admin role and is scoped to a single
+  performance chosen by the operator.
