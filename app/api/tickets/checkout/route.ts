@@ -6,6 +6,23 @@ import type { Event } from "@/types";
 
 export async function POST(request: Request) {
   const sql = getDb();
+  let orderId: string | null = null;
+
+  // Best-effort compensation. Guarded on orderId being set (nothing to
+  // release before the order INSERT commits) and called from both the known
+  // failure paths below and the outer catch, so a mid-flight failure after
+  // the order exists — including one where the claim statement itself throws
+  // after having already committed server-side — never leaves an orphaned
+  // pending order or a hold nothing will ever release before its 10-minute
+  // expiry.
+  const releaseAndDelete = async () => {
+    await sql`
+      UPDATE tickets SET status = 'available', held_until = NULL, order_id = NULL
+      WHERE order_id = ${orderId};
+    `;
+    await sql`DELETE FROM orders WHERE id = ${orderId};`;
+  };
+
   try {
     const parsed = validateCheckoutInput(await parseBody<Partial<CheckoutInput>>(request));
     if (!parsed.ok) return errorResponse(parsed.error, 400);
@@ -28,15 +45,7 @@ export async function POST(request: Request) {
       VALUES (${eventUuid}, ${dateUuid}, ${name}, ${email}, ${totalCents}, 'pending')
       RETURNING id;
     `;
-    const orderId = created[0].id as string;
-
-    const releaseAndDelete = async () => {
-      await sql`
-        UPDATE tickets SET status = 'available', held_until = NULL, order_id = NULL
-        WHERE order_id = ${orderId};
-      `;
-      await sql`DELETE FROM orders WHERE id = ${orderId};`;
-    };
+    orderId = created[0].id as string;
 
     // Single-statement claim. Neon's HTTP driver has no interactive
     // transactions, so every precondition lives in the WHERE clause and the
@@ -86,6 +95,17 @@ export async function POST(request: Request) {
   } catch (err) {
     // Never echo driver or provider internals back to the browser.
     console.error("Checkout error:", err);
+    if (orderId) {
+      // Best-effort: a failure here must never replace the original error or
+      // change the response. If the claim never committed this updates 0
+      // tickets and deletes the order just inserted; if it did commit, this
+      // is exactly the compensation that path needed.
+      try {
+        await releaseAndDelete();
+      } catch (releaseErr) {
+        console.error("Checkout compensation failed:", releaseErr);
+      }
+    }
     return errorResponse("Checkout failed. Please try again.", 500);
   }
 }
