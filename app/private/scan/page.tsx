@@ -39,7 +39,6 @@ export default function ScanPage() {
   const [error, setError] = useState("");
 
   const scannerRef = useRef<Html5Qrcode | null>(null);
-  const startedRef = useRef(false);
   const processingRef = useRef(false);
   // Read at decode time so changing the performance does not need a restart.
   const dateUuidRef = useRef("");
@@ -76,9 +75,9 @@ export default function ScanPage() {
   const hasDate = Boolean(dateUuid);
 
   useEffect(() => {
-    if (!hasDate || startedRef.current) return;
-    startedRef.current = true;
+    if (!hasDate) return;
 
+    let cancelled = false;
     const scanner = new Html5Qrcode("qr-reader");
     scannerRef.current = scanner;
 
@@ -111,12 +110,29 @@ export default function ScanPage() {
         },
         () => {},
       )
-      .then(() => setScanning(true))
-      .catch(() => setError("Camera access denied. Please allow camera permissions and reload."));
+      .then(() => {
+        // The effect was torn down while start() was still in flight
+        // (StrictMode double-mount, or the operator navigated away).
+        if (cancelled) {
+          scanner.stop().catch(() => {});
+          return;
+        }
+        setScanning(true);
+      })
+      .catch(() => {
+        if (!cancelled) setError("Camera access denied. Please allow camera permissions and reload.");
+      });
 
     return () => {
-      startedRef.current = false;
-      scannerRef.current?.stop().catch(() => {});
+      cancelled = true;
+      scannerRef.current = null;
+      // stop() throws synchronously if start() has not yet reached SCANNING,
+      // so a bare .catch() is not enough.
+      try {
+        scanner.stop().catch(() => {});
+      } catch {
+        /* never started; the cancelled flag handles it when start() settles */
+      }
     };
   }, [hasDate]);
 
