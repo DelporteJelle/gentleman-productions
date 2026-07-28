@@ -16,14 +16,14 @@ const DEFAULT_THEME = {
 
 export async function generateTicketPdf({
   seatLabel,
-  ticketId,
+  qrPayload,
   eventName,
   date,
   time,
   productionTheme,
 }: {
   seatLabel: string;
-  ticketId: string;
+  qrPayload: string;
   eventName: string;
   date: string;
   time: string;
@@ -54,7 +54,7 @@ export async function generateTicketPdf({
     const qrX = W - qrSize - 44;
     const qrY = (H - qrSize) / 2;
 
-    const qrBuffer = await QRCode.toBuffer(ticketId, {
+    const qrBuffer = await QRCode.toBuffer(qrPayload, {
       width: qrSize,
       margin: 1,
       color: { dark: "#0a0a0a", light: "#f0f0f0" },

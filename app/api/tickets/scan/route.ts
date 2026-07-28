@@ -1,14 +1,25 @@
-import { getDb, jsonResponse, requireAuth, parseBody } from "@/lib/server/api";
+import { getDb, jsonResponse, errorResponse, requireAuth, parseBody } from "@/lib/server/api";
+import { verifyTicketToken } from "@/lib/server/ticketToken";
 import type { Event } from "@/types";
 
 export async function POST(request: Request) {
   const authError = requireAuth(request);
   if (authError) return authError;
 
+  // A missing secret would make every genuine ticket read as "invalid" at the
+  // door, which is indistinguishable from mass fraud. Fail loudly instead.
+  if (!process.env.TICKET_QR_SECRET) {
+    console.error("Scan rejected: TICKET_QR_SECRET is not configured");
+    return errorResponse("Scanner is misconfigured. Contact the site owner.", 500);
+  }
+
   try {
     const sql = getDb();
-    const { ticketId } = await parseBody<{ ticketId: string }>(request);
-    if (!ticketId) return jsonResponse({ result: "invalid", message: "No ticket ID provided" });
+    const { token } = await parseBody<{ token: string }>(request);
+    if (!token) return jsonResponse({ result: "invalid", message: "No ticket code provided" });
+
+    const ticketId = verifyTicketToken(token);
+    if (!ticketId) return jsonResponse({ result: "invalid", message: "Not a valid ticket code" });
 
     const rows = await sql`
       SELECT t.id, t.status, t.scanned_at, t.event_uuid, t.date_uuid,

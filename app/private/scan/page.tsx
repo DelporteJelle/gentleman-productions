@@ -34,7 +34,7 @@ export default function ScanPage() {
           const res = await fetch("/api/tickets/scan", {
             method: "POST",
             headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({ ticketId: decodedText }),
+            body: JSON.stringify({ token: decodedText }),
           });
           const data = (await res.json()) as ScanResult;
           setResult(data);

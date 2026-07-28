@@ -1,5 +1,6 @@
 import { Resend } from "resend";
 import { generateTicketPdf } from "./generateTicketPdf";
+import { signTicketToken } from "./server/ticketToken";
 import type { Order, ProductionTheme } from "@/types";
 
 const resend = new Resend(process.env.RESEND_API_KEY);
@@ -27,7 +28,14 @@ export async function sendTicketEmail({
   const attachments = await Promise.all(
     seats.map(async (seat) => {
       const seatLabel = `${seat.row}${seat.seat_number}`;
-      const pdfBuffer = await generateTicketPdf({ seatLabel, ticketId: seat.id, eventName, date, time, productionTheme });
+      const pdfBuffer = await generateTicketPdf({
+        seatLabel,
+        qrPayload: signTicketToken(seat.id),
+        eventName,
+        date,
+        time,
+        productionTheme,
+      });
       return {
         filename: `Ticket-${seatLabel}.pdf`,
         content: pdfBuffer,
