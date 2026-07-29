@@ -105,7 +105,7 @@ function placeSeats(index: TicketIndex, row: string, startSeat: number, count: n
   return result;
 }
 
-export function isSelectable(index: TicketIndex, selected: string[], multiRow: boolean, row: string, seatNum: number): boolean {
+export function isSelectable(index: TicketIndex, selected: string[], multiRow: boolean, row: string, seatNum: number, isAdmin = false): boolean {
   const status = getStatus(index, row, seatNum);
   if (status === 'sold' || status === 'held' || status === 'wheelchair') return false;
 
@@ -113,6 +113,7 @@ export function isSelectable(index: TicketIndex, selected: string[], multiRow: b
   if (ticketId && selected.includes(ticketId)) return true;
 
   if (status !== 'available') return false;
+  if (isAdmin) return true;
   if (selected.length === 0) return true;
 
   const byRow = selectionByRow(index, selected);
@@ -141,11 +142,18 @@ export function isSelectable(index: TicketIndex, selected: string[], multiRow: b
   return false;
 }
 
-export function toggleSeat(index: TicketIndex, selected: string[], multiRow: boolean, row: string, seatNum: number): string[] {
+export function toggleSeat(index: TicketIndex, selected: string[], multiRow: boolean, row: string, seatNum: number, isAdmin = false): string[] {
   const ticket = index.seatMap[`${row}-${seatNum}`];
-  if (!ticket || !ticket.id || !isSelectable(index, selected, multiRow, row, seatNum)) return selected;
+  if (!ticket || !ticket.id || !isSelectable(index, selected, multiRow, row, seatNum, isAdmin)) return selected;
 
   const ticketId = ticket.id;
+
+  if (isAdmin) {
+    return selected.includes(ticketId)
+      ? selected.filter((id) => id !== ticketId)
+      : [...selected, ticketId];
+  }
+
   const byRow = selectionByRow(index, selected);
   const selRows = Object.keys(byRow).sort((a, b) => ROWS.indexOf(a) - ROWS.indexOf(b));
   const minRowIdx = selRows.length ? ROWS.indexOf(selRows[0]) : -1;
