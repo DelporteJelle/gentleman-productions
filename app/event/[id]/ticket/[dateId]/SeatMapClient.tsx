@@ -49,6 +49,9 @@ export default function SeatMapClient({ isAdmin }: { isAdmin: boolean }) {
   const [selected, setSelected] = useState<string[]>([]);
   const [multiRow, setMultiRow] = useState(false);
 
+  const [reserving, setReserving] = useState(false);
+  const [reserveError, setReserveError] = useState<string | null>(null);
+
   const seatGridRef = useRef<HTMLDivElement>(null);
   const [scrollLeft, setScrollLeft] = useState(false);
   const [scrollRight, setScrollRight] = useState(false);
@@ -141,7 +144,7 @@ export default function SeatMapClient({ isAdmin }: { isAdmin: boolean }) {
     const statusValue = ticket ? effectiveStatus(ticket) : "gap";
     const ticketId = cell?.id;
     const isSelected = Boolean(ticketId && selected.includes(ticketId));
-    const selectable = ticketId ? isSelectable(index, selected, multiRow, row, seatNum) : false;
+    const selectable = ticketId ? isSelectable(index, selected, multiRow, row, seatNum, isAdmin) : false;
 
     let background: string;
     if (isSelected) {
@@ -183,7 +186,30 @@ export default function SeatMapClient({ isAdmin }: { isAdmin: boolean }) {
 
   function handleSeatClick(row: string, seatNum: number | null) {
     if (seatNum === null) return;
-    setSelected((prev) => toggleSeat(index, prev, multiRow, row, seatNum));
+    setSelected((prev) => toggleSeat(index, prev, multiRow, row, seatNum, isAdmin));
+  }
+
+  async function handleReserve() {
+    if (selected.length === 0) return;
+    setReserving(true);
+    setReserveError(null);
+    try {
+      const res = await fetch("/api/tickets/admin/reserve", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ eventUuid: event!.uuid, dateUuid: dateId, ticketIds: selected }),
+      });
+      const data = await res.json();
+      if (!res.ok) {
+        setReserveError(data.error ?? "Could not reserve the selected seats.");
+        setReserving(false);
+        return;
+      }
+      router.push(`/event/${id}/ticket/${dateId}/confirm?order=${data.orderId}`);
+    } catch {
+      setReserveError("Could not reserve the selected seats. Please try again.");
+      setReserving(false);
+    }
   }
 
   return (
@@ -252,32 +278,38 @@ export default function SeatMapClient({ isAdmin }: { isAdmin: boolean }) {
           ))}
         </div>
 
-        <div className={styles.toggleWrap}>
-          <label
-            className={styles.toggle}
-            style={{ borderColor: multiRow ? "var(--gold)" : undefined }}
-          >
-            <div
-              onClick={() => {
-                setMultiRow(!multiRow);
-                if (multiRow) setSelected([]);
-              }}
-              className={styles.switch}
-              style={{ background: multiRow ? "var(--gold)" : undefined }}
+        {isAdmin ? (
+          <div className={styles.toggleWrap}>
+            <span className={styles.adminModeLabel}>Admin mode — pick any seats freely</span>
+          </div>
+        ) : (
+          <div className={styles.toggleWrap}>
+            <label
+              className={styles.toggle}
+              style={{ borderColor: multiRow ? "var(--gold)" : undefined }}
             >
               <div
-                className={styles.switchKnob}
-                style={{ left: multiRow ? 19 : 3 }}
-              />
-            </div>
-            <span
-              className={styles.toggleLabel}
-              style={{ color: multiRow ? "var(--gold)" : undefined }}
-            >
-              Multiple rows
-            </span>
-          </label>
-        </div>
+                onClick={() => {
+                  setMultiRow(!multiRow);
+                  if (multiRow) setSelected([]);
+                }}
+                className={styles.switch}
+                style={{ background: multiRow ? "var(--gold)" : undefined }}
+              >
+                <div
+                  className={styles.switchKnob}
+                  style={{ left: multiRow ? 19 : 3 }}
+                />
+              </div>
+              <span
+                className={styles.toggleLabel}
+                style={{ color: multiRow ? "var(--gold)" : undefined }}
+              >
+                Multiple rows
+              </span>
+            </label>
+          </div>
+        )}
 
         <p className={styles.scrollHint}>&larr; Swipe to see all seats &rarr;</p>
 
@@ -326,6 +358,7 @@ export default function SeatMapClient({ isAdmin }: { isAdmin: boolean }) {
           )}
         </div>
         <div className={styles.bottomBarActions}>
+          {reserveError && <span className={styles.reserveError}>{reserveError}</span>}
           {selected.length > 0 && (
             <button
               type="button"
@@ -333,6 +366,16 @@ export default function SeatMapClient({ isAdmin }: { isAdmin: boolean }) {
               onClick={() => setSelected([])}
             >
               Clear
+            </button>
+          )}
+          {isAdmin && (
+            <button
+              type="button"
+              className={styles.reserveBtn}
+              disabled={selected.length === 0 || reserving}
+              onClick={handleReserve}
+            >
+              {reserving ? "Reserving…" : "Reserve for giveaway"}
             </button>
           )}
           <button

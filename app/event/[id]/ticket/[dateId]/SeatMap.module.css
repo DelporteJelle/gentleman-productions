@@ -423,6 +423,44 @@
   font-family: var(--font-body);
 }
 
+.adminModeLabel {
+  font-size: 12px;
+  letter-spacing: 0.05em;
+  color: var(--gold);
+  font-family: var(--font-body);
+}
+
+.reserveBtn {
+  padding: 11px 20px;
+  font-size: 13px;
+  font-weight: 600;
+  letter-spacing: 0.05em;
+  background: transparent;
+  color: var(--cream);
+  border: 1px solid var(--gold-soft);
+  border-radius: 6px;
+  cursor: pointer;
+  transition: all 0.2s;
+  font-family: var(--font-body);
+}
+
+.reserveBtn:disabled {
+  color: rgba(245, 233, 213, 0.3);
+  border-color: rgba(245, 233, 213, 0.12);
+  cursor: not-allowed;
+}
+
+.reserveBtn:not(:disabled):hover {
+  border-color: var(--gold-bright);
+  color: var(--gold-bright);
+}
+
+.reserveError {
+  color: var(--red);
+  font-size: 12px;
+  margin-right: 12px;
+}
+
 .bottomBarActions {
   display: flex;
   align-items: center;
