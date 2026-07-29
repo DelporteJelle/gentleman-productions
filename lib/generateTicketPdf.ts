@@ -14,12 +14,12 @@ const DEFAULT_THEME = {
   tagline: null,
 };
 
-interface TicketSeat {
+export interface TicketSeat {
   seatLabel: string;
   qrPayload: string;
 }
 
-interface TicketCommon {
+export interface TicketCommon {
   eventName: string;
   date: string;
   time: string;
@@ -112,12 +112,14 @@ export async function generateTicketPdf(seat: TicketSeat & TicketCommon): Promis
 
 /** Multi-page PDF, one ticket per page, in the order given. */
 export async function generateTicketsPdf(seats: TicketSeat[], common: TicketCommon): Promise<Buffer> {
+  const title = seats.length === 1 ? `Ticket – ${seats[0].seatLabel}` : `Tickets – ${common.eventName}`;
+
   return new Promise((resolve, reject) => {
     const chunks: Buffer[] = [];
     const doc = new PDFDocument({
       size: [W, H],
       margin: 0,
-      info: { Title: `Tickets – ${common.eventName}`, Author: "Gentleman Productions" },
+      info: { Title: title, Author: "Gentleman Productions" },
     });
     doc.on("data", (chunk) => chunks.push(chunk));
     doc.on("end", () => resolve(Buffer.concat(chunks)));

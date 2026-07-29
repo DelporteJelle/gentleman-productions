@@ -34,4 +34,23 @@ describe("generateTicketsPdf", () => {
     const multiDoc = await PDFLibDocument.load(multi);
     expect(multiDoc.getPageCount()).toBe(singleDoc.getPageCount());
   });
+
+  it("titles the PDF per-seat for generateTicketPdf, per-order for generateTicketsPdf", async () => {
+    const single = await generateTicketPdf({
+      seatLabel: "A1",
+      qrPayload: "ticket-a.sig-a",
+      ...COMMON,
+    });
+    const multi = await generateTicketsPdf(
+      [
+        { seatLabel: "A1", qrPayload: "ticket-a.sig-a" },
+        { seatLabel: "A2", qrPayload: "ticket-b.sig-b" },
+      ],
+      COMMON,
+    );
+    const singleDoc = await PDFLibDocument.load(single);
+    const multiDoc = await PDFLibDocument.load(multi);
+    expect(singleDoc.getTitle()).toBe("Ticket – A1");
+    expect(multiDoc.getTitle()).toBe(`Tickets – ${COMMON.eventName}`);
+  });
 });
