@@ -70,6 +70,30 @@ export default function TicketsSummaryPage() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(false);
   const [releasing, setReleasing] = useState<string | null>(null);
+  const [rechecking, setRechecking] = useState<string | null>(null);
+
+  async function handleRecheck(order: OrderSummary) {
+    setRechecking(order.id);
+    try {
+      const res = await fetch(`/api/tickets/admin/orders/${order.id}/recheck`, { method: "POST" });
+      const body = await res.json().catch(() => ({}));
+      if (!res.ok) {
+        window.alert(body.error ?? "Could not recheck this order.");
+        return;
+      }
+      setData((prev) =>
+        prev && {
+          ...prev,
+          orders: prev.orders.map((o) => (o.id === order.id ? { ...o, status: body.status ?? o.status } : o)),
+        },
+      );
+      if (body.status === "pending") {
+        window.alert("Mollie still shows this payment as pending — nothing to update yet.");
+      }
+    } finally {
+      setRechecking(null);
+    }
+  }
 
   async function handleRelease(seat: ReservedSeat) {
     const confirmed = window.confirm(
@@ -158,6 +182,7 @@ export default function TicketsSummaryPage() {
                   <th>Amount</th>
                   <th>Status</th>
                   <th>Placed</th>
+                  <th>Actions</th>
                 </tr>
               </thead>
               <tbody>
@@ -176,6 +201,18 @@ export default function TicketsSummaryPage() {
                       </span>
                     </td>
                     <td>{new Date(o.created_at).toLocaleString("en-GB")}</td>
+                    <td>
+                      {o.status === "pending" && (
+                        <button
+                          type="button"
+                          className={styles.actionBtn}
+                          disabled={rechecking === o.id}
+                          onClick={() => handleRecheck(o)}
+                        >
+                          {rechecking === o.id ? "Checking…" : "Recheck payment"}
+                        </button>
+                      )}
+                    </td>
                   </tr>
                 ))}
               </tbody>

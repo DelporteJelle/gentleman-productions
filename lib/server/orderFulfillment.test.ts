@@ -13,7 +13,7 @@ vi.mock("@/lib/sendTicketEmail", () => ({
   sendTicketEmail: mocks.sendTicketEmail,
 }));
 
-import { paymentAmountMatchesOrder, applyMolliePaymentToOrder } from "@/lib/server/orderFulfillment";
+import { paymentAmountMatchesOrder, applyMolliePaymentToOrder, reconcileStuckOrders } from "@/lib/server/orderFulfillment";
 
 describe("paymentAmountMatchesOrder", () => {
   it("matches Mollie's decimal string against the stored cent total", () => {
@@ -426,5 +426,200 @@ describe("applyMolliePaymentToOrder", () => {
     expect(result).toBe("ignored");
     expect(mocks.sendTicketEmail).not.toHaveBeenCalled();
     expect(calls).toEqual(["SELECT * FROM orders WHERE id ="]);
+  });
+});
+
+// ============================================================================
+// reconcileStuckOrders — the third reconciliation path (cron / admin-driven),
+// for when both the webhook and the confirm-page poll miss an order. Needs
+// its own multi-order fake since the harness above models exactly one order.
+// ============================================================================
+
+describe("reconcileStuckOrders", () => {
+  beforeEach(() => {
+    mocks.paymentsGet.mockReset();
+    mocks.sendTicketEmail.mockReset();
+  });
+
+  function multiState() {
+    return {
+      orders: [] as FakeOrder[],
+      tickets: [] as FakeTicket[],
+      seats: [] as { id: string; row: string; seat_number: number }[],
+      events: [] as FakeState["events"],
+    };
+  }
+
+  /**
+   * Same guard-derived-from-SQL-text approach as createFakeSql above, keyed
+   * by order id instead of a single singleton so the sweep's per-order loop
+   * has more than one row to iterate.
+   */
+  function createMultiFakeSql(state: ReturnType<typeof multiState>) {
+    const fakeSql = (async (strings: TemplateStringsArray, ...values: unknown[]) => {
+      const head = strings[0].trim();
+      const full = strings.join(FRAGMENT_SEPARATOR);
+
+      if (head.startsWith("SELECT id, mollie_payment_id FROM orders")) {
+        // Guards derived from the query text: dropping either clause in
+        // production would widen the sweep to orders it must not touch, and
+        // that regression should fail a test here, not just in prod.
+        const requiresPending = full.includes("status = 'pending'");
+        const requiresPaymentId = full.includes("mollie_payment_id IS NOT NULL");
+        return state.orders
+          .filter((o) => (!requiresPending || o.status === "pending") && (!requiresPaymentId || !!o.mollie_payment_id))
+          .map((o) => ({ id: o.id, mollie_payment_id: o.mollie_payment_id }));
+      }
+
+      if (head.startsWith("SELECT * FROM orders WHERE id")) {
+        const [id] = values;
+        const order = state.orders.find((o) => o.id === id);
+        return order ? [{ ...order }] : [];
+      }
+
+      if (head.startsWith("UPDATE tickets SET status = 'sold'")) {
+        const [orderId] = values;
+        const guarded = full.includes("AND status = 'held'");
+        for (const t of state.tickets) {
+          if (t.order_id === orderId && (!guarded || t.status === "held")) {
+            t.status = "sold";
+            t.held_until = null;
+          }
+        }
+        return [];
+      }
+
+      if (head.startsWith('SELECT t.id, s."row"')) {
+        const [orderId] = values;
+        return state.tickets
+          .filter((t) => t.order_id === orderId && t.status === "sold")
+          .map((t) => {
+            const seat = state.seats.find((s) => s.id === t.seat_id)!;
+            return { id: t.id, row: seat.row, seat_number: seat.seat_number };
+          });
+      }
+
+      if (head.startsWith("UPDATE orders SET status = 'paid'")) {
+        const [orderId] = values;
+        const guarded = full.includes("AND status <> 'paid'");
+        const order = state.orders.find((o) => o.id === orderId);
+        if (order && (!guarded || order.status !== "paid")) {
+          order.status = "paid";
+          return [{ ...order }];
+        }
+        return [];
+      }
+
+      if (head.startsWith("SELECT * FROM events WHERE uuid")) {
+        const [uuid] = values;
+        return state.events.filter((e) => e.uuid === uuid);
+      }
+
+      if (head.startsWith("UPDATE tickets SET status = 'available'")) {
+        const [orderId] = values;
+        const guarded = full.includes("AND status = 'held'");
+        for (const t of state.tickets) {
+          if (t.order_id === orderId && (!guarded || t.status === "held")) {
+            t.status = "available";
+            t.held_until = null;
+            t.order_id = null;
+          }
+        }
+        return [];
+      }
+
+      if (head.startsWith("UPDATE orders SET status = 'cancelled'")) {
+        const [orderId] = values;
+        const guarded = full.includes("AND status = 'pending'");
+        const order = state.orders.find((o) => o.id === orderId);
+        if (order && (!guarded || order.status === "pending")) {
+          order.status = "cancelled";
+        }
+        return [];
+      }
+
+      throw new Error(`Unhandled fake SQL in sweep test: ${head}`);
+    }) as unknown as Parameters<typeof reconcileStuckOrders>[0];
+
+    return fakeSql;
+  }
+
+  it("reconciles multiple stuck pending orders in one sweep, each paid order sending its own email", async () => {
+    const state = multiState();
+    state.orders = [
+      { id: "order-A", status: "pending", mollie_payment_id: "pay-A", total_amount: 2000, event_uuid: EVENT_UUID, date_uuid: DATE_UUID, customer_name: "A", customer_email: "a@example.com" },
+      { id: "order-B", status: "pending", mollie_payment_id: "pay-B", total_amount: 2000, event_uuid: EVENT_UUID, date_uuid: DATE_UUID, customer_name: "B", customer_email: "b@example.com" },
+    ];
+    state.tickets = [
+      { id: "ticket-A1", seat_id: "seat-A1", order_id: "order-A", status: "held", held_until: "2026-01-01T00:00:00Z" },
+      { id: "ticket-B1", seat_id: "seat-B1", order_id: "order-B", status: "held", held_until: "2026-01-01T00:00:00Z" },
+    ];
+    state.seats = [
+      { id: "seat-A1", row: "A", seat_number: 1 },
+      { id: "seat-B1", row: "B", seat_number: 1 },
+    ];
+    state.events = [{ uuid: EVENT_UUID, title: "Test Show", production_theme: null, dates: [{ uuid: DATE_UUID, start_time: "2026-08-01T19:00:00Z" }] }];
+
+    mocks.paymentsGet.mockImplementation(async (paymentId: string) => ({
+      id: paymentId,
+      status: "paid",
+      amount: { value: "20.00", currency: "EUR" },
+      metadata: { orderId: paymentId === "pay-A" ? "order-A" : "order-B" },
+    }));
+
+    const sql = createMultiFakeSql(state);
+    const result = await reconcileStuckOrders(sql);
+
+    expect(result.checked).toBe(2);
+    expect(result.results).toEqual(["paid", "paid"]);
+    expect(state.orders.every((o) => o.status === "paid")).toBe(true);
+    expect(mocks.sendTicketEmail).toHaveBeenCalledTimes(2);
+  });
+
+  it("one order's Mollie lookup throwing does not stop the sweep from reconciling the rest", async () => {
+    const state = multiState();
+    state.orders = [
+      { id: "order-A", status: "pending", mollie_payment_id: "pay-A", total_amount: 2000, event_uuid: EVENT_UUID, date_uuid: DATE_UUID, customer_name: "A", customer_email: "a@example.com" },
+      { id: "order-B", status: "pending", mollie_payment_id: "pay-B", total_amount: 2000, event_uuid: EVENT_UUID, date_uuid: DATE_UUID, customer_name: "B", customer_email: "b@example.com" },
+    ];
+    state.tickets = [
+      { id: "ticket-B1", seat_id: "seat-B1", order_id: "order-B", status: "held", held_until: "2026-01-01T00:00:00Z" },
+    ];
+    state.seats = [{ id: "seat-B1", row: "B", seat_number: 1 }];
+    state.events = [{ uuid: EVENT_UUID, title: "Test Show", production_theme: null, dates: [{ uuid: DATE_UUID, start_time: "2026-08-01T19:00:00Z" }] }];
+
+    mocks.paymentsGet.mockImplementation(async (paymentId: string) => {
+      if (paymentId === "pay-A") throw new Error("Mollie API unavailable");
+      return { id: paymentId, status: "paid", amount: { value: "20.00", currency: "EUR" }, metadata: { orderId: "order-B" } };
+    });
+    const errorSpy = vi.spyOn(console, "error").mockImplementation(() => {});
+
+    const sql = createMultiFakeSql(state);
+    const result = await reconcileStuckOrders(sql);
+
+    expect(result.checked).toBe(2);
+    expect(result.results).toEqual(["paid"]); // order-A's failure is swallowed, not pushed
+    expect(state.orders.find((o) => o.id === "order-A")!.status).toBe("pending"); // untouched
+    expect(state.orders.find((o) => o.id === "order-B")!.status).toBe("paid");
+    expect(mocks.sendTicketEmail).toHaveBeenCalledTimes(1);
+    expect(errorSpy).toHaveBeenCalledWith(expect.stringContaining("order-A"), expect.any(Error));
+
+    errorSpy.mockRestore();
+  });
+
+  it("the sweep query's guards exclude orders that are already settled or never went through Mollie", async () => {
+    const state = multiState();
+    state.orders = [
+      { id: "order-pending-nopay", status: "pending", mollie_payment_id: null, total_amount: 2000, event_uuid: EVENT_UUID, date_uuid: DATE_UUID, customer_name: "N", customer_email: "n@example.com" },
+      { id: "order-paid", status: "paid", mollie_payment_id: "pay-paid", total_amount: 2000, event_uuid: EVENT_UUID, date_uuid: DATE_UUID, customer_name: "P", customer_email: "p@example.com" },
+      { id: "order-cancelled", status: "cancelled", mollie_payment_id: "pay-cancelled", total_amount: 2000, event_uuid: EVENT_UUID, date_uuid: DATE_UUID, customer_name: "C", customer_email: "c@example.com" },
+    ];
+
+    const sql = createMultiFakeSql(state);
+    const result = await reconcileStuckOrders(sql);
+
+    expect(result.checked).toBe(0);
+    expect(result.results).toEqual([]);
+    expect(mocks.paymentsGet).not.toHaveBeenCalled();
   });
 });

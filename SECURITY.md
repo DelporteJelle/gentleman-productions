@@ -99,6 +99,7 @@ MOLLIE_API_KEY=live_or_test_mollie_api_key
 RESEND_API_KEY=your_resend_api_key
 RESEND_FROM=tickets@yourdomain.example
 NEXT_PUBLIC_BASE_URL=https://yourdomain.example
+CRON_SECRET=32_bytes_of_hex_random_value
 ```
 
 - `TICKET_QR_SECRET` — signs and verifies every ticket QR. Both sides **fail
@@ -113,6 +114,16 @@ NEXT_PUBLIC_BASE_URL=https://yourdomain.example
 - `NEXT_PUBLIC_BASE_URL` — public origin, used to build the Mollie redirect and
   webhook URLs. A wrong value breaks payment confirmation. When it contains
   `localhost` the webhook URL is omitted (Mollie cannot reach it).
+- `CRON_SECRET` — authenticates Vercel's daily call to
+  `GET /api/tickets/cron/reconcile` (see `vercel.json`), which re-checks any
+  order still `pending` with Mollie in case both the webhook and the
+  confirm-page poll missed it (dropped webhook + interrupted redirect). Set
+  the same value in the Vercel project's environment variables — Vercel then
+  sends it automatically as `Authorization: Bearer $CRON_SECRET`. Without it,
+  the route fails closed (503) rather than running unauthenticated. Admins can
+  also trigger reconciliation for a single order immediately via the "Recheck
+  payment" button on `/private/tickets` (`POST
+  /api/tickets/admin/orders/[id]/recheck`), without waiting for the cron.
 
 ## Testing Security
 

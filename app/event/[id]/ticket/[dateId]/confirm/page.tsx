@@ -85,8 +85,9 @@ function ConfirmContent() {
         <h1 className={styles.title}>Je bent binnen!</h1>
         <p className={styles.copy}>
           Je tickets zijn bevestigd. Check je mailbox &mdash; je tickets met QR-code zijn onderweg.
-          Dit kan een minuutje duren.
+          Dit kan een paar minuten duren.
         </p>
+        <p>Heb je jouw tickets nog steeds niet ontvangen? Check je spamfolder of neem contact met ons op.</p>
         <a href={`/api/tickets/orders/${orderId}/pdf`} className={styles.backLink}>
           Download je tickets (PDF)
         </a>

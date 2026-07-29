@@ -133,3 +133,35 @@ export async function applyMolliePaymentToOrder(sql: Sql, paymentId: string): Pr
 
   return "ignored";
 }
+
+/**
+ * Third reconciliation path, alongside the webhook and the order-status poll:
+ * neither of those fires if the webhook is dropped/delayed AND the customer's
+ * browser never lands back on (or stays on) the confirm page. Meant to be
+ * driven by a scheduled sweep (cron) or an admin action, not by request traffic.
+ *
+ * The age floor excludes orders still plausibly mid-payment on Mollie's
+ * hosted page, so a sweep doesn't burn a Mollie API call per in-flight
+ * checkout every time it runs.
+ */
+export async function reconcileStuckOrders(
+  sql: Sql,
+  minAgeMinutes = 5,
+): Promise<{ checked: number; results: FulfillResult[] }> {
+  const stuck = await sql`
+    SELECT id, mollie_payment_id FROM orders
+    WHERE status = 'pending'
+      AND mollie_payment_id IS NOT NULL
+      AND created_at < now() - make_interval(mins => ${minAgeMinutes});
+  `;
+
+  const results: FulfillResult[] = [];
+  for (const row of stuck as { id: string; mollie_payment_id: string }[]) {
+    try {
+      results.push(await applyMolliePaymentToOrder(sql, row.mollie_payment_id));
+    } catch (err) {
+      console.error(`Reconcile sweep failed for order ${row.id}:`, err);
+    }
+  }
+  return { checked: stuck.length, results };
+}
