@@ -87,6 +87,9 @@ function ConfirmContent() {
           Je tickets zijn bevestigd. Check je mailbox &mdash; je tickets met QR-code zijn onderweg.
           Dit kan een minuutje duren.
         </p>
+        <a href={`/api/tickets/orders/${orderId}/pdf`} className={styles.backLink}>
+          Download je tickets (PDF)
+        </a>
       </main>
     );
   }
