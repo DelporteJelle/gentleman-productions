@@ -9,7 +9,15 @@ export function eurosToCents(euros: number): number {
 export function centsToEuros(cents: number): number {
   return cents / 100;
 }
-export function isDateOpen(event: Event, date: EventDateEntry): boolean {
+/**
+ * A date is on sale only when the event has ticketing enabled and the date
+ * carries a numeric price. Written as a type predicate so callers that go on
+ * to charge for the date (checkout) get `price: number` without re-checking.
+ */
+export function isDateOpen(
+  event: Event,
+  date: EventDateEntry,
+): date is EventDateEntry & { price: number } {
   return event.tickets_open === true && typeof date.price === "number";
 }
 

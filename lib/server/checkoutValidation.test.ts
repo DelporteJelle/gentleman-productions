@@ -2,8 +2,11 @@ import { describe, it, expect } from "vitest";
 import { validateCheckoutInput, isUuid, MAX_SEATS_PER_ORDER } from "@/lib/server/checkoutValidation";
 
 const uuid = (n: number) => `3f1a9c0e-5b2d-4e77-9a10-c3b8e6d45f${String(n).padStart(2, "0")}`;
+const EVENT_UUID = "3221982d-cbfa-476c-ad28-8f609559e4e6";
 const base = {
-  eventUuid: "event-1", dateUuid: "date-1",
+  // eventUuid must be a real uuid (events.uuid is a `uuid` column); dateUuid
+  // is compared against `text` columns, so a non-uuid stays valid there.
+  eventUuid: EVENT_UUID, dateUuid: "date-1",
   ticketIds: [uuid(1), uuid(2)],
   name: "Ada Lovelace", email: "ada@example.com",
 };
@@ -32,6 +35,16 @@ describe("validateCheckoutInput", () => {
     for (const key of ["eventUuid", "dateUuid", "name", "email"] as const) {
       expect(validateCheckoutInput({ ...base, [key]: "" }).ok).toBe(false);
     }
+  });
+
+  it("rejects a malformed eventUuid before it can reach the uuid column", () => {
+    expect(validateCheckoutInput({ ...base, eventUuid: "event-1" }).ok).toBe(false);
+    expect(validateCheckoutInput({ ...base, eventUuid: "'; DROP TABLE events; --" }).ok).toBe(false);
+    expect(validateCheckoutInput({ ...base, eventUuid: `${EVENT_UUID}x` }).ok).toBe(false);
+  });
+
+  it("still accepts a non-uuid dateUuid, which is matched against text columns", () => {
+    expect(validateCheckoutInput({ ...base, dateUuid: "date-1" }).ok).toBe(true);
   });
 
   it("rejects an empty basket", () => {

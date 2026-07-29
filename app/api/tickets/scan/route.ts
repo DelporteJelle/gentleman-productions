@@ -23,7 +23,7 @@ export async function POST(request: Request) {
     if (!ticketId) return jsonResponse({ result: "invalid", message: "Not a valid ticket code" });
 
     const rows = await sql`
-      SELECT t.id, t.status, t.scanned_at, t.event_uuid, t.date_uuid,
+      SELECT t.status, t.date_uuid,
              s."row" AS row, s.seat_number,
              e.title AS event_title, e.dates AS event_dates
       FROM tickets t

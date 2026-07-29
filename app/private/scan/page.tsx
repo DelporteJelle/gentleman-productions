@@ -38,7 +38,6 @@ export default function ScanPage() {
   const [scanning, setScanning] = useState(false);
   const [error, setError] = useState("");
 
-  const scannerRef = useRef<Html5Qrcode | null>(null);
   const processingRef = useRef(false);
   // Read at decode time so changing the performance does not need a restart.
   const dateUuidRef = useRef("");
@@ -78,8 +77,9 @@ export default function ScanPage() {
     if (!hasDate) return;
 
     let cancelled = false;
+    // The live camera handle is this per-effect local — deliberately not a
+    // ref, so a re-run can never stop the wrong instance.
     const scanner = new Html5Qrcode("qr-reader");
-    scannerRef.current = scanner;
 
     scanner
       .start(
@@ -125,7 +125,6 @@ export default function ScanPage() {
 
     return () => {
       cancelled = true;
-      scannerRef.current = null;
       // stop() throws synchronously if start() has not yet reached SCANNING,
       // so a bare .catch() is not enough.
       try {

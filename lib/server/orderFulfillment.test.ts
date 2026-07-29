@@ -115,12 +115,31 @@ function paidPayment(overrides?: Partial<{ id: string; amountValue: string; orde
   };
 }
 
-/** In-memory model of the tables applyMolliePaymentToOrder touches. */
+/** Cannot appear inside a SQL fragment, so joining on it never fuses two. */
+const FRAGMENT_SEPARATOR = "\u0000";
+
+/**
+ * In-memory model of the tables applyMolliePaymentToOrder touches.
+ *
+ * IMPORTANT: the conditional guards are DERIVED FROM THE SQL TEXT, never
+ * hardcoded. Every guard that makes fulfilment safe (`AND status <> 'paid'`,
+ * `AND status = 'held'`, `AND status = 'pending'`) sits *after* the
+ * interpolated order id, i.e. in `strings[1]`, so a harness that only reads
+ * `strings[0]` cannot see it — and a regression that deletes a guard from the
+ * production statement would leave every test green. Joining the whole
+ * template and asking whether the clause is present makes the fake behave
+ * exactly like Postgres would with the SQL as actually written: delete the
+ * clause and the corresponding test fails.
+ */
 function createFakeSql(state: FakeState) {
   const calls: string[] = [];
 
   const fakeSql = (async (strings: TemplateStringsArray, ...values: unknown[]) => {
     const head = strings[0].trim();
+    // Joined with a separator that cannot occur in SQL, so a guard can never
+    // appear present merely because two fragments abut across an
+    // interpolation seam. Each guard lives wholly inside one fragment.
+    const full = strings.join(FRAGMENT_SEPARATOR);
     calls.push(head);
 
     if (head.startsWith("SELECT * FROM orders WHERE id")) {
@@ -130,8 +149,11 @@ function createFakeSql(state: FakeState) {
 
     if (head.startsWith("UPDATE tickets SET status = 'sold'")) {
       const [orderId] = values;
+      // Bounds the blast radius: only rows this order is actually holding may
+      // be promoted to 'sold'.
+      const guarded = full.includes("AND status = 'held'");
       for (const t of state.tickets) {
-        if (t.order_id === orderId && t.status === "held") {
+        if (t.order_id === orderId && (!guarded || t.status === "held")) {
           t.status = "sold";
           t.held_until = null;
         }
@@ -151,7 +173,10 @@ function createFakeSql(state: FakeState) {
 
     if (head.startsWith("UPDATE orders SET status = 'paid'")) {
       const [orderId] = values;
-      if (state.order && state.order.id === orderId && state.order.status !== "paid") {
+      // The exactly-once gate. Without this clause a replay re-claims an
+      // already-paid order and sends a second email.
+      const guarded = full.includes("AND status <> 'paid'");
+      if (state.order && state.order.id === orderId && (!guarded || state.order.status !== "paid")) {
         state.order.status = "paid";
         return [{ ...state.order }];
       }
@@ -165,8 +190,11 @@ function createFakeSql(state: FakeState) {
 
     if (head.startsWith("UPDATE tickets SET status = 'available'")) {
       const [orderId] = values;
+      // Without this clause a late 'canceled' webhook would un-sell tickets
+      // an earlier 'paid' webhook already issued.
+      const guarded = full.includes("AND status = 'held'");
       for (const t of state.tickets) {
-        if (t.order_id === orderId && t.status === "held") {
+        if (t.order_id === orderId && (!guarded || t.status === "held")) {
           t.status = "available";
           t.held_until = null;
           t.order_id = null;
@@ -177,7 +205,10 @@ function createFakeSql(state: FakeState) {
 
     if (head.startsWith("UPDATE orders SET status = 'cancelled'")) {
       const [orderId] = values;
-      if (state.order && state.order.id === orderId && state.order.status === "pending") {
+      // Without this clause a late 'canceled' webhook would flip a paid order
+      // back to cancelled.
+      const guarded = full.includes("AND status = 'pending'");
+      if (state.order && state.order.id === orderId && (!guarded || state.order.status === "pending")) {
         state.order.status = "cancelled";
       }
       return [];
@@ -209,11 +240,59 @@ describe("applyMolliePaymentToOrder", () => {
     expect(mocks.sendTicketEmail).toHaveBeenCalledTimes(1);
     const call = mocks.sendTicketEmail.mock.calls[0][0];
     expect(call.eventName).toBe("Test Show");
+    // `ticketId`, not `id`: sendTicketEmail signs this value into the QR, and
+    // the door scanner looks it up in `tickets`. A seat id here would render
+    // fine and fail at the door.
     expect(call.seats).toEqual([
-      { id: "ticket-a", row: "A", seat_number: 1 },
-      { id: "ticket-b", row: "A", seat_number: 2 },
+      { ticketId: "ticket-a", row: "A", seat_number: 1 },
+      { ticketId: "ticket-b", row: "A", seat_number: 2 },
     ]);
     expect(call.order.id).toBe(ORDER_ID);
+  });
+
+  it("the sell UPDATE promotes only 'held' rows, never another status carrying the same order_id", async () => {
+    // Pins the `AND status = 'held'` clause of the sell statement. The state
+    // below is defensive rather than everyday — a row still carrying this
+    // order_id while no longer held (an operator repair, or any future
+    // release path that forgets to clear order_id). Selling it would hand
+    // out a seat this order does not hold and email a QR for it.
+    mocks.paymentsGet.mockResolvedValue(paidPayment());
+    const state = freshState();
+    state.tickets = [
+      { id: "ticket-a", seat_id: "seat-a", order_id: ORDER_ID, status: "held", held_until: "2026-01-01T00:00:00Z" },
+      { id: "ticket-b", seat_id: "seat-b", order_id: ORDER_ID, status: "available", held_until: null },
+    ];
+    const { sql } = createFakeSql(state);
+
+    await applyMolliePaymentToOrder(sql, PAYMENT_ID);
+
+    expect(state.tickets.find((t) => t.id === "ticket-b")!.status).toBe("available");
+    expect(mocks.sendTicketEmail).toHaveBeenCalledTimes(1);
+    expect(mocks.sendTicketEmail.mock.calls[0][0].seats).toEqual([
+      { ticketId: "ticket-a", row: "A", seat_number: 1 },
+    ]);
+  });
+
+  it("a late 'canceled' webhook cannot un-sell or un-pay an order already fulfilled", async () => {
+    // Pins the release branch's two clauses at once: `AND status = 'held'` on
+    // the ticket release and `AND status = 'pending'` on the order cancel.
+    // Mollie can deliver a stale 'canceled' after a 'paid' has been applied.
+    mocks.paymentsGet.mockResolvedValue({
+      id: PAYMENT_ID,
+      status: "canceled",
+      amount: { value: "40.00", currency: "EUR" },
+      metadata: { orderId: ORDER_ID },
+    });
+    const state = freshState();
+    state.order!.status = "paid";
+    state.tickets = state.tickets.map((t) => ({ ...t, status: "sold" as const, held_until: null }));
+    const { sql } = createFakeSql(state);
+
+    const result = await applyMolliePaymentToOrder(sql, PAYMENT_ID);
+
+    expect(result).toBe("released"); // the return value is advisory; the state is what matters
+    expect(state.order?.status).toBe("paid");
+    expect(state.tickets.every((t) => t.status === "sold" && t.order_id === ORDER_ID)).toBe(true);
   });
 
   it("resumes correctly when an earlier call sold the tickets but never reached the claim", async () => {

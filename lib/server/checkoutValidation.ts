@@ -45,6 +45,12 @@ export function validateCheckoutInput(body: Partial<CheckoutInput> | null | unde
   const dateUuid = nonEmptyString(body.dateUuid, MAX_ID_LENGTH);
   if (!eventUuid || !dateUuid) return { ok: false, error: "Missing required fields" };
 
+  // `events.uuid` is a Postgres `uuid` column, so a malformed value reaches
+  // the driver and raises `invalid input syntax for type uuid` — a generic
+  // 500 where the caller deserves a clean rejection. `dateUuid` is compared
+  // against `text` columns and is deliberately NOT constrained here.
+  if (!isUuid(eventUuid)) return { ok: false, error: "Invalid event." };
+
   const name = nonEmptyString(body.name, MAX_NAME_LENGTH);
   if (!name) return { ok: false, error: `Please enter a name of at most ${MAX_NAME_LENGTH} characters.` };
 
