@@ -1,6 +1,7 @@
 import { Resend } from "resend";
 import { generateTicketPdf } from "./generateTicketPdf";
 import { signTicketToken } from "./server/ticketToken";
+import { escapeHtml } from "./text";
 import type { Order, ProductionTheme } from "@/types";
 
 const resend = new Resend(process.env.RESEND_API_KEY);
@@ -45,6 +46,14 @@ export async function sendTicketEmail({
 
   const seatList = seats.map((s) => `${s.row}${s.seat_number}`).join(", ");
 
+  // Everything below is interpolated into HTML; customer_name in particular is
+  // free-form input from the checkout form.
+  const safeName = escapeHtml(order.customer_name);
+  const safeEventName = escapeHtml(eventName);
+  const safeSeatList = escapeHtml(seatList);
+  const safeDate = escapeHtml(date);
+  const safeTime = escapeHtml(time);
+
   const html = `
     <!DOCTYPE html>
     <html>
@@ -60,7 +69,7 @@ export async function sendTicketEmail({
                 <td style="text-align:center;padding-bottom:36px;">
                   <p style="margin:0 0 12px;color:#c9a84c;font-size:10px;letter-spacing:0.2em;text-transform:uppercase;">◆</p>
                   <h1 style="margin:0 0 10px;color:#f5f5f5;font-family:Georgia,serif;font-size:30px;font-weight:normal;">Your tickets are confirmed</h1>
-                  <p style="margin:0;color:#888;font-size:14px;line-height:1.6;">Hi ${order.customer_name}, your seats are reserved.<br>See you there!</p>
+                  <p style="margin:0;color:#888;font-size:14px;line-height:1.6;">Hi ${safeName}, your seats are reserved.<br>See you there!</p>
                 </td>
               </tr>
 
@@ -68,13 +77,13 @@ export async function sendTicketEmail({
               <tr>
                 <td style="background:#0a0a0a;border:1px solid #2a2a2a;border-radius:10px;padding:24px 28px;">
                   <p style="margin:0 0 4px;color:#c9a84c;font-size:10px;letter-spacing:0.15em;text-transform:uppercase;">Gentleman Productions</p>
-                  <p style="margin:0 0 6px;color:#f5f5f5;font-family:Georgia,serif;font-size:22px;font-weight:normal;">${eventName}</p>
-                  <p style="margin:0 0 20px;color:#888;font-size:13px;">${date} &nbsp;·&nbsp; ${time}</p>
+                  <p style="margin:0 0 6px;color:#f5f5f5;font-family:Georgia,serif;font-size:22px;font-weight:normal;">${safeEventName}</p>
+                  <p style="margin:0 0 20px;color:#888;font-size:13px;">${safeDate} &nbsp;·&nbsp; ${safeTime}</p>
                   <table width="100%" cellpadding="0" cellspacing="0" style="border-top:1px solid #2a2a2a;padding-top:16px;">
                     <tr>
                       <td>
                         <p style="margin:0 0 4px;color:#888;font-size:11px;letter-spacing:0.1em;text-transform:uppercase;">Seats</p>
-                        <p style="margin:0;color:#c9a84c;font-family:Georgia,serif;font-size:20px;">${seatList}</p>
+                        <p style="margin:0;color:#c9a84c;font-family:Georgia,serif;font-size:20px;">${safeSeatList}</p>
                       </td>
                       <td style="text-align:right;">
                         <p style="margin:0 0 4px;color:#888;font-size:11px;letter-spacing:0.1em;text-transform:uppercase;">Tickets</p>
