@@ -17,7 +17,13 @@ export async function sendTicketEmail({
   eventName: string;
   startTime: string | null;
   productionTheme: ProductionTheme | null;
-  seats: { id: string; row: string; seat_number: number }[];
+  /**
+   * `ticketId` is `tickets.id`, NOT `seats.id`: it is the value the QR code is
+   * signed over and the door scanner looks up. Passing a seat id here would
+   * sign and render perfectly and then fail at the door with "Ticket not
+   * found", which is only discoverable on show night.
+   */
+  seats: { ticketId: string; row: string; seat_number: number }[];
 }): Promise<void> {
   const d = startTime ? new Date(startTime) : null;
   const date = d
@@ -31,7 +37,7 @@ export async function sendTicketEmail({
       const seatLabel = `${seat.row}${seat.seat_number}`;
       const pdfBuffer = await generateTicketPdf({
         seatLabel,
-        qrPayload: signTicketToken(seat.id),
+        qrPayload: signTicketToken(seat.ticketId),
         eventName,
         date,
         time,

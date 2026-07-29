@@ -54,7 +54,7 @@ describe("sendTicketEmail", () => {
       eventName: "Rock & Roll Cabaret",
       startTime: "2026-08-01T19:00:00Z",
       productionTheme: null,
-      seats: [{ id: "seat-1", row: "A", seat_number: 1 }],
+      seats: [{ ticketId: "ticket-1", row: "A", seat_number: 1 }],
     });
 
     expect(mocks.send).toHaveBeenCalledTimes(1);

@@ -108,7 +108,11 @@ export async function applyMolliePaymentToOrder(sql: Sql, paymentId: string): Pr
         eventName: event?.title ?? "Show",
         startTime: date?.start_time ?? null,
         productionTheme: event?.production_theme ?? null,
-        seats: soldTickets.map((t) => ({ id: t.id, row: t.row, seat_number: t.seat_number })),
+        seats: soldTickets.map((t) => ({
+          ticketId: t.id,
+          row: t.row,
+          seat_number: t.seat_number,
+        })),
       });
     } catch (emailErr) {
       console.error(`Email send failed for order ${orderId}:`, emailErr);

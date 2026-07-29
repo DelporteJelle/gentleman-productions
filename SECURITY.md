@@ -92,7 +92,27 @@
 DATABASE_URL=your_neon_database_url
 JWT_SECRET=your_very_long_random_secret_at_least_32_chars
 NODE_ENV=production
+
+# Ticketing — all required wherever tickets are sold or scanned
+TICKET_QR_SECRET=32_bytes_of_hex_identical_in_every_environment
+MOLLIE_API_KEY=live_or_test_mollie_api_key
+RESEND_API_KEY=your_resend_api_key
+RESEND_FROM=tickets@yourdomain.example
+NEXT_PUBLIC_BASE_URL=https://yourdomain.example
 ```
+
+- `TICKET_QR_SECRET` — signs and verifies every ticket QR. Both sides **fail
+  closed** without it: `POST /api/tickets/checkout` returns `503` (no order is
+  created and no payment is taken) and `POST /api/tickets/scan` returns `500`.
+  A deploy missing this variable therefore sells nothing rather than selling
+  tickets it cannot issue. See "Ticket Security" below for rotation rules.
+- `MOLLIE_API_KEY` — Mollie API key. `test_…` keys must never be used in
+  production; `live_…` keys must never be used anywhere else.
+- `RESEND_API_KEY` / `RESEND_FROM` — ticket delivery. `RESEND_FROM` must be a
+  verified sender on the ticketing domain.
+- `NEXT_PUBLIC_BASE_URL` — public origin, used to build the Mollie redirect and
+  webhook URLs. A wrong value breaks payment confirmation. When it contains
+  `localhost` the webhook URL is omitted (Mollie cannot reach it).
 
 ## Testing Security
 
@@ -153,6 +173,9 @@ signature does not verify, so knowing a ticket id is not sufficient to enter.
 - `TICKET_QR_SECRET` must be a high-entropy random value (32 bytes hex) and must
   be **identical** in every environment that issues or scans tickets.
 - Rotating the secret invalidates every ticket already emailed. Re-send tickets
-  for all `sold` rows after any rotation.
+  for all `sold` rows after any rotation, using the admin-only endpoint
+  `POST /api/tickets/orders/<order-id>/resend` (one call per paid order — it
+  re-signs with the current secret and re-attaches the PDFs). The same endpoint
+  is the recovery path for a customer who lost their confirmation email.
 - The scan endpoint is restricted to the admin role and is scoped to a single
   performance chosen by the operator.
