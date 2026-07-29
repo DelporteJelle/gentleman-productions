@@ -2,7 +2,7 @@ import { getDb, jsonResponse, errorResponse, requireRole, parseBody } from "@/li
 import { verifyTicketToken } from "@/lib/server/ticketToken";
 
 export async function POST(request: Request) {
-  const authError = requireRole(request, ["ADMIN"]);
+  const authError = requireRole(request, ["ADMIN", "SCANNER"]);
   if (authError) return authError;
 
   // A missing secret would make every genuine ticket read as "invalid" at the
