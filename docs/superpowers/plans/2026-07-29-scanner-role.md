@@ -4,14 +4,14 @@
 
 **Goal:** Add a `SCANNER` role that can open `/private/scan` and mark tickets scanned, and nothing else — while closing the pre-existing gap where several content-mutation API routes accept *any* authenticated user regardless of role.
 
-**Architecture:** Extend the existing ad-hoc string-role checks (`role === "ADMIN"`, `requireRole(request, [...])`) rather than introducing a new permission framework. A page-level guard helper (`requireRolePage`) generalizes the current `requireAdminPage()`. No database migration — `users.role` has no CHECK constraint.
+**Architecture:** Extend the existing ad-hoc string-role checks (`role === "ADMIN"`, `requireRole(request, [...])`) rather than introducing a new permission framework. A page-level guard helper (`requireRolePage`) generalizes the current `requireAdminPage()`. **Correction found during Task 7:** `users.role` is actually a Postgres enum, not a constraint-free column — see the updated Global Constraints entry below.
 
 **Tech Stack:** Next.js App Router (server components + route handlers), `jsonwebtoken` for the session cookie, Neon Postgres via `@neondatabase/serverless`.
 
 ## Global Constraints
 
 - Role string literals are exact and case-sensitive: `"ADMIN"`, `"CREATE_ONLY"`, `"SCANNER"` (all uppercase). Never guess a different casing.
-- No database schema change. `users.role` is `VARCHAR(50)` with no constraint — a `SCANNER` account is provisioned with a manual `UPDATE users SET role='SCANNER' WHERE username='<x>';` or `INSERT`, same as existing roles (see `scripts/hash-password.ts`).
+- ~~No database schema change. `users.role` is `VARCHAR(50)` with no constraint~~ — **wrong, corrected during Task 7**: `users.role` is a Postgres enum type (`ADMIN`, `USER`, `TEAM`, `PARTNER`, `CREATE_ONLY` at the start of this plan). Adding a `SCANNER` account requires `ALTER TYPE role ADD VALUE 'SCANNER';` to have been run against that database first (one-time, per environment), then a normal `INSERT`/`UPDATE` on `users.role`.
 - Every task must pass `npx tsc --noEmit -p .` before it is considered done — this repo has no route-handler test suite, so the type checker is the fast automated gate; manual verification (Task 7) is the correctness gate for auth behavior.
 - Don't touch the ticket-admin routes already restricted to `["ADMIN"]` only (reserve, release, resend, reserved-seat PDF) — `SCANNER` must stay excluded from those.
 
@@ -679,48 +679,20 @@ git commit -m "docs: document the SCANNER role's access in SECURITY.md"
 
 ### Task 7: Manual end-to-end verification
 
-**Files:** none — this task provisions a temporary test account and exercises the running app. No automated route-handler tests exist in this repo (confirmed: `lib/**/*.test.ts` covers helpers only), so this manual pass is the correctness gate for the auth changes in Tasks 1-6, following the same verification style as `docs/superpowers/plans/2026-07-28-ticketing-security-hardening.md` Step 5.
+**Files:** none — this task provisioned temporary test accounts and exercised the running app via `curl`. No automated route-handler tests exist in this repo (confirmed: `lib/**/*.test.ts` covers helpers only), so this manual pass was the correctness gate for the auth changes in Tasks 1-6.
 
 **Interfaces:** none.
 
-- [ ] **Step 1: Create a temporary SCANNER account**
+**As executed (2026-07-29):**
 
-Using the project's real database connection (`DATABASE_URL` from `.env.local`) and an existing bcrypt hash from `scripts/hash-password.ts` (or reuse a known test password's hash):
-
-```bash
-npx tsx --env-file=.env.local -e "const {neon}=require('@neondatabase/serverless');const sql=neon(process.env.DATABASE_URL);sql\`INSERT INTO users (uuid, username, password_hash, role) VALUES (gen_random_uuid(), 'scanner_test', '<bcrypt-hash>', 'SCANNER') ON CONFLICT (username) DO UPDATE SET role='SCANNER';\`.then(()=>console.log('ok'))"
-```
-
-- [ ] **Step 2: Start the dev server**
-
-Run: `npm run dev` (or the project's usual dev command)
-
-- [ ] **Step 3: Verify SCANNER's allowed access**
-
-Log in as `scanner_test` in the browser:
-- `/private/scan` loads (no redirect), the performance picker populates, and scanning a real ticket QR (or hitting `POST /api/tickets/scan` directly with a valid token/dateUuid) returns a `valid`/`already_scanned`/`wrong_date` result rather than `401`/`403`.
-- The nav bar shows "Home" and "Scan" only — no "About", "Posts", or "Tickets" links.
-
-- [ ] **Step 4: Verify SCANNER's blocked access**
-
-Still logged in as `scanner_test`:
-- Navigating to `/private/tickets`, `/private/posts`, and `/private/about` each redirect to `/`.
-- `curl` (with the session cookie) against each of: `DELETE /api/posts?uuid=<any>`, `POST /api/events`, `PUT /api/events/[id]`, `POST /api/basic-posts`, `PUT /api/basic-posts/[id]`, `POST|PUT|DELETE /api/team`, `POST|PUT|DELETE /api/partners`, `PUT|DELETE /api/highlight` — every one returns `403 Forbidden`.
-
-- [ ] **Step 5: Verify ADMIN is unaffected**
-
-Log in as an existing `ADMIN` account: nav shows "Home", "About", "Posts", "Tickets", "Scan"; every page and API route above still works exactly as before.
-
-- [ ] **Step 6: Verify CREATE_ONLY is unaffected**
-
-Log in as an existing `CREATE_ONLY` account (or temporarily set one): `/private/about` and `/private/posts` still load and their save/delete actions still work; `/private/scan` and `/private/tickets` still redirect to `/`, as they did before this plan.
-
-- [ ] **Step 7: Clean up the temporary account**
-
-```bash
-npx tsx --env-file=.env.local -e "const {neon}=require('@neondatabase/serverless');const sql=neon(process.env.DATABASE_URL);sql\`DELETE FROM users WHERE username='scanner_test';\`.then(()=>console.log('ok'))"
-```
-
-- [ ] **Step 8: Report results**
-
-If every check in Steps 3-6 passed, the plan is complete. If any check failed, stop and fix the specific task above before re-running this task — do not proceed to close out the plan on a partial pass.
+- [x] **Step 0 (unplanned): environment discovery.** `.env.local` and `.env.development.local` hold **different `DATABASE_URL` values**; `next dev` actually loads `.env.development.local` (Next.js's precedence puts it ahead of `.env.local`). An initial attempt against `.env.local`'s database was therefore pointed at the wrong DB. It was confirmed with the project owner that `.env.development.local` is the real dev database; the stray test row created against `.env.local`'s DB was deleted (the harmless-but-irreversible `ALTER TYPE role ADD VALUE 'SCANNER'` run there first was left in place — see the correction note in the design spec).
+- [x] **Step 0b (unplanned): enum discovery.** `users.role` is a Postgres enum (`ADMIN`, `USER`, `TEAM`, `PARTNER`, `CREATE_ONLY`), not the constraint-free `VARCHAR(50)` the spec assumed. Ran `ALTER TYPE role ADD VALUE IF NOT EXISTS 'SCANNER';` against `.env.development.local`'s database before a `SCANNER` row could be inserted. **This must also be run against any other environment (e.g. production) before it can hold a real `SCANNER` account.**
+- [x] **Step 1: Create temporary test accounts** — one each for `SCANNER`, `ADMIN`, and `CREATE_ONLY` (`scanner_test_verify`, `admin_test_verify`, `createonly_test_verify`), inserted directly against `.env.development.local`'s database with a shared bcrypt password hash.
+- [x] **Step 2: Dev server** — already running on `localhost:3000`; reused rather than starting a second instance.
+- [x] **Step 3: SCANNER's allowed access** — logged in via `POST /api/auth/login`, confirmed via `GET /api/auth/me` that the session reports `"role":"SCANNER"`. `GET /private/scan` → `200`. `GET /api/tickets/summary` → `200`. `POST /api/tickets/scan` (bogus token) → `200` (rejected at the ticket-validation layer, not the auth layer — confirms the role check passes through).
+- [x] **Step 4: SCANNER's blocked access** — `GET /private/tickets`, `/private/posts`, `/private/about` → `307` redirect to `/`. All of `DELETE /api/posts`, `POST /api/events`, `PUT /api/events/[id]`, `POST /api/basic-posts`, `PUT /api/basic-posts/[id]`, `POST|PUT|DELETE /api/team`, `POST|PUT|DELETE /api/partners`, `PUT|DELETE /api/highlight` → `403`.
+- [x] **Step 5: ADMIN unaffected** — all four private pages → `200`; `GET /api/tickets/summary` → `200`; `DELETE /api/posts` → `200`.
+- [x] **Step 6: CREATE_ONLY unaffected** — `/private/about`, `/private/posts` → `200`; `/private/scan`, `/private/tickets` → `307` to `/` (unchanged from before this plan); `DELETE /api/posts` → `200` (CREATE_ONLY can still mutate content); `GET /api/tickets/summary` → `403` (unchanged — never had ticket access).
+- [x] **Step 6b: Unauthenticated baseline** — `GET /private/scan` (no cookie) → `307` to `/login`; `GET /api/tickets/summary` → `401`; `DELETE /api/posts` → `401`. Unchanged from before this plan.
+- [x] **Step 7: Clean up** — deleted all three temporary accounts (`scanner_test_verify`, `admin_test_verify`, `createonly_test_verify`) from `.env.development.local`'s database, and removed the scratch `scripts/_tmp-*.ts` helper scripts used to run these checks (never committed).
+- [x] **Step 8: Report results** — every check passed. See the correction notes above and in the design spec for the one follow-up required before production use: run `ALTER TYPE role ADD VALUE 'SCANNER';` against any other environment's database before creating a real `SCANNER` account there.

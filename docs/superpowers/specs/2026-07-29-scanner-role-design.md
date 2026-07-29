@@ -1,7 +1,22 @@
 # SCANNER role — design
 
 Date: 2026-07-29
-Status: Approved
+Status: Implemented
+
+> **Correction (post-implementation):** the "Current role model" section
+> below is wrong about `role` being a constraint-free `VARCHAR(50)` — that
+> was `scripts/hash-password.ts`'s outdated comment, not the real schema.
+> `users.role` is actually a Postgres enum type (`ADMIN`, `USER`, `TEAM`,
+> `PARTNER`, `CREATE_ONLY`), and adding `SCANNER` required
+> `ALTER TYPE role ADD VALUE 'SCANNER';` against every database that needs
+> to create a `SCANNER` account. This was run against the dev database
+> (`.env.development.local`) during Task 7 verification. **It still needs
+> to be run against any other environment (e.g. production) before a real
+> `SCANNER` account can be created there** — the application code deploys
+> safely without it (no existing rows use the new value), but user creation
+> will fail with `invalid input value for enum role: "SCANNER"` until the
+> `ALTER TYPE` runs. See Task 7 in the implementation plan for the exact
+> command.
 
 ## Problem
 
@@ -147,7 +162,9 @@ Step 5. Verification checklist for the implementation plan:
 
 ## Out of scope
 
-- No DB schema/migration change (`role` has no CHECK constraint).
+- ~~No DB schema/migration change (`role` has no CHECK constraint).~~
+  **Wrong — see the correction note at the top of this document.** `role` is
+  a Postgres enum and needed `ALTER TYPE role ADD VALUE 'SCANNER';`.
 - No user-management UI — `SCANNER` accounts are provisioned the same
   manual-SQL way as `ADMIN`/`CREATE_ONLY` today.
 - No change to ticket-admin routes already restricted to `["ADMIN"]`
