@@ -103,3 +103,41 @@
   background: rgba(127, 29, 29, 0.5);
   color: #fca5a5;
 }
+
+.actionBtn,
+.releaseBtn {
+  display: inline-block;
+  padding: 4px 12px;
+  margin-right: 8px;
+  font-size: 12px;
+  border-radius: 6px;
+  cursor: pointer;
+  font-family: var(--font-body);
+  text-decoration: none;
+}
+
+.actionBtn {
+  background: transparent;
+  color: var(--cream);
+  border: 1px solid var(--gray-800);
+}
+
+.actionBtn:hover {
+  border-color: var(--gold-soft);
+  color: var(--gold-soft);
+}
+
+.releaseBtn {
+  background: transparent;
+  color: #fca5a5;
+  border: 1px solid rgba(127, 29, 29, 0.5);
+}
+
+.releaseBtn:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.releaseBtn:not(:disabled):hover {
+  border-color: #fca5a5;
+}

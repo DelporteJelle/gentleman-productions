@@ -27,9 +27,18 @@ interface OrderSummary {
   event_title: string;
 }
 
+interface ReservedSeat {
+  ticket_id: string;
+  seat_label: string;
+  event_title: string;
+  start_time: string | null;
+  reserved_at: string;
+}
+
 interface SummaryResponse {
   dates: DateSummary[];
   orders: OrderSummary[];
+  reservedSeats: ReservedSeat[];
 }
 
 function formatStartTime(startTime: string | null): string {
@@ -60,6 +69,27 @@ export default function TicketsSummaryPage() {
   const [data, setData] = useState<SummaryResponse | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(false);
+  const [releasing, setReleasing] = useState<string | null>(null);
+
+  async function handleRelease(seat: ReservedSeat) {
+    const confirmed = window.confirm(
+      `Releasing seat ${seat.seat_label} will make it available again. Its QR code will stop working immediately if you've already shared it. Continue?`
+    );
+    if (!confirmed) return;
+
+    setReleasing(seat.ticket_id);
+    try {
+      const res = await fetch(`/api/tickets/admin/reserved/${seat.ticket_id}/release`, { method: "POST" });
+      if (!res.ok) {
+        const body = await res.json().catch(() => ({}));
+        window.alert(body.error ?? "Could not release this seat.");
+        return;
+      }
+      setData((prev) => prev && { ...prev, reservedSeats: prev.reservedSeats.filter((s) => s.ticket_id !== seat.ticket_id) });
+    } finally {
+      setReleasing(null);
+    }
+  }
 
   useEffect(() => {
     let cancelled = false;
@@ -146,6 +176,51 @@ export default function TicketsSummaryPage() {
                       </span>
                     </td>
                     <td>{new Date(o.created_at).toLocaleString("en-GB")}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        )}
+      </section>
+
+      <section className={styles.section}>
+        <h2 className={styles.sectionTitle}>Reserved for giveaway</h2>
+        {data.reservedSeats.length === 0 ? (
+          <p className={styles.empty}>No seats currently reserved for giveaway.</p>
+        ) : (
+          <div className={styles.tableWrap}>
+            <table className={styles.table}>
+              <thead>
+                <tr>
+                  <th>Event</th>
+                  <th>Seat</th>
+                  <th>Reserved</th>
+                  <th>Actions</th>
+                </tr>
+              </thead>
+              <tbody>
+                {data.reservedSeats.map((s) => (
+                  <tr key={s.ticket_id}>
+                    <td>{s.event_title}</td>
+                    <td>{s.seat_label}</td>
+                    <td>{new Date(s.reserved_at).toLocaleString("en-GB")}</td>
+                    <td>
+                      <a
+                        className={styles.actionBtn}
+                        href={`/api/tickets/admin/reserved/${s.ticket_id}/pdf`}
+                      >
+                        Download QR
+                      </a>
+                      <button
+                        type="button"
+                        className={styles.releaseBtn}
+                        disabled={releasing === s.ticket_id}
+                        onClick={() => handleRelease(s)}
+                      >
+                        {releasing === s.ticket_id ? "Releasing…" : "Release"}
+                      </button>
+                    </td>
                   </tr>
                 ))}
               </tbody>
