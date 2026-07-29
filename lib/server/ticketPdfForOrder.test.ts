@@ -33,7 +33,7 @@ function createFakeSql(state: FakeState) {
       return state.events.filter((e) => e.uuid === values[0]);
     }
     throw new Error(`Unexpected query in test fake: ${text}`);
-  }) as any;
+  }) as unknown as Parameters<typeof loadTicketsPdfForOrder>[0];
 }
 
 function freshState(overrides?: Partial<FakeState>): FakeState {
@@ -85,5 +85,13 @@ describe("loadTicketsPdfForOrder", () => {
     const result = await loadTicketsPdfForOrder(sql, ORDER_ID);
     if (result.kind !== "ok") throw new Error("expected ok");
     expect(result.filename).toBe("Tickets.pdf");
+  });
+
+  it("strips header-injection and filesystem-unsafe characters from the event title", async () => {
+    const sql = createFakeSql(freshState({ events: [{ uuid: EVENT_UUID, title: 'Rocky Horror: "Live"! / Uncut', production_theme: null, dates: [{ uuid: DATE_UUID, start_time: "2026-08-01T19:00:00Z" }] }] }));
+    const result = await loadTicketsPdfForOrder(sql, ORDER_ID);
+    if (result.kind !== "ok") throw new Error("expected ok");
+    expect(result.filename).toMatch(/^Tickets-[A-Za-z0-9-]+\.pdf$/);
+    expect(result.filename).toBe("Tickets-Rocky-Horror-Live-Uncut.pdf");
   });
 });

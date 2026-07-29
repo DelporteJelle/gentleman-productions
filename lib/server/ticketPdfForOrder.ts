@@ -14,7 +14,7 @@ export type TicketPdfResult =
 /** Filename-safe: strips everything but alphanumerics/spaces/hyphens, collapses runs. */
 function sanitizeForFilename(title: string): string {
   const cleaned = title.replace(/[^A-Za-z0-9 -]/g, "").trim().replace(/\s+/g, "-");
-  return cleaned.length > 0 ? cleaned : "";
+  return cleaned;
 }
 
 /**
@@ -49,9 +49,9 @@ export async function loadTicketsPdfForOrder(sql: Sql, orderId: string): Promise
 
   const d = date?.start_time ? new Date(date.start_time) : null;
   const dateStr = d
-    ? d.toLocaleDateString("en-GB", { weekday: "long", year: "numeric", month: "long", day: "numeric" })
+    ? d.toLocaleDateString("nl-BE", { weekday: "long", year: "numeric", month: "long", day: "numeric" })
     : "";
-  const timeStr = d ? d.toLocaleTimeString("en-GB", { hour: "2-digit", minute: "2-digit" }) : "";
+  const timeStr = d ? d.toLocaleTimeString("nl-BE", { hour: "2-digit", minute: "2-digit" }) : "";
 
   const seats: TicketSeat[] = soldTickets.map((t) => ({
     seatLabel: `${t.row}${t.seat_number}`,
