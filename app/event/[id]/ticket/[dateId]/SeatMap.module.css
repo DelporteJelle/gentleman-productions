@@ -242,9 +242,83 @@
   font-family: var(--font-body);
 }
 
+.seatGridScroll {
+  position: relative;
+}
+
+.seatGridScroll::before,
+.seatGridScroll::after {
+  content: '';
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  width: 28px;
+  pointer-events: none;
+  z-index: 2;
+  opacity: 0;
+  transition: opacity 0.2s ease;
+}
+
+.seatGridScroll::before {
+  left: 0;
+  background: linear-gradient(90deg, var(--noir) 0%, transparent 100%);
+}
+
+.seatGridScroll::after {
+  right: 0;
+  background: linear-gradient(270deg, var(--noir) 0%, transparent 100%);
+}
+
+.seatGridScroll[data-scroll-left="true"]::before,
+.seatGridScroll[data-scroll-right="true"]::after {
+  opacity: 1;
+}
+
+.scrollHint {
+  text-align: center;
+  font-size: 11px;
+  letter-spacing: 0.08em;
+  color: var(--cream-muted);
+  opacity: 0.7;
+  margin: 0 0 8px;
+  display: none;
+}
+
 .seatGrid {
   overflow-x: auto;
-  padding: 4px 0;
+  overflow-y: hidden;
+  padding: 4px 0 14px;
+  -webkit-overflow-scrolling: touch;
+  touch-action: pan-x;
+  scrollbar-width: thin;
+  scrollbar-color: rgba(245, 233, 213, 0.25) transparent;
+}
+
+.seatGrid::-webkit-scrollbar {
+  height: 6px;
+}
+
+.seatGrid::-webkit-scrollbar-thumb {
+  background: rgba(245, 233, 213, 0.25);
+  border-radius: 3px;
+}
+
+.seatGrid::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+/* Sized to its content (not stretched to the scroll container), then
+   centered with auto margins — auto margins collapse to 0 once the content
+   is wider than the container, so overflow only ever bleeds to the right
+   and stays fully reachable by scrolling. Centering via justify-content on
+   .seatRow instead would overflow symmetrically on both sides, and the
+   left-side bleed is unreachable by scroll in every browser. */
+.seatGridInner {
+  display: flex;
+  flex-direction: column;
+  width: -webkit-fit-content;
+  width: fit-content;
+  margin: 0 auto;
 }
 
 .seatRow {
@@ -263,6 +337,22 @@
   flex-shrink: 0;
   font-family: monospace;
   font-weight: 600;
+}
+
+.seat {
+  width: 22px;
+  height: 28px;
+  border-radius: 6px 6px 3px 3px;
+  flex-shrink: 0;
+  transition: transform 0.25s cubic-bezier(0.34, 1.56, 0.64, 1), box-shadow 0.25s ease, opacity 0.2s ease;
+}
+
+.seatGap {
+  width: 22px;
+  height: 22px;
+  flex-shrink: 0;
+  opacity: 0;
+  background: transparent;
 }
 
 .stageWrap {
@@ -394,4 +484,19 @@
   .backLink { display: none; }
   .mapWrap { padding: 0 12px 60px; }
   .bottomBar { padding: 10px 16px; }
+  .scrollHint { display: block; }
+}
+
+@media (max-width: 480px) {
+  .seat, .seatGap { width: 18px; }
+  .seat { height: 24px; }
+  .seatRow { gap: 2px; }
+  .rowLabel { width: 16px; font-size: 10px; }
+  .bottomBar { gap: 8px; }
+  .bottomBarActions { gap: 8px; }
+  .continueBtn { padding: 11px 18px; }
+}
+
+@media (max-width: 360px) {
+  .bottomBar { flex-wrap: wrap; row-gap: 8px; }
 }

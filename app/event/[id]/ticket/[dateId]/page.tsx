@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { useParams, useRouter } from "next/navigation";
 import Link from "next/link";
 import { Event, SeatTicket, isEvent } from "@/types";
@@ -48,6 +48,10 @@ export default function SeatMapPage() {
 
   const [selected, setSelected] = useState<string[]>([]);
   const [multiRow, setMultiRow] = useState(false);
+
+  const seatGridRef = useRef<HTMLDivElement>(null);
+  const [scrollLeft, setScrollLeft] = useState(false);
+  const [scrollRight, setScrollRight] = useState(false);
 
   useEffect(() => {
     let cancelled = false;
@@ -99,6 +103,26 @@ export default function SeatMapPage() {
     return map;
   }, [tickets]);
 
+  // Drives the left/right fade hints so it's obvious the grid can be swiped
+  // to reveal seats that don't fit on a phone-width screen.
+  useEffect(() => {
+    const el = seatGridRef.current;
+    if (!el) return;
+
+    const update = () => {
+      setScrollLeft(el.scrollLeft > 4);
+      setScrollRight(el.scrollLeft < el.scrollWidth - el.clientWidth - 4);
+    };
+    update();
+
+    el.addEventListener("scroll", update, { passive: true });
+    window.addEventListener("resize", update);
+    return () => {
+      el.removeEventListener("scroll", update);
+      window.removeEventListener("resize", update);
+    };
+  }, [tickets]);
+
   if (status === "loading") return <LoadingScreen />;
   if (status === "error") return <ErrorScreen message={errorMessage} />;
   if (status === "notFound" || !event) return <NotFoundScreen />;
@@ -111,9 +135,7 @@ export default function SeatMapPage() {
   const price = date.price ?? 0;
 
   function getSeatStyle(row: string, seatNum: number | null): React.CSSProperties {
-    if (seatNum === null) {
-      return { background: "transparent", opacity: 0, width: 22, height: 22, flexShrink: 0 };
-    }
+    if (seatNum === null) return {};
     const cell = index.seatMap[`${row}-${seatNum}`];
     const ticket = ticketsByCoord[`${row}-${seatNum}`];
     const statusValue = ticket ? effectiveStatus(ticket) : "gap";
@@ -150,16 +172,11 @@ export default function SeatMapPage() {
         : `inset 0 1px 0 rgba(255,255,255,0.05), inset 0 -1px 0 rgba(0,0,0,0.3), 0 1px 3px rgba(0,0,0,0.3)`;
 
     return {
-      width: 22,
-      height: 28,
-      borderRadius: "6px 6px 3px 3px",
       background,
-      flexShrink: 0,
       cursor: selectable ? "pointer" : statusValue === "available" ? "default" : "not-allowed",
       opacity,
       boxShadow,
       transform: isSelected ? "scale(1.15)" : "scale(1)",
-      transition: "transform 0.25s cubic-bezier(0.34, 1.56, 0.64, 1), box-shadow 0.25s ease, opacity 0.2s ease",
       zIndex: isSelected ? 1 : 0,
     };
   }
@@ -262,20 +279,31 @@ export default function SeatMapPage() {
           </label>
         </div>
 
-        <div className={styles.seatGrid}>
-          {[...ROWS].reverse().map((row) => (
-            <div key={row} className={styles.seatRow}>
-              <span className={styles.rowLabel}>{row}</span>
-              {getRowSeats(row).map((seatNum, idx) => (
-                <div
-                  key={idx}
-                  onClick={() => handleSeatClick(row, seatNum)}
-                  title={seatNum !== null ? `${row}${seatNum}` : ""}
-                  style={getSeatStyle(row, seatNum)}
-                />
+        <p className={styles.scrollHint}>&larr; Swipe to see all seats &rarr;</p>
+
+        <div
+          className={styles.seatGridScroll}
+          data-scroll-left={scrollLeft}
+          data-scroll-right={scrollRight}
+        >
+          <div className={styles.seatGrid} ref={seatGridRef}>
+            <div className={styles.seatGridInner}>
+              {[...ROWS].reverse().map((row) => (
+                <div key={row} className={styles.seatRow}>
+                  <span className={styles.rowLabel}>{row}</span>
+                  {getRowSeats(row).map((seatNum, idx) => (
+                    <div
+                      key={idx}
+                      className={seatNum === null ? styles.seatGap : styles.seat}
+                      onClick={() => handleSeatClick(row, seatNum)}
+                      title={seatNum !== null ? `${row}${seatNum}` : ""}
+                      style={getSeatStyle(row, seatNum)}
+                    />
+                  ))}
+                </div>
               ))}
             </div>
-          ))}
+          </div>
         </div>
 
         <div className={styles.stageWrap}>
