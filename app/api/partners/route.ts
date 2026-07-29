@@ -3,7 +3,7 @@ import {
   getDb,
   jsonResponse,
   errorResponse,
-  requireAuth,
+  requireRole,
   parseBody,
   getQueryParam,
   invalidateCache,
@@ -23,7 +23,7 @@ export async function GET() {
 }
 
 export async function POST(request: Request) {
-  const authError = requireAuth(request);
+  const authError = requireRole(request, ["ADMIN", "CREATE_ONLY"]);
   if (authError) return authError;
 
   const sql = getDb();
@@ -58,7 +58,7 @@ export async function POST(request: Request) {
 }
 
 export async function PUT(request: Request) {
-  const authError = requireAuth(request);
+  const authError = requireRole(request, ["ADMIN", "CREATE_ONLY"]);
   if (authError) return authError;
 
   const sql = getDb();
@@ -94,7 +94,7 @@ export async function PUT(request: Request) {
 }
 
 export async function DELETE(request: Request) {
-  const authError = requireAuth(request);
+  const authError = requireRole(request, ["ADMIN", "CREATE_ONLY"]);
   if (authError) return authError;
 
   const sql = getDb();

@@ -4,7 +4,7 @@ import {
   jsonResponse,
   errorResponse,
   cachedResponse,
-  requireAuth,
+  requireRole,
   getQueryParam,
   invalidateCache,
   CacheTags,
@@ -98,7 +98,7 @@ export async function GET(request: Request) {
 }
 
 export async function DELETE(request: Request) {
-  const authError = requireAuth(request);
+  const authError = requireRole(request, ["ADMIN", "CREATE_ONLY"]);
   if (authError) return authError;
 
   const sql = getDb();

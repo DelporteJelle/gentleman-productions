@@ -3,7 +3,7 @@ import {
   getDb,
   jsonResponse,
   errorResponse,
-  requireAuth,
+  requireRole,
   parseBody,
   invalidateCache,
   CacheTags,
@@ -23,7 +23,7 @@ export async function GET() {
 }
 
 export async function POST(request: Request) {
-  const authError = requireAuth(request);
+  const authError = requireRole(request, ["ADMIN", "CREATE_ONLY"]);
   if (authError) return authError;
 
   const sql = getDb();
