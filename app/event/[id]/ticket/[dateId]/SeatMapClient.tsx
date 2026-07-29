@@ -205,7 +205,13 @@ export default function SeatMapClient({ isAdmin }: { isAdmin: boolean }) {
         setReserving(false);
         return;
       }
-      router.push(`/event/${id}/ticket/${dateId}/confirm?order=${data.orderId}`);
+      const seatLabels = selected
+        .map((ticketId) => index.ticketById[ticketId])
+        .filter((s): s is { row: string; seatNum: number } => Boolean(s))
+        .map((s) => `${s.row}${s.seatNum}`);
+      router.push(
+        `/event/${id}/ticket/${dateId}/reserved?order=${data.orderId}&seats=${encodeURIComponent(seatLabels.join(","))}`
+      );
     } catch {
       setReserveError("Could not reserve the selected seats. Please try again.");
       setReserving(false);
