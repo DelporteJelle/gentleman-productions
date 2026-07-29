@@ -16,6 +16,7 @@ export default function Navigation() {
   });
   const hasCreateAccess = userRole === "ADMIN" || userRole === "CREATE_ONLY";
   const isAdmin = userRole === "ADMIN";
+  const isScanner = userRole === "SCANNER";
 
   return (
     <>
@@ -54,7 +55,7 @@ export default function Navigation() {
         </a>
       )}
 
-      {isAdmin && (
+      {(isAdmin || isScanner) && (
         <a
           href="/private/scan"
           className={pathname === "/private/scan" ? "active" : ""}
