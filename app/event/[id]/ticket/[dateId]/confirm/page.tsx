@@ -10,6 +10,7 @@ function ConfirmContent() {
   const searchParams = useSearchParams();
   const orderId = searchParams.get("order");
   const [status, setStatus] = useState<string | null>(null);
+  const [hasTickets, setHasTickets] = useState(true);
   const [timedOut, setTimedOut] = useState(false);
 
   useEffect(() => {
@@ -23,9 +24,12 @@ function ConfirmContent() {
       attempts++;
       try {
         const res = await fetch(`/api/tickets/orders/${orderId}`);
-        const data = (await res.json()) as { status?: string };
+        const data = (await res.json()) as { status?: string; has_tickets?: boolean };
         if (cancelled) return;
         if (data.status && data.status !== "pending") {
+          // Default to true so an older/partial response never downgrades a
+          // genuine success into the "we lost your seats" message.
+          setHasTickets(data.has_tickets !== false);
           setStatus(data.status);
           return;
         }
@@ -51,6 +55,25 @@ function ConfirmContent() {
     return (
       <main className={styles.page}>
         <p className={styles.status}>Confirming your payment...</p>
+      </main>
+    );
+  }
+
+  // Paid, but fulfilment could not assign any seat (they lapsed and were taken
+  // by a later order). Saying "You're in!" here would be a lie, and telling
+  // them the seats were released would invite a second payment.
+  if (status === "paid" && !hasTickets) {
+    return (
+      <main className={styles.page}>
+        <p className={styles.eyebrow}>Gentleman Productions</p>
+        <h1 className={styles.title}>We need to sort something out</h1>
+        <p className={styles.copy}>
+          Your payment went through, but we hit a problem assigning your seats. We&rsquo;ll contact
+          you within the hour &mdash; please don&rsquo;t pay again.
+        </p>
+        <Link href={`/event/${id}`} className={styles.backLink}>
+          &larr; Back to event
+        </Link>
       </main>
     );
   }

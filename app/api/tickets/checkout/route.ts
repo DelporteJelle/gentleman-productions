@@ -1,5 +1,5 @@
 import { getDb, jsonResponse, errorResponse, parseBody } from "@/lib/server/api";
-import { eurosToCents } from "@/lib/server/ticketing";
+import { eurosToCents, isDateOpen } from "@/lib/server/ticketing";
 import { getMollie } from "@/lib/server/mollie";
 import { validateCheckoutInput, type CheckoutInput } from "@/lib/server/checkoutValidation";
 import type { Event } from "@/types";
@@ -23,6 +23,16 @@ export async function POST(request: Request) {
     await sql`DELETE FROM orders WHERE id = ${orderId};`;
   };
 
+  // Every ticket this order will produce has to be signed with
+  // TICKET_QR_SECRET at email time. Without it the payment is captured, the
+  // tickets are marked sold, and signing then throws where nothing can retry
+  // it — a charged customer with no ticket and no recovery path. Refuse
+  // before any money or database state moves.
+  if (!process.env.TICKET_QR_SECRET) {
+    console.error("Checkout rejected: TICKET_QR_SECRET is not configured");
+    return errorResponse("Ticket sales are temporarily unavailable.", 503);
+  }
+
   try {
     const parsed = validateCheckoutInput(await parseBody<Partial<CheckoutInput>>(request));
     if (!parsed.ok) return errorResponse(parsed.error, 400);
@@ -31,9 +41,8 @@ export async function POST(request: Request) {
     const events = await sql`SELECT * FROM events WHERE uuid = ${eventUuid};`;
     const event = events[0] as Event | undefined;
     if (!event) return errorResponse("Event not found", 404);
-    if (event.tickets_open !== true) return errorResponse("Date not on sale", 404);
     const date = (event.dates ?? []).find((d) => d.uuid === dateUuid);
-    if (!date || typeof date.price !== "number") return errorResponse("Date not on sale", 404);
+    if (!date || !isDateOpen(event, date)) return errorResponse("Date not on sale", 404);
 
     const totalCents = eurosToCents(date.price) * ticketIds.length;
     const totalEuros = (totalCents / 100).toFixed(2);
@@ -64,6 +73,20 @@ export async function POST(request: Request) {
          AND s.reserved_for IS NULL
          AND (t.status = 'available'
               OR (t.status = 'held' AND t.held_until IS NOT NULL AND t.held_until < now()))
+         -- A lapsed 10-minute hold is normally free to reclaim, but not while
+         -- its order still has a live Mollie session: that customer may be
+         -- mid-payment, and taking the seat would leave them charged with no
+         -- ticket. The one-hour bound is DELIBERATE AND REQUIRED — do not
+         -- "simplify" it away. A real Mollie session expires well inside an
+         -- hour, so it is always protected; but an abandoned order whose
+         -- expired/canceled webhook never arrives would otherwise lock its
+         -- seats forever, which is worse than the bug this closes.
+         AND (t.order_id IS NULL OR NOT EXISTS (
+               SELECT 1 FROM orders o
+               WHERE o.id = t.order_id
+                 AND o.status = 'pending'
+                 AND o.mollie_payment_id IS NOT NULL
+                 AND o.created_at > now() - interval '1 hour'))
       RETURNING t.id;
     `;
 
