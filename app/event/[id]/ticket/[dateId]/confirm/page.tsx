@@ -32,6 +32,7 @@ function ConfirmContent() {
       } catch {
         // Network hiccup — keep polling until the attempt budget runs out.
       }
+      if (cancelled) return;
       if (attempts >= 20) {
         setTimedOut(true);
         return;
