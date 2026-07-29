@@ -191,5 +191,9 @@ signature does not verify, so knowing a ticket id is not sufficient to enter.
   The confirmation page's own PDF download
   (`GET /api/tickets/orders/<order-id>/pdf`) re-signs on every request
   too, so it never needs a manual re-send after rotation.
-- The scan endpoint is restricted to the admin role and is scoped to a single
-  performance chosen by the operator.
+- The scan endpoint is restricted to the `ADMIN` and `SCANNER` roles and is
+  scoped to a single performance chosen by the operator. The ticket-summary
+  endpoint it depends on for the performance list (`GET
+  /api/tickets/summary`, including customer/order data) is shared by both
+  roles; the `/private/tickets` order-management page and its nav link
+  remain `ADMIN`-only.
