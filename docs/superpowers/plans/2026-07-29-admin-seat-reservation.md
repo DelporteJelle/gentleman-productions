@@ -63,13 +63,21 @@ alter table orders add column if not exists reserved_by_admin boolean not null d
 
 - [ ] **Step 2: Run it against the database**
 
-This touches the real DB — confirm with the user before running, or ask them to run it. If proceeding:
+This touches the real DB — confirm with the user before running, or ask them to run it.
+
+**Correction found during execution:** running the whole schema file via `sql.query(fs.readFileSync(...))` fails — Neon's HTTP driver rejects multi-statement queries (`NeonDbError: cannot insert multiple commands into a prepared statement`), consistent with "one statement per round-trip" elsewhere in this codebase. Run just the new line as a single tagged-template statement instead:
 
 ```powershell
-npx tsx --env-file=.env.local -e "const {neon}=require('@neondatabase/serverless');const sql=neon(process.env.DATABASE_URL);const fs=require('fs');sql.query(fs.readFileSync('scripts/ticketing-schema.sql','utf8')).then(()=>console.log('ok')).catch(e=>{console.error(e);process.exit(1)})"
+npx tsx --env-file=.env.local -e "const {neon}=require('@neondatabase/serverless');const sql=neon(process.env.DATABASE_URL);sql`alter table orders add column if not exists reserved_by_admin boolean not null default false;`.then(()=>console.log('ok')).catch(e=>{console.error(e);process.exit(1)})"
 ```
 
-Expected: `ok`, and re-running it is a no-op (idempotent `if not exists`/`add column if not exists` guards throughout the file).
+Expected: `ok`. Verified via:
+
+```powershell
+npx tsx --env-file=.env.local -e "const {neon}=require('@neondatabase/serverless');const sql=neon(process.env.DATABASE_URL);sql`select column_name, data_type, column_default from information_schema.columns where table_name='orders' and column_name='reserved_by_admin';`.then(r=>console.log(r))"
+```
+
+Expected: one row, `data_type: 'boolean'`, `column_default: 'false'`.
 
 - [ ] **Step 3: Add the field to the `Order` type**
 
