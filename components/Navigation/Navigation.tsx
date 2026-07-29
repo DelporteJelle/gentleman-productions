@@ -15,6 +15,7 @@ export default function Navigation() {
     },
   });
   const hasCreateAccess = userRole === "ADMIN" || userRole === "CREATE_ONLY";
+  const isAdmin = userRole === "ADMIN";
 
   return (
     <>
@@ -41,6 +42,24 @@ export default function Navigation() {
           className={pathname === "/private/posts" ? "active" : ""}
         >
           Posts
+        </a>
+      )}
+
+      {isAdmin && (
+        <a
+          href="/private/tickets"
+          className={pathname === "/private/tickets" ? "active" : ""}
+        >
+          Tickets
+        </a>
+      )}
+
+      {isAdmin && (
+        <a
+          href="/private/scan"
+          className={pathname === "/private/scan" ? "active" : ""}
+        >
+          Scan
         </a>
       )}
 
