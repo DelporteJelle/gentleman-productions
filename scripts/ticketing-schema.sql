@@ -40,3 +40,5 @@ create table if not exists tickets (
 create index if not exists tickets_date_uuid_idx on tickets(date_uuid);
 create index if not exists tickets_order_id_idx  on tickets(order_id);
 create index if not exists tickets_status_idx    on tickets(status);
+
+alter table orders add column if not exists reserved_by_admin boolean not null default false;

@@ -210,5 +210,6 @@ export interface Order {
   total_amount: number;
   status: "pending" | "paid" | "cancelled";
   mollie_payment_id: string | null;
+  reserved_by_admin: boolean;
   created_at: string;
 }
