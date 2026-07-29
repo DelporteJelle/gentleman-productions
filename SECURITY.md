@@ -177,5 +177,8 @@ signature does not verify, so knowing a ticket id is not sufficient to enter.
   `POST /api/tickets/orders/<order-id>/resend` (one call per paid order — it
   re-signs with the current secret and re-attaches the PDFs). The same endpoint
   is the recovery path for a customer who lost their confirmation email.
+  The confirmation page's own PDF download
+  (`GET /api/tickets/orders/<order-id>/pdf`) re-signs on every request
+  too, so it never needs a manual re-send after rotation.
 - The scan endpoint is restricted to the admin role and is scoped to a single
   performance chosen by the operator.
