@@ -77,6 +77,7 @@ export async function POST(
       order,
       eventName: event?.title ?? "Show",
       startTime: date?.start_time ?? null,
+      location: event?.eventlocation?.location || event?.eventlocation?.city || null,
       productionTheme: event?.production_theme ?? null,
       seats: soldTickets.map((t) => ({
         ticketId: t.id,

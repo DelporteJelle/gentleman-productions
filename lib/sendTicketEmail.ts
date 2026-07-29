@@ -10,12 +10,15 @@ export async function sendTicketEmail({
   order,
   eventName,
   startTime,
+  location,
   productionTheme,
   seats,
 }: {
   order: Order;
   eventName: string;
   startTime: string | null;
+  /** Venue label, e.g. `event.eventlocation?.location || event.eventlocation?.city`. */
+  location: string | null;
   productionTheme: ProductionTheme | null;
   /**
    * `ticketId` is `tickets.id`, NOT `seats.id`: it is the value the QR code is
@@ -27,9 +30,9 @@ export async function sendTicketEmail({
 }): Promise<void> {
   const d = startTime ? new Date(startTime) : null;
   const date = d
-    ? d.toLocaleDateString("en-GB", { weekday: "long", year: "numeric", month: "long", day: "numeric" })
+    ? d.toLocaleDateString("nl-BE", { weekday: "long", year: "numeric", month: "long", day: "numeric" })
     : "";
-  const time = d ? d.toLocaleTimeString("en-GB", { hour: "2-digit", minute: "2-digit" }) : "";
+  const time = d ? d.toLocaleTimeString("nl-BE", { hour: "2-digit", minute: "2-digit" }) : "";
 
   // Generate one styled PDF per ticket
   const attachments = await Promise.all(
@@ -59,6 +62,7 @@ export async function sendTicketEmail({
   const safeSeatList = escapeHtml(seatList);
   const safeDate = escapeHtml(date);
   const safeTime = escapeHtml(time);
+  const safeLocation = location ? escapeHtml(location) : "";
 
   const html = `
     <!DOCTYPE html>
@@ -74,8 +78,8 @@ export async function sendTicketEmail({
               <tr>
                 <td style="text-align:center;padding-bottom:36px;">
                   <p style="margin:0 0 12px;color:#c9a84c;font-size:10px;letter-spacing:0.2em;text-transform:uppercase;">◆</p>
-                  <h1 style="margin:0 0 10px;color:#f5f5f5;font-family:Georgia,serif;font-size:30px;font-weight:normal;">Your tickets are confirmed</h1>
-                  <p style="margin:0;color:#888;font-size:14px;line-height:1.6;">Hi ${safeName}, your seats are reserved.<br>See you there!</p>
+                  <h1 style="margin:0 0 10px;color:#f5f5f5;font-family:Georgia,serif;font-size:30px;font-weight:normal;">Je tickets zijn bevestigd</h1>
+                  <p style="margin:0;color:#888;font-size:14px;line-height:1.6;">Hey ${safeName}, je plaatsen zijn gereserveerd.<br>Tot dan!</p>
                 </td>
               </tr>
 
@@ -84,11 +88,11 @@ export async function sendTicketEmail({
                 <td style="background:#0a0a0a;border:1px solid #2a2a2a;border-radius:10px;padding:24px 28px;">
                   <p style="margin:0 0 4px;color:#c9a84c;font-size:10px;letter-spacing:0.15em;text-transform:uppercase;">Gentleman Productions</p>
                   <p style="margin:0 0 6px;color:#f5f5f5;font-family:Georgia,serif;font-size:22px;font-weight:normal;">${safeEventName}</p>
-                  <p style="margin:0 0 20px;color:#888;font-size:13px;">${safeDate} &nbsp;·&nbsp; ${safeTime}</p>
+                  <p style="margin:0 0 20px;color:#888;font-size:13px;">${safeDate} &nbsp;·&nbsp; ${safeTime}${safeLocation ? ` &nbsp;·&nbsp; ${safeLocation}` : ""}</p>
                   <table width="100%" cellpadding="0" cellspacing="0" style="border-top:1px solid #2a2a2a;padding-top:16px;">
                     <tr>
                       <td>
-                        <p style="margin:0 0 4px;color:#888;font-size:11px;letter-spacing:0.1em;text-transform:uppercase;">Seats</p>
+                        <p style="margin:0 0 4px;color:#888;font-size:11px;letter-spacing:0.1em;text-transform:uppercase;">Plaatsen</p>
                         <p style="margin:0;color:#c9a84c;font-family:Georgia,serif;font-size:20px;">${safeSeatList}</p>
                       </td>
                       <td style="text-align:right;">
@@ -103,14 +107,14 @@ export async function sendTicketEmail({
               <!-- Instruction -->
               <tr>
                 <td style="padding:28px 0 0;text-align:center;">
-                  <p style="margin:0;color:#888;font-size:13px;line-height:1.7;">Your tickets are attached as PDF files.<br>Open each one and show the QR code at the door.</p>
+                  <p style="margin:0;color:#888;font-size:13px;line-height:1.7;">Je tickets zitten als PDF-bestand in de bijlage.<br>Open elk bestand en toon de QR-code aan de deur.</p>
                 </td>
               </tr>
 
               <!-- Footer -->
               <tr>
                 <td style="text-align:center;padding:36px 0 0;border-top:1px solid #2a2a2a;margin-top:36px;">
-                  <p style="margin:4px 0;color:#444;font-size:11px;">Gentleman Productions · Merelbeke, Belgium</p>
+                  <p style="margin:4px 0;color:#444;font-size:11px;">Gentleman Productions · Merelbeke, België</p>
                   <p style="margin:4px 0;color:#444;font-size:11px;">gentlemanproductions.be</p>
                 </td>
               </tr>
@@ -126,7 +130,7 @@ export async function sendTicketEmail({
   await resend.emails.send({
     from: process.env.RESEND_FROM!,
     to: order.customer_email,
-    subject: `Your tickets for ${eventName} – ${date}`,
+    subject: `Je tickets voor ${eventName} – ${date}`,
     html,
     attachments,
   });

@@ -54,7 +54,7 @@ function ConfirmContent() {
   if (!status && !timedOut) {
     return (
       <main className={styles.page}>
-        <p className={styles.status}>Confirming your payment...</p>
+        <p className={styles.status}>Je betaling wordt bevestigd...</p>
       </main>
     );
   }
@@ -66,13 +66,13 @@ function ConfirmContent() {
     return (
       <main className={styles.page}>
         <p className={styles.eyebrow}>Gentleman Productions</p>
-        <h1 className={styles.title}>We need to sort something out</h1>
+        <h1 className={styles.title}>Er is iets misgelopen</h1>
         <p className={styles.copy}>
-          Your payment went through, but we hit a problem assigning your seats. We&rsquo;ll contact
-          you within the hour &mdash; please don&rsquo;t pay again.
+          Je betaling is gelukt, maar er ging iets mis bij het toewijzen van je plaatsen. We nemen
+          binnen het uur contact met je op &mdash; betaal alsjeblieft niet opnieuw.
         </p>
         <Link href={`/event/${id}`} className={styles.backLink}>
-          &larr; Back to event
+          &larr; Terug naar het evenement
         </Link>
       </main>
     );
@@ -82,9 +82,10 @@ function ConfirmContent() {
     return (
       <main className={styles.page}>
         <p className={styles.eyebrow}>Gentleman Productions</p>
-        <h1 className={styles.title}>You&rsquo;re in!</h1>
+        <h1 className={styles.title}>Je bent binnen!</h1>
         <p className={styles.copy}>
-          Your tickets are confirmed. Check your email — a ticket with your QR code is on its way.
+          Je tickets zijn bevestigd. Check je mailbox &mdash; je tickets met QR-code zijn onderweg.
+          Dit kan een minuutje duren.
         </p>
       </main>
     );
@@ -94,10 +95,10 @@ function ConfirmContent() {
     return (
       <main className={styles.page}>
         <p className={styles.eyebrow}>Gentleman Productions</p>
-        <h1 className={styles.title}>Payment not completed</h1>
-        <p className={styles.copy}>Your seats have been released. You can go back and try again.</p>
+        <h1 className={styles.title}>Betaling niet voltooid</h1>
+        <p className={styles.copy}>Je plaatsen zijn weer vrijgegeven. Je kan opnieuw proberen.</p>
         <Link href={`/event/${id}`} className={styles.backLink}>
-          &larr; Back to event
+          &larr; Terug naar het evenement
         </Link>
       </main>
     );
@@ -108,13 +109,14 @@ function ConfirmContent() {
   return (
     <main className={styles.page}>
       <p className={styles.eyebrow}>Gentleman Productions</p>
-      <h1 className={styles.title}>Still confirming</h1>
+      <h1 className={styles.title}>Nog even geduld</h1>
       <p className={styles.copy}>
-        Your payment is being confirmed. If it went through, your tickets will arrive by email
-        shortly — you don&rsquo;t need to pay again. Contact us if nothing arrives within an hour.
+        Je betaling wordt nog bevestigd. Als deze gelukt is, ontvang je je tickets zo per mail
+        &mdash; je hoeft niet opnieuw te betalen. Neem contact met ons op als er binnen het uur
+        niets binnenkomt.
       </p>
       <Link href={`/event/${id}`} className={styles.backLink}>
-        &larr; Back to event
+        &larr; Terug naar het evenement
       </Link>
     </main>
   );
@@ -125,7 +127,7 @@ export default function ConfirmPage() {
     <Suspense
       fallback={
         <main className={styles.page}>
-          <p className={styles.status}>Loading...</p>
+          <p className={styles.status}>Laden...</p>
         </main>
       }
     >

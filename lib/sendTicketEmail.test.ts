@@ -53,6 +53,7 @@ describe("sendTicketEmail", () => {
       order,
       eventName: "Rock & Roll Cabaret",
       startTime: "2026-08-01T19:00:00Z",
+      location: `Zaal <i>Vooruit</i> & Co`,
       productionTheme: null,
       seats: [{ ticketId: "ticket-1", row: "A", seat_number: 1 }],
     });
@@ -68,6 +69,11 @@ describe("sendTicketEmail", () => {
     // escaped too — a fix that only special-cases customer_name would miss it.
     expect(payload.html).toContain("Rock &amp; Roll Cabaret");
     expect(payload.html).not.toContain("Rock & Roll Cabaret");
+
+    // location is a third interpolation (venue name/city) and must be escaped
+    // the same way.
+    expect(payload.html).toContain("Zaal &lt;i&gt;Vooruit&lt;/i&gt; &amp; Co");
+    expect(payload.html).not.toContain("Zaal <i>Vooruit</i> & Co");
 
     // The subject is an email header, not HTML: it must keep the raw
     // eventName, not the escaped one, or literal "&amp;" would show up in
