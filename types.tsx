@@ -232,3 +232,18 @@ export type OrderView =
   | (OrderViewBase & { state: "pending"; resumable: boolean; expiresAt: string })
   | (OrderViewBase & { state: "paid"; hasTickets: boolean })
   | (OrderViewBase & { state: "cancelled" });
+
+/** One order this browser created. Durable user data, not a cache. */
+export interface SavedOrder {
+  orderId: string;
+  eventUuid: string;
+  dateUuid: string;
+  eventTitle: string;
+  startTime: string | null;
+  seatLabels: string[];
+  email: string;
+  savedAt: string;
+  lastKnownStatus: "pending" | "paid" | "cancelled";
+  /** When lastKnownStatus last changed — the clock the cancelled prune measures from. */
+  statusChangedAt: string;
+}
