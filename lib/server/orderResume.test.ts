@@ -21,7 +21,7 @@ vi.mock("@/lib/server/orderFulfillment", () => ({
   applyMolliePaymentToOrder: mocks.applyMolliePaymentToOrder,
 }));
 
-import { expirePendingOrder } from "@/lib/server/orderResume";
+import { expirePendingOrder, resumeOrder } from "@/lib/server/orderResume";
 
 const ORDER_ID = "order-1";
 const PAYMENT_ID = "tr_test_123";
@@ -41,6 +41,7 @@ interface FakeTicket {
 interface FakeState {
   order: FakeOrder | null;
   tickets: FakeTicket[];
+  windowLive: boolean;
 }
 
 function freshState(overrides?: Partial<FakeState>): FakeState {
@@ -55,6 +56,7 @@ function freshState(overrides?: Partial<FakeState>): FakeState {
       { id: "ticket-a", order_id: ORDER_ID, status: "held", held_until: "2026-07-30T10:10:00Z" },
       { id: "ticket-b", order_id: ORDER_ID, status: "held", held_until: "2026-07-30T10:10:00Z" },
     ],
+    windowLive: true,
     ...overrides,
   };
 }
@@ -89,6 +91,44 @@ function createFakeSql(state: FakeState) {
       const guarded = full.includes("AND status = 'pending'");
       if (state.order && state.order.id === orderId && (!guarded || state.order.status === "pending")) {
         state.order.status = "cancelled";
+      }
+      return [];
+    }
+
+    if (head.startsWith("SELECT id, event_uuid, date_uuid, total_amount, status, mollie_payment_id")) {
+      const [id] = values;
+      if (!state.order || state.order.id !== id) return [];
+      return [{ ...state.order, event_uuid: "event-1", date_uuid: "date-1", total_amount: 4000, window_live: state.windowLive }];
+    }
+
+    if (head.startsWith("SELECT * FROM events WHERE uuid")) {
+      return [{ uuid: "event-1", title: "Test Show", tickets_open: true, dates: [{ uuid: "date-1", price: 20, start_time: "2026-08-01T19:00:00Z" }] }];
+    }
+
+    if (head.startsWith("UPDATE orders SET payment_started_at = now()")) {
+      const [orderId] = values;
+      const guarded = full.includes("AND status = 'pending'");
+      if (state.order && state.order.id === orderId && (!guarded || state.order.status === "pending")) {
+        state.order.payment_started_at = "2026-07-30T12:00:00Z";
+      }
+      return [];
+    }
+
+    if (head.startsWith("UPDATE tickets SET held_until = now()")) {
+      const [orderId] = values;
+      const guarded = full.includes("AND status = 'held'");
+      for (const t of state.tickets) {
+        if (t.order_id === orderId && (!guarded || t.status === "held")) {
+          t.held_until = "2026-07-30T12:10:00Z";
+        }
+      }
+      return [];
+    }
+
+    if (head.startsWith("UPDATE orders SET mollie_payment_id")) {
+      const [paymentId, orderId] = values;
+      if (state.order && state.order.id === orderId) {
+        state.order.mollie_payment_id = paymentId as string;
       }
       return [];
     }
@@ -175,5 +215,137 @@ describe("expirePendingOrder", () => {
 
     expect(state.tickets[0].status).toBe("sold");
     expect(state.tickets[0].order_id).toBe(ORDER_ID);
+  });
+});
+
+function openPayment(overrides?: Partial<{ status: string; url: string }>) {
+  return {
+    id: PAYMENT_ID,
+    status: overrides?.status ?? "open",
+    isCancelable: true,
+    getCheckoutUrl: () => overrides?.url ?? "https://mollie.test/checkout/original",
+  };
+}
+
+describe("resumeOrder", () => {
+  beforeEach(() => {
+    mocks.paymentsGet.mockReset();
+    mocks.paymentsCancel.mockReset();
+    mocks.paymentsCreate.mockReset();
+    mocks.applyMolliePaymentToOrder.mockReset();
+  });
+
+  it("returns not_found for an unknown order", async () => {
+    const state = freshState({ order: null });
+    const { sql } = createFakeSql(state);
+    expect(await resumeOrder(sql, ORDER_ID)).toEqual({ state: "not_found" });
+  });
+
+  it("reports an already-paid order without touching Mollie", async () => {
+    const state = freshState();
+    state.order!.status = "paid";
+    const { sql } = createFakeSql(state);
+
+    expect(await resumeOrder(sql, ORDER_ID)).toEqual({ state: "paid" });
+    expect(mocks.paymentsGet).not.toHaveBeenCalled();
+  });
+
+  it("reports an already-cancelled order", async () => {
+    const state = freshState();
+    state.order!.status = "cancelled";
+    const { sql } = createFakeSql(state);
+
+    expect(await resumeOrder(sql, ORDER_ID)).toEqual({ state: "cancelled" });
+  });
+
+  it("fulfils and reports paid when Mollie says the payment succeeded", async () => {
+    // The dropped-redirect case healing itself.
+    const state = freshState({ windowLive: false });
+    const { sql } = createFakeSql(state);
+    mocks.paymentsGet.mockResolvedValue({ ...openPayment(), status: "paid" });
+
+    expect(await resumeOrder(sql, ORDER_ID)).toEqual({ state: "paid" });
+    expect(mocks.applyMolliePaymentToOrder).toHaveBeenCalledWith(sql, PAYMENT_ID);
+    // Must be checked BEFORE the window, or a paid customer gets "expired".
+    expect(state.order?.status).not.toBe("cancelled");
+  });
+
+  it("reuses the existing checkout URL when the payment is still open", async () => {
+    const state = freshState();
+    const { sql } = createFakeSql(state);
+    mocks.paymentsGet.mockResolvedValue(openPayment());
+
+    const result = await resumeOrder(sql, ORDER_ID);
+
+    expect(result).toEqual({ state: "checkout", checkoutUrl: "https://mollie.test/checkout/original" });
+    expect(mocks.paymentsCreate).not.toHaveBeenCalled();
+    expect(state.order?.payment_started_at).toBe("2026-07-30T12:00:00Z");
+    expect(state.tickets.every((t) => t.held_until === "2026-07-30T12:10:00Z")).toBe(true);
+  });
+
+  it("mints a new payment on the SAME order when the old one expired", async () => {
+    const state = freshState();
+    const { sql } = createFakeSql(state);
+    mocks.paymentsGet.mockResolvedValue({ ...openPayment(), status: "expired" });
+    mocks.paymentsCreate.mockResolvedValue({
+      id: "tr_new_456",
+      getCheckoutUrl: () => "https://mollie.test/checkout/new",
+    });
+
+    const result = await resumeOrder(sql, ORDER_ID);
+
+    expect(result).toEqual({ state: "checkout", checkoutUrl: "https://mollie.test/checkout/new" });
+    expect(state.order?.mollie_payment_id).toBe("tr_new_456");
+    // Same order id keeps the confirm URL, the PDF route and the stored entry working.
+    expect(mocks.paymentsCreate.mock.calls[0][0].metadata).toEqual({ orderId: ORDER_ID });
+    // Charge the amount already agreed, never a recomputed one.
+    expect(mocks.paymentsCreate.mock.calls[0][0].amount).toEqual({ currency: "EUR", value: "40.00" });
+  });
+
+  it("expires the order when the window has lapsed and the payment is dead", async () => {
+    const state = freshState({ windowLive: false });
+    const { sql } = createFakeSql(state);
+    mocks.paymentsGet.mockResolvedValue({ ...openPayment(), status: "expired" });
+
+    expect(await resumeOrder(sql, ORDER_ID)).toEqual({ state: "cancelled" });
+    expect(state.order?.status).toBe("cancelled");
+    expect(state.tickets.every((t) => t.status === "available")).toBe(true);
+    expect(mocks.paymentsCreate).not.toHaveBeenCalled();
+  });
+
+  it("expires the order when the window has lapsed even though the payment is still open", async () => {
+    const state = freshState({ windowLive: false });
+    const { sql } = createFakeSql(state);
+    mocks.paymentsGet.mockResolvedValue(openPayment());
+
+    expect(await resumeOrder(sql, ORDER_ID)).toEqual({ state: "cancelled" });
+    expect(state.order?.status).toBe("cancelled");
+    expect(mocks.paymentsCancel).toHaveBeenCalledWith(PAYMENT_ID);
+  });
+
+  it("returns unknown and mutates NOTHING when Mollie is unreachable", async () => {
+    // Load-bearing: an outage that released a paying customer's seats would be
+    // strictly worse than the bug this feature fixes.
+    const state = freshState({ windowLive: false });
+    const { sql } = createFakeSql(state);
+    mocks.paymentsGet.mockRejectedValue(new Error("mollie down"));
+
+    expect(await resumeOrder(sql, ORDER_ID)).toEqual({ state: "unknown" });
+    expect(state.order?.status).toBe("pending");
+    expect(state.tickets.every((t) => t.status === "held")).toBe(true);
+    expect(mocks.paymentsCreate).not.toHaveBeenCalled();
+  });
+
+  it("returns unknown while the money is in flight, without minting a second payment", async () => {
+    // 'pending'/'authorized' mean Mollie is processing. A new payment here
+    // could double-charge.
+    for (const status of ["pending", "authorized"]) {
+      const state = freshState();
+      const { sql } = createFakeSql(state);
+      mocks.paymentsGet.mockResolvedValue({ ...openPayment(), status });
+
+      expect(await resumeOrder(sql, ORDER_ID)).toEqual({ state: "unknown" });
+      expect(mocks.paymentsCreate).not.toHaveBeenCalled();
+    }
   });
 });
