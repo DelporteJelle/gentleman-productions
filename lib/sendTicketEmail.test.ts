@@ -35,6 +35,7 @@ function makeOrder(overrides?: Partial<Order>): Order {
     total_amount: 4000,
     status: "paid",
     mollie_payment_id: "tr_test_123",
+    payment_started_at: "2026-01-01T00:00:00Z",
     reserved_by_admin: false,
     created_at: "2026-01-01T00:00:00Z",
     ...overrides,
