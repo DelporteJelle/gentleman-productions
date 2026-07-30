@@ -41,11 +41,28 @@ succeeded but whose redirect was lost becomes visible instead of silent.
 
 ## Scope
 
-Resume exists for the customer who started a purchase and did not finish it,
-so they can continue with the seats they already hold instead of waiting out
-the hour. **Once the seats are no longer held for them, the purchase is over**
-and must be redone from the seat map. Resume is not a way to reclaim lapsed
-seats.
+Resume exists for the customer who started a purchase and did not finish it.
+While their Mollie payment session is still `open`, resume sends them back to
+that exact checkout page, so they finish the same payment instead of starting
+over. It does **not** hold the seats for the full hour merely because an
+order record exists: `loadOrderView` (the status poll behind the confirm page
+and the saved-order banner) calls `applyMolliePaymentToOrder` unconditionally
+on every read of a pending order, and that pre-existing function's
+dead-payment branch releases the seats and cancels the order the moment
+Mollie reports the payment `expired`, `canceled`, or `failed` — with no
+window check of its own. Mollie expires an unpaid iDEAL payment in roughly 15
+minutes, so in the common case the seats are back in the pool well before the
+hour is up, on whichever poll happens to land after that. **Once the seats
+are no longer held for them, the purchase is over** and must be redone from
+the seat map. Resume is not a way to reclaim lapsed seats.
+
+This is still a strict improvement on the behaviour it replaces: before this
+feature, an abandoned order's seats stayed locked for the full hour
+regardless, unpickable by anyone — including the customer who abandoned them.
+Now they return to the pool as soon as Mollie confirms the payment is dead,
+so a customer who comes back can re-pick immediately instead of waiting out
+whatever remained of the hour. See "Accepted limitation: the release window"
+below for the trade-off this introduces.
 
 Two things are deliberately out of scope:
 
@@ -173,6 +190,18 @@ was secretly paid can never be treated as expired:
 `unknown` is a resume-only result. The status endpoint has no such state; it
 expresses the same condition as `pending` with `resumable: false`.
 
+In practice, step 5 rarely fires from inside `resumeOrder` itself. The status
+poll behind the saved-order banner and the confirm page (`loadOrderView`,
+described under the extended status endpoint below) reconciles every pending
+order on every read, and its call to `applyMolliePaymentToOrder` releases the
+seats and cancels the order as soon as Mollie reports the payment dead — with
+no window check of its own. Since Mollie expires an unpaid iDEAL payment in
+about 15 minutes, that poll usually beats the one-hour window to the release.
+So "window live" describes how long a *fresh* order protects its seats, not
+how long a customer has to come back and resume — resume's real reach is
+bounded by how long the specific Mollie payment session stays open. See
+"Accepted limitation: the release window" below.
+
 **`expirePendingOrder(sql, order)`** — releases the order's held tickets, sets
 the order `cancelled`, and best-effort cancels the Mollie payment if it is
 still cancelable. That last step matters: releasing the seats while leaving a
@@ -183,6 +212,25 @@ Called from both `resumeOrder` and the status endpoint, so a lapsed order
 returns its seats to the pool on the next visit instead of lingering until the
 4am cron. This is a direct improvement to seat availability independent of the
 resume feature.
+
+#### Accepted limitation: the release window
+
+Because `applyMolliePaymentToOrder`'s dead-payment branch releases seats
+unconditionally, there is a gap between the moment a pending order's payment
+dies on Mollie and the moment the *next* status poll actually notices and
+releases it. Anyone reading the seat map inside that gap sees those seats as
+available and can claim them — including the original customer's own
+concurrent tab, and including an unrelated rival who happens to browse or
+poll at just the wrong moment.
+
+Accepted for now: the gap is bounded by the polling cadence (typically
+seconds, driven by the confirm page and the saved-order banner), and it only
+ever *shortens* how long the original customer's own seats stay reserved
+compared to the pre-resume behaviour, never lengthens it. If this trade is
+ever revisited, the known fix is to gate `applyMolliePaymentToOrder`'s release
+branch on the same protection window resume already computes
+(`coalesce(payment_started_at, created_at)` vs. `now()`), rather than
+releasing the instant Mollie reports the payment dead.
 
 ### `POST /api/tickets/orders/[id]/resume`
 

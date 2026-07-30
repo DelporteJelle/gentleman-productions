@@ -19,11 +19,20 @@ export type CancelablePayment = { status: string; isCancelable: boolean };
  * lets a stale Mollie tab charge someone for seats they no longer hold.
  * Killing the session first shrinks that window to nothing.
  *
- * If the payment is not cancelable (some methods, e.g. bank transfer) and
- * later settles anyway, `applyMolliePaymentToOrder` handles it: it finds no
- * held tickets, logs "paid but claimed no held tickets — manual intervention
- * required", and the customer is shown the existing "er is iets misgelopen"
- * copy rather than a false success.
+ * A cancel that THROWS is itself a signal, not just noise: some methods
+ * (bank transfer, SEPA) stop being cancelable the instant they settle, so the
+ * throw can mean "this payment just got paid". Before releasing anything we
+ * re-fetch the payment; if it now reports `paid`, we abort the whole release
+ * and leave the order for `applyMolliePaymentToOrder` to fulfil normally.
+ * Otherwise — a genuinely dead payment, or the re-fetch itself failing — we
+ * proceed with the release exactly as if cancel had never thrown: a Mollie
+ * outage must not strand the seats on a dead order.
+ *
+ * If the payment is not cancelable at all (so `payments.cancel` is never
+ * called) and later settles anyway, `applyMolliePaymentToOrder` handles it:
+ * it finds no held tickets, logs "paid but claimed no held tickets — seats
+ * lost, manual intervention required", and the customer is shown the existing
+ * "er is iets misgelopen" copy rather than a false success.
  */
 export async function expirePendingOrder(
   sql: Sql,
@@ -34,8 +43,22 @@ export async function expirePendingOrder(
     try {
       await getMollie().payments.cancel(order.mollie_payment_id);
     } catch (err) {
-      // Best-effort. A Mollie outage must not strand the seats on a dead order.
       console.error(`Could not cancel Mollie payment ${order.mollie_payment_id}:`, err);
+
+      try {
+        const recheck = await getMollie().payments.get(order.mollie_payment_id);
+        if (recheck.status === "paid") {
+          console.error(
+            `Mollie payment ${order.mollie_payment_id} on order ${order.id} turned out to be paid ` +
+              `when its cancel failed — aborting the release, leaving fulfilment to complete normally.`,
+          );
+          return;
+        }
+      } catch (recheckErr) {
+        // Outage on the re-fetch too. Fall through to the release below: a
+        // Mollie outage must not strand the seats on a dead order.
+        console.error(`Could not re-check Mollie payment ${order.mollie_payment_id}:`, recheckErr);
+      }
     }
   }
 
@@ -190,6 +213,11 @@ export async function resumeOrder(sql: Sql, orderId: string): Promise<ResumeResu
   const current = currentRows[0] as typeof order | undefined;
   if (!current) return { state: "unknown" };
   if (current.status === "paid") return { state: "paid" };
+  // The winner cancelled the order (e.g. the status poll's own window check
+  // beat us to it) rather than replacing the payment. The seats are already
+  // back in the pool — reporting "unknown" here would tell a customer whose
+  // order is definitively dead that their payment "is still being checked".
+  if (current.status === "cancelled") return { state: "cancelled" };
 
   if (current.status === "pending" && current.mollie_payment_id && current.mollie_payment_id !== order.mollie_payment_id) {
     try {

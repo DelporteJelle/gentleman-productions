@@ -152,4 +152,12 @@ describe("pruneOrders", () => {
     const undated = entry({ lastKnownStatus: "paid", startTime: null });
     expect(pruneOrders([undated], now)).toHaveLength(1);
   });
+
+  it("keeps a paid order whose startTime is unparseable, matching how a missing one is treated", () => {
+    // `now - new Date("garbage").getTime()` is NaN, and `NaN < DAY_MS` is
+    // false — the pre-fix code silently dropped the entry holding the link
+    // to tickets someone actually bought.
+    const malformed = entry({ lastKnownStatus: "paid", startTime: "garbage" });
+    expect(pruneOrders([malformed], now)).toHaveLength(1);
+  });
 });

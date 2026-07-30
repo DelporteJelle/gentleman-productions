@@ -190,11 +190,39 @@ describe("expirePendingOrder", () => {
     expect(state.order?.status).toBe("cancelled");
   });
 
-  it("still releases the seats when the Mollie cancel throws", async () => {
-    // A Mollie outage must not leave the seats stranded on a dead order.
+  it("still releases the seats when the Mollie cancel throws and the re-fetch also fails", async () => {
+    // A full Mollie outage must not leave the seats stranded on a dead order.
     const state = freshState();
     const { sql } = createFakeSql(state);
     mocks.paymentsCancel.mockRejectedValue(new Error("mollie down"));
+    mocks.paymentsGet.mockRejectedValue(new Error("mollie down"));
+
+    await expirePendingOrder(sql, state.order!, { status: "open", isCancelable: true });
+
+    expect(state.order?.status).toBe("cancelled");
+    expect(state.tickets.every((t) => t.status === "available")).toBe(true);
+  });
+
+  it("aborts the release when a failed cancel turns out to mean the payment just settled", async () => {
+    // A cancel that throws is itself a signal: some methods (bank transfer,
+    // SEPA) stop being cancelable the instant they settle. Treat the failure
+    // as "maybe just paid" and check before releasing anything.
+    const state = freshState();
+    const { sql } = createFakeSql(state);
+    mocks.paymentsCancel.mockRejectedValue(new Error("payment not cancelable"));
+    mocks.paymentsGet.mockResolvedValue({ status: "paid", isCancelable: false });
+
+    await expirePendingOrder(sql, state.order!, { status: "open", isCancelable: true });
+
+    expect(state.order?.status).toBe("pending");
+    expect(state.tickets.every((t) => t.status === "held")).toBe(true);
+  });
+
+  it("still releases the seats when the re-fetch after a failed cancel reports the payment is dead", async () => {
+    const state = freshState();
+    const { sql } = createFakeSql(state);
+    mocks.paymentsCancel.mockRejectedValue(new Error("payment not cancelable"));
+    mocks.paymentsGet.mockResolvedValue({ status: "expired", isCancelable: false });
 
     await expirePendingOrder(sql, state.order!, { status: "open", isCancelable: true });
 
@@ -397,6 +425,26 @@ describe("resumeOrder", () => {
     const result = await resumeOrder(sql, ORDER_ID);
 
     expect(result).toEqual({ state: "unknown" });
+  });
+
+  it("reports cancelled, not unknown, when it loses the race because the order was cancelled outright", async () => {
+    // E.g. the status poll's own window check (expirePendingOrder) landed
+    // while we were still inside our payments.create call. The seats are
+    // already back in the pool; "unknown" would wrongly tell the customer
+    // their payment is still being checked.
+    const state = freshState();
+    const { sql } = createFakeSql(state);
+    mocks.paymentsGet.mockResolvedValueOnce({ ...openPayment(), status: "expired" });
+    mocks.paymentsCreate.mockImplementation(async () => {
+      state.order!.status = "cancelled";
+      return { id: "tr_orphan_000", getCheckoutUrl: () => "https://mollie.test/checkout/orphan" };
+    });
+
+    const result = await resumeOrder(sql, ORDER_ID);
+
+    expect(result).toEqual({ state: "cancelled" });
+    // Already cancelled — no need to ask Mollie about a winning payment at all.
+    expect(mocks.paymentsGet).toHaveBeenCalledTimes(1);
   });
 
   it("expires the order when the window has lapsed and the payment is dead", async () => {

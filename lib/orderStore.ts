@@ -93,6 +93,10 @@ export function pruneOrders(entries: SavedOrder[], now: Date): SavedOrder[] {
       return now.getTime() - new Date(e.statusChangedAt).getTime() < DAY_MS;
     }
     if (!e.startTime) return true;
-    return now.getTime() - new Date(e.startTime).getTime() < DAY_MS;
+    const age = now.getTime() - new Date(e.startTime).getTime();
+    // An unparseable startTime makes `age` NaN, and `NaN < DAY_MS` is false —
+    // silently dropping the entry. A malformed value must be treated the same
+    // as a missing one (keep it), not as "infinitely old" (drop it).
+    return !Number.isFinite(age) || age < DAY_MS;
   });
 }

@@ -152,7 +152,7 @@ export async function reconcileStuckOrders(
     SELECT id, mollie_payment_id FROM orders
     WHERE status = 'pending'
       AND mollie_payment_id IS NOT NULL
-      AND created_at < now() - make_interval(mins => ${minAgeMinutes});
+      AND coalesce(payment_started_at, created_at) < now() - make_interval(mins => ${minAgeMinutes});
   `;
 
   const results: FulfillResult[] = [];
