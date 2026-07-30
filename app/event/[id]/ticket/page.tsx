@@ -8,6 +8,7 @@ import { usePosts } from "@/app/contexts/PostsContext";
 import { splitTitleAccent } from "@/lib/text";
 import CanvasBackground from "@/components/Background/CanvasBackground";
 import SectionLabel from "@/components/SectionLabel/SectionLabel";
+import SavedOrderBanner from "@/components/SavedOrders/SavedOrderBanner";
 import {
   LoadingScreen,
   ErrorScreen,
@@ -123,6 +124,8 @@ export default function TicketsPage() {
           )}
         </div>
       </section>
+
+      <SavedOrderBanner />
 
       <SectionLabel>Available Dates</SectionLabel>
 
