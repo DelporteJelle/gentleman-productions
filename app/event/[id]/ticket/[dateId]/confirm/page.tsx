@@ -4,13 +4,13 @@ import { Suspense, useEffect, useState } from "react";
 import { useParams, useSearchParams } from "next/navigation";
 import Link from "next/link";
 import styles from "./Confirm.module.css";
+import type { OrderView } from "@/types";
 
 function ConfirmContent() {
   const { id } = useParams();
   const searchParams = useSearchParams();
   const orderId = searchParams.get("order");
-  const [status, setStatus] = useState<string | null>(null);
-  const [hasTickets, setHasTickets] = useState(true);
+  const [view, setView] = useState<OrderView | null>(null);
   const [timedOut, setTimedOut] = useState(false);
 
   useEffect(() => {
@@ -24,13 +24,10 @@ function ConfirmContent() {
       attempts++;
       try {
         const res = await fetch(`/api/tickets/orders/${orderId}`);
-        const data = (await res.json()) as { status?: string; has_tickets?: boolean };
+        const data = (await res.json()) as OrderView | { error: string };
         if (cancelled) return;
-        if (data.status && data.status !== "pending") {
-          // Default to true so an older/partial response never downgrades a
-          // genuine success into the "we lost your seats" message.
-          setHasTickets(data.has_tickets !== false);
-          setStatus(data.status);
+        if ("state" in data && data.state !== "pending") {
+          setView(data);
           return;
         }
       } catch {
@@ -51,7 +48,7 @@ function ConfirmContent() {
     };
   }, [orderId]);
 
-  if (!status && !timedOut) {
+  if (!view && !timedOut) {
     return (
       <main className={styles.page}>
         <p className={styles.status}>Je betaling wordt bevestigd...</p>
@@ -62,7 +59,7 @@ function ConfirmContent() {
   // Paid, but fulfilment could not assign any seat (they lapsed and were taken
   // by a later order). Saying "You're in!" here would be a lie, and telling
   // them the seats were released would invite a second payment.
-  if (status === "paid" && !hasTickets) {
+  if (view?.state === "paid" && !view.hasTickets) {
     return (
       <main className={styles.page}>
         <p className={styles.eyebrow}>Gentleman Productions</p>
@@ -78,7 +75,7 @@ function ConfirmContent() {
     );
   }
 
-  if (status === "paid") {
+  if (view?.state === "paid") {
     return (
       <main className={styles.page}>
         <p className={styles.eyebrow}>Gentleman Productions</p>
@@ -95,7 +92,7 @@ function ConfirmContent() {
     );
   }
 
-  if (status === "cancelled") {
+  if (view?.state === "cancelled") {
     return (
       <main className={styles.page}>
         <p className={styles.eyebrow}>Gentleman Productions</p>
