@@ -157,9 +157,50 @@ export async function resumeOrder(sql: Sql, orderId: string): Promise<ResumeResu
     metadata: { orderId },
   });
 
-  await sql`
-    UPDATE orders SET mollie_payment_id = ${fresh.id} WHERE id = ${orderId};
+  // Compare-and-swap. `resumeOrder` can run twice for the same order at once
+  // (a double-click, two tabs); both racers read the same dead payment and
+  // both call Mollie for real, so `fresh` may not be the only new payment in
+  // flight. `AND status = 'pending'` alone does NOT close this race — both
+  // racers see 'pending' at read time. It is the `mollie_payment_id =
+  // ${order.mollie_payment_id}` comparison that does the work: whichever
+  // caller's UPDATE lands first changes that column out from under the
+  // other, so only one of the two matching WHERE clauses can still be true.
+  // Do not "simplify" this back down to the status check alone.
+  const swapped = await sql`
+    UPDATE orders SET mollie_payment_id = ${fresh.id}
+    WHERE id = ${orderId}
+      AND status = 'pending'
+      AND mollie_payment_id = ${order.mollie_payment_id}
+    RETURNING id;
   `;
 
-  return { state: "checkout", checkoutUrl: fresh.getCheckoutUrl()! };
+  if (swapped.length > 0) {
+    return { state: "checkout", checkoutUrl: fresh.getCheckoutUrl()! };
+  }
+
+  // Lost the race: some other caller's swap already replaced the payment we
+  // read. `fresh` is an orphaned Mollie session tied to nothing — handing its
+  // URL to this caller would send them to a checkout no one else is waiting
+  // on. Re-read what actually won and defer to it instead.
+  const currentRows = await sql`
+    SELECT id, event_uuid, date_uuid, total_amount, status, mollie_payment_id,
+           coalesce(payment_started_at, created_at) > now() - interval '1 hour' AS window_live
+    FROM orders WHERE id = ${orderId};
+  `;
+  const current = currentRows[0] as typeof order | undefined;
+  if (!current) return { state: "unknown" };
+  if (current.status === "paid") return { state: "paid" };
+
+  if (current.status === "pending" && current.mollie_payment_id && current.mollie_payment_id !== order.mollie_payment_id) {
+    try {
+      const winner = await getMollie().payments.get(current.mollie_payment_id);
+      if (winner.status === "open") {
+        return { state: "checkout", checkoutUrl: winner.getCheckoutUrl()! };
+      }
+    } catch (err) {
+      console.error(`Resume could not reach Mollie for the winning payment on order ${orderId}:`, err);
+    }
+  }
+
+  return { state: "unknown" };
 }

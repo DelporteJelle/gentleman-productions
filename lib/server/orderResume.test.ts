@@ -126,9 +126,17 @@ function createFakeSql(state: FakeState) {
     }
 
     if (head.startsWith("UPDATE orders SET mollie_payment_id")) {
-      const [paymentId, orderId] = values;
-      if (state.order && state.order.id === orderId) {
+      const [paymentId, orderId, previousPaymentId] = values;
+      const guardedPending = full.includes("AND status = 'pending'");
+      const guardedPrevPayment = full.includes("AND mollie_payment_id =");
+      if (
+        state.order &&
+        state.order.id === orderId &&
+        (!guardedPending || state.order.status === "pending") &&
+        (!guardedPrevPayment || state.order.mollie_payment_id === previousPaymentId)
+      ) {
         state.order.mollie_payment_id = paymentId as string;
+        return [{ id: orderId }];
       }
       return [];
     }
@@ -283,6 +291,38 @@ describe("resumeOrder", () => {
     expect(state.tickets.every((t) => t.held_until === "2026-07-30T12:10:00Z")).toBe(true);
   });
 
+  it("does not refresh held_until on a ticket that is no longer held", async () => {
+    // Pins `AND status = 'held'` on the tickets UPDATE: a ticket carrying this
+    // order_id but already sold (settled between our read and this write)
+    // must not have its hold clock touched.
+    const state = freshState();
+    state.tickets[0].status = "sold";
+    state.tickets[0].held_until = null;
+    const { sql } = createFakeSql(state);
+    mocks.paymentsGet.mockResolvedValue(openPayment());
+
+    await resumeOrder(sql, ORDER_ID);
+
+    expect(state.tickets[0].held_until).toBeNull();
+    expect(state.tickets[1].held_until).toBe("2026-07-30T12:10:00Z");
+  });
+
+  it("does not re-stamp payment_started_at once the order stopped being pending", async () => {
+    // Pins `AND status = 'pending'` on the orders UPDATE. Simulates a
+    // concurrent webhook marking the order paid between our read and this
+    // write — the guard must stop the stamp from landing on a settled order.
+    const state = freshState();
+    const { sql } = createFakeSql(state);
+    mocks.paymentsGet.mockImplementation(async () => {
+      state.order!.status = "paid";
+      return openPayment();
+    });
+
+    await resumeOrder(sql, ORDER_ID);
+
+    expect(state.order?.payment_started_at).toBe("2026-07-30T10:00:00Z");
+  });
+
   it("mints a new payment on the SAME order when the old one expired", async () => {
     const state = freshState();
     const { sql } = createFakeSql(state);
@@ -300,6 +340,63 @@ describe("resumeOrder", () => {
     expect(mocks.paymentsCreate.mock.calls[0][0].metadata).toEqual({ orderId: ORDER_ID });
     // Charge the amount already agreed, never a recomputed one.
     expect(mocks.paymentsCreate.mock.calls[0][0].amount).toEqual({ currency: "EUR", value: "40.00" });
+  });
+
+  it("does not return its own checkout URL when it loses the concurrent payment-id race", async () => {
+    // Two concurrent resumes both read the same dead payment and both mint a
+    // real Mollie payment. Whichever swap lands first wins; the loser's
+    // `fresh` payment is orphaned and must never be handed to its caller.
+    const state = freshState();
+    const { sql } = createFakeSql(state);
+    mocks.paymentsGet.mockResolvedValueOnce({ ...openPayment(), status: "expired" });
+    mocks.paymentsCreate.mockImplementation(async () => {
+      // Simulate a rival resume's swap landing while we are still inside our
+      // own payments.create call.
+      state.order!.mollie_payment_id = "tr_winner_789";
+      return { id: "tr_orphan_000", getCheckoutUrl: () => "https://mollie.test/checkout/orphan" };
+    });
+    mocks.paymentsGet.mockResolvedValueOnce({
+      ...openPayment(),
+      status: "open",
+      getCheckoutUrl: () => "https://mollie.test/checkout/winner",
+    });
+
+    const result = await resumeOrder(sql, ORDER_ID);
+
+    expect(result).toEqual({ state: "checkout", checkoutUrl: "https://mollie.test/checkout/winner" });
+    expect(state.order?.mollie_payment_id).toBe("tr_winner_789");
+  });
+
+  it("reports paid when the winning concurrent resume already fulfilled the order", async () => {
+    const state = freshState();
+    const { sql } = createFakeSql(state);
+    mocks.paymentsGet.mockResolvedValueOnce({ ...openPayment(), status: "expired" });
+    mocks.paymentsCreate.mockImplementation(async () => {
+      state.order!.mollie_payment_id = "tr_winner_789";
+      state.order!.status = "paid";
+      return { id: "tr_orphan_000", getCheckoutUrl: () => "https://mollie.test/checkout/orphan" };
+    });
+
+    const result = await resumeOrder(sql, ORDER_ID);
+
+    expect(result).toEqual({ state: "paid" });
+    // Already paid — no need to ask Mollie about the winning payment at all.
+    expect(mocks.paymentsGet).toHaveBeenCalledTimes(1);
+  });
+
+  it("returns unknown when it loses the race and the winning payment is not open either", async () => {
+    const state = freshState();
+    const { sql } = createFakeSql(state);
+    mocks.paymentsGet.mockResolvedValueOnce({ ...openPayment(), status: "expired" });
+    mocks.paymentsCreate.mockImplementation(async () => {
+      state.order!.mollie_payment_id = "tr_winner_789";
+      return { id: "tr_orphan_000", getCheckoutUrl: () => "https://mollie.test/checkout/orphan" };
+    });
+    mocks.paymentsGet.mockResolvedValueOnce({ ...openPayment(), status: "expired" });
+
+    const result = await resumeOrder(sql, ORDER_ID);
+
+    expect(result).toEqual({ state: "unknown" });
   });
 
   it("expires the order when the window has lapsed and the payment is dead", async () => {
