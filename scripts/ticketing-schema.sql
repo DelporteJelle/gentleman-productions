@@ -42,3 +42,11 @@ create index if not exists tickets_order_id_idx  on tickets(order_id);
 create index if not exists tickets_status_idx    on tickets(status);
 
 alter table orders add column if not exists reserved_by_admin boolean not null default false;
+
+-- Anchors the one-hour seat-protection window in the checkout claim to the
+-- LATEST payment attempt rather than to order creation. Resuming an abandoned
+-- order mints a fresh Mollie payment on the same (old) order row; without
+-- this the guard would compare against a stale created_at, protect nothing,
+-- and let a rival claim the seats out from under someone mid-payment.
+-- Null on pre-existing rows; every reader uses coalesce(payment_started_at, created_at).
+alter table orders add column if not exists payment_started_at timestamptz;

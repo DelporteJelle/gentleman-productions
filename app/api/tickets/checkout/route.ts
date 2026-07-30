@@ -50,8 +50,8 @@ export async function POST(request: Request) {
     // The order row is created first so its id can be written into the tickets
     // by the same statement that claims them.
     const created = await sql`
-      INSERT INTO orders (event_uuid, date_uuid, customer_name, customer_email, total_amount, status)
-      VALUES (${eventUuid}, ${dateUuid}, ${name}, ${email}, ${totalCents}, 'pending')
+      INSERT INTO orders (event_uuid, date_uuid, customer_name, customer_email, total_amount, status, payment_started_at)
+      VALUES (${eventUuid}, ${dateUuid}, ${name}, ${email}, ${totalCents}, 'pending', now())
       RETURNING id;
     `;
     orderId = created[0].id as string;
@@ -86,7 +86,7 @@ export async function POST(request: Request) {
                WHERE o.id = t.order_id
                  AND o.status = 'pending'
                  AND o.mollie_payment_id IS NOT NULL
-                 AND o.created_at > now() - interval '1 hour'))
+                 AND coalesce(o.payment_started_at, o.created_at) > now() - interval '1 hour'))
       RETURNING t.id;
     `;
 

@@ -210,6 +210,8 @@ export interface Order {
   total_amount: number;
   status: "pending" | "paid" | "cancelled";
   mollie_payment_id: string | null;
+  /** Set at checkout and re-stamped on every resume; null on rows predating the column. */
+  payment_started_at: string | null;
   reserved_by_admin: boolean;
   created_at: string;
 }
