@@ -8,6 +8,7 @@ import { usePosts } from "@/app/contexts/PostsContext";
 import { splitTitleAccent, toRomanNumerals } from "@/lib/text";
 import CanvasBackground from "@/components/Background/CanvasBackground";
 import SectionLabel from "@/components/SectionLabel/SectionLabel";
+import SavedOrderBanner from "@/components/SavedOrders/SavedOrderBanner";
 import EventGallery from "@/components/EventGallery/EventGallery";
 import {
   LoadingScreen,
@@ -121,6 +122,8 @@ export default function EventPage() {
           )}
         </div>
       </section>
+
+      <SavedOrderBanner />
 
       {paragraphs.length > 0 && (
         <section className={styles.programme} aria-label="Programme notes">

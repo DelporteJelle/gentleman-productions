@@ -210,6 +210,40 @@ export interface Order {
   total_amount: number;
   status: "pending" | "paid" | "cancelled";
   mollie_payment_id: string | null;
+  /** Set at checkout and re-stamped on every resume; null on rows predating the column. */
+  payment_started_at: string | null;
   reserved_by_admin: boolean;
   created_at: string;
+}
+
+export interface OrderViewBase {
+  orderId: string;
+  eventUuid: string;
+  dateUuid: string;
+  eventTitle: string;
+  startTime: string | null;
+  /** e.g. ["A1", "A2"] — the seats this order currently holds or has sold. */
+  seatLabels: string[];
+  /** Integer cents, as stored on the order. */
+  totalAmount: number;
+}
+
+export type OrderView =
+  | (OrderViewBase & { state: "pending"; resumable: boolean; expiresAt: string })
+  | (OrderViewBase & { state: "paid"; hasTickets: boolean })
+  | (OrderViewBase & { state: "cancelled" });
+
+/** One order this browser created. Durable user data, not a cache. */
+export interface SavedOrder {
+  orderId: string;
+  eventUuid: string;
+  dateUuid: string;
+  eventTitle: string;
+  startTime: string | null;
+  seatLabels: string[];
+  email: string;
+  savedAt: string;
+  lastKnownStatus: "pending" | "paid" | "cancelled";
+  /** When lastKnownStatus last changed — the clock the cancelled prune measures from. */
+  statusChangedAt: string;
 }

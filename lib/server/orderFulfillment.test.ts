@@ -62,6 +62,9 @@ interface FakeOrder {
   date_uuid: string;
   customer_name: string;
   customer_email: string;
+  /** Only relevant to the reconcileStuckOrders age-floor guard below. */
+  created_at?: string;
+  payment_started_at?: string | null;
 }
 
 interface FakeTicket {
@@ -450,24 +453,40 @@ describe("reconcileStuckOrders", () => {
     };
   }
 
+  /** Fixed reference instant for the age-floor guard below, so the test never
+   *  depends on the real wall clock. */
+  const RECONCILE_NOW = new Date("2026-07-30T12:00:00Z");
+
   /**
    * Same guard-derived-from-SQL-text approach as createFakeSql above, keyed
    * by order id instead of a single singleton so the sweep's per-order loop
    * has more than one row to iterate.
    */
-  function createMultiFakeSql(state: ReturnType<typeof multiState>) {
+  function createMultiFakeSql(state: ReturnType<typeof multiState>, now: Date = RECONCILE_NOW) {
     const fakeSql = (async (strings: TemplateStringsArray, ...values: unknown[]) => {
       const head = strings[0].trim();
       const full = strings.join(FRAGMENT_SEPARATOR);
 
       if (head.startsWith("SELECT id, mollie_payment_id FROM orders")) {
-        // Guards derived from the query text: dropping either clause in
+        // Guards derived from the query text: dropping any clause in
         // production would widen the sweep to orders it must not touch, and
         // that regression should fail a test here, not just in prod.
         const requiresPending = full.includes("status = 'pending'");
         const requiresPaymentId = full.includes("mollie_payment_id IS NOT NULL");
+        // Fix 2: the floor must anchor to the same clock the resume window
+        // uses (`coalesce(payment_started_at, created_at)`), not `created_at`
+        // alone — otherwise a just-resumed old order gets swept mid-payment.
+        const requiresAgeFloor = full.includes("coalesce(payment_started_at, created_at) <");
+        const [minAgeMinutes] = values as [number];
+        const threshold = now.getTime() - minAgeMinutes * 60_000;
         return state.orders
-          .filter((o) => (!requiresPending || o.status === "pending") && (!requiresPaymentId || !!o.mollie_payment_id))
+          .filter((o) => !requiresPending || o.status === "pending")
+          .filter((o) => !requiresPaymentId || !!o.mollie_payment_id)
+          .filter((o) => {
+            if (!requiresAgeFloor) return true;
+            const anchor = new Date(o.payment_started_at ?? o.created_at ?? 0).getTime();
+            return anchor < threshold;
+          })
           .map((o) => ({ id: o.id, mollie_payment_id: o.mollie_payment_id }));
       }
 
@@ -621,5 +640,76 @@ describe("reconcileStuckOrders", () => {
     expect(result.checked).toBe(0);
     expect(result.results).toEqual([]);
     expect(mocks.paymentsGet).not.toHaveBeenCalled();
+  });
+
+  it("does not sweep an order created long ago but resumed moments before the sweep runs", async () => {
+    // Fix 2: anchoring the floor to created_at alone would sweep this order —
+    // created 3 hours before the sweep, but its payment was resumed only 30
+    // seconds before the sweep runs, so it is still plausibly mid-payment on
+    // Mollie's hosted page. If the 04:00 sweep landed between resumeOrder's
+    // payments.create and its compare-and-swap, cancelling here would hit the
+    // stale dead payment id and leave resume reporting `unknown`.
+    const state = multiState();
+    state.orders = [
+      {
+        id: "order-resumed",
+        status: "pending",
+        mollie_payment_id: "pay-resumed",
+        total_amount: 2000,
+        event_uuid: EVENT_UUID,
+        date_uuid: DATE_UUID,
+        customer_name: "R",
+        customer_email: "r@example.com",
+        created_at: "2026-07-30T09:00:00Z", // 3h before RECONCILE_NOW
+        payment_started_at: "2026-07-30T11:59:30Z", // 30s before RECONCILE_NOW
+      },
+    ];
+
+    const sql = createMultiFakeSql(state);
+    const result = await reconcileStuckOrders(sql);
+
+    expect(result.checked).toBe(0);
+    expect(result.results).toEqual([]);
+    expect(mocks.paymentsGet).not.toHaveBeenCalled();
+  });
+
+  it("still sweeps an old order once its most recent payment attempt, not just its creation, is old enough", async () => {
+    // Guards the floor is not vacuous: an order resumed a full hour before
+    // the sweep (well past the 5-minute default floor) must still be caught,
+    // proving the anchor moved to payment_started_at rather than being
+    // dropped entirely.
+    const state = multiState();
+    state.orders = [
+      {
+        id: "order-stale-resume",
+        status: "pending",
+        mollie_payment_id: "pay-stale",
+        total_amount: 2000,
+        event_uuid: EVENT_UUID,
+        date_uuid: DATE_UUID,
+        customer_name: "S",
+        customer_email: "s@example.com",
+        created_at: "2026-07-30T09:00:00Z",
+        payment_started_at: "2026-07-30T11:00:00Z", // 1h before RECONCILE_NOW
+      },
+    ];
+    state.tickets = [
+      { id: "ticket-S1", seat_id: "seat-S1", order_id: "order-stale-resume", status: "held", held_until: "2026-01-01T00:00:00Z" },
+    ];
+    state.seats = [{ id: "seat-S1", row: "S", seat_number: 1 }];
+    state.events = [{ uuid: EVENT_UUID, title: "Test Show", production_theme: null, dates: [{ uuid: DATE_UUID, start_time: "2026-08-01T19:00:00Z" }] }];
+    mocks.paymentsGet.mockResolvedValue({
+      id: "pay-stale",
+      status: "expired",
+      amount: { value: "20.00", currency: "EUR" },
+      metadata: { orderId: "order-stale-resume" },
+    });
+
+    const sql = createMultiFakeSql(state);
+    const result = await reconcileStuckOrders(sql);
+
+    expect(result.checked).toBe(1);
+    expect(result.results).toEqual(["released"]);
+    expect(state.orders[0].status).toBe("cancelled");
   });
 });
