@@ -2,7 +2,14 @@
 
 import styles from "./SavedOrders.module.css";
 
-const CONTACT_EMAIL = "gentlemanproductions.official@gmail.com";
+/**
+ * Both addresses go in the `to:` field rather than one in `cc:`, so a reply-all
+ * keeps everyone on the thread. Comma-separated per RFC 6068.
+ */
+const CONTACT_EMAILS = [
+  "gentlemanproductions.official@gmail.com",
+  "jelledelporte@hotmail.com",
+];
 
 /**
  * Shown wherever we tell someone their order did not complete.
@@ -13,7 +20,7 @@ const CONTACT_EMAIL = "gentlemanproductions.official@gmail.com";
  * a shrug.
  */
 export default function ContactNote({ orderId }: { orderId: string }) {
-  const href = `mailto:${CONTACT_EMAIL}?subject=${encodeURIComponent(`Bestelling ${orderId}`)}`;
+  const href = `mailto:${CONTACT_EMAILS.join(",")}?subject=${encodeURIComponent(`Bestelling ${orderId}`)}`;
   return (
     <p className={styles.note}>
       Heb je toch betaald maar geen tickets ontvangen?{" "}

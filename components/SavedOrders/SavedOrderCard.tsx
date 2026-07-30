@@ -130,8 +130,7 @@ export default function SavedOrderCard({
         {header}
         <h2 className={styles.title}>Je betaling wordt nog gecontroleerd</h2>
         <p className={styles.copy}>
-          Als je betaling gelukt is, ontvang je je tickets zo per mail &mdash; je hoeft niet opnieuw
-          te betalen.
+          Als je betaling gelukt is, ontvang je je tickets zo per mail.
         </p>
         <ContactNote orderId={saved.orderId} />
       </div>
