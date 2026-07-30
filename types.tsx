@@ -215,3 +215,20 @@ export interface Order {
   reserved_by_admin: boolean;
   created_at: string;
 }
+
+export interface OrderViewBase {
+  orderId: string;
+  eventUuid: string;
+  dateUuid: string;
+  eventTitle: string;
+  startTime: string | null;
+  /** e.g. ["A1", "A2"] — the seats this order currently holds or has sold. */
+  seatLabels: string[];
+  /** Integer cents, as stored on the order. */
+  totalAmount: number;
+}
+
+export type OrderView =
+  | (OrderViewBase & { state: "pending"; resumable: boolean; expiresAt: string })
+  | (OrderViewBase & { state: "paid"; hasTickets: boolean })
+  | (OrderViewBase & { state: "cancelled" });
