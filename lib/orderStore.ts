@@ -52,11 +52,6 @@ export function addOrder(storage: Storage | undefined, entry: SavedOrder): void 
   write(storage, [entry, ...rest]);
 }
 
-/** Millisecond-free ISO string, matching the format used throughout the codebase's timestamps. */
-function isoNow(now: Date): string {
-  return now.toISOString().replace(/\.\d{3}Z$/, "Z");
-}
-
 export function updateOrder(
   storage: Storage | undefined,
   orderId: string,
@@ -70,7 +65,7 @@ export function updateOrder(
     return {
       ...e,
       ...patch,
-      statusChangedAt: statusMoved ? isoNow(now) : e.statusChangedAt,
+      statusChangedAt: statusMoved ? now.toISOString() : e.statusChangedAt,
     };
   });
   write(storage, entries);

@@ -71,7 +71,7 @@ describe("orderStore round-trip", () => {
     expect(listOrders(storage)[0].statusChangedAt).toBe("2026-07-30T10:00:00Z");
 
     updateOrder(storage, "order-1", { lastKnownStatus: "paid" }, new Date("2026-07-30T12:00:00Z"));
-    expect(listOrders(storage)[0].statusChangedAt).toBe("2026-07-30T12:00:00Z");
+    expect(listOrders(storage)[0].statusChangedAt).toBe("2026-07-30T12:00:00.000Z");
   });
 
   it("removes an order", () => {
