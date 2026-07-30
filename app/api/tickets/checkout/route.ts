@@ -114,7 +114,7 @@ export async function POST(request: Request) {
 
     await sql`UPDATE orders SET mollie_payment_id = ${payment.id} WHERE id = ${orderId};`;
 
-    return jsonResponse({ checkoutUrl: payment.getCheckoutUrl() });
+    return jsonResponse({ checkoutUrl: payment.getCheckoutUrl(), orderId });
   } catch (err) {
     // Never echo driver or provider internals back to the browser.
     console.error("Checkout error:", err);

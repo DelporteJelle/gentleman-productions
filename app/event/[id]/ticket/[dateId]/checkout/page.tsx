@@ -6,6 +6,7 @@ import Link from "next/link";
 import { Event, SeatTicket, isEvent } from "@/types";
 import { usePosts } from "@/app/contexts/PostsContext";
 import { splitTitleAccent } from "@/lib/text";
+import { addOrder } from "@/lib/orderStore";
 import CanvasBackground from "@/components/Background/CanvasBackground";
 import {
   LoadingScreen,
@@ -123,6 +124,24 @@ function CheckoutContent() {
       });
       const data = await res.json();
       if (data.checkoutUrl) {
+        // Written BEFORE the redirect, deliberately. This is the last moment
+        // the browser holds the order id, the seats and the email together —
+        // and if the return trip from Mollie is lost, this entry is the only
+        // way the customer ever finds their payment again.
+        if (data.orderId) {
+          addOrder(typeof window === "undefined" ? undefined : window.localStorage, {
+            orderId: data.orderId,
+            eventUuid: id as string,
+            dateUuid: dateId as string,
+            eventTitle: event!.title,
+            startTime: date!.start_time,
+            seatLabels: chosenSeats.map((t) => `${t.seat.row}${t.seat.seat_number}`),
+            email,
+            savedAt: new Date().toISOString(),
+            lastKnownStatus: "pending",
+            statusChangedAt: new Date().toISOString(),
+          });
+        }
         window.location.href = data.checkoutUrl;
       } else {
         setSubmitError(data.error || "Something went wrong. Please try again.");
