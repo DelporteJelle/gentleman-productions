@@ -122,7 +122,7 @@ CRON_SECRET=32_bytes_of_hex_random_value
   sends it automatically as `Authorization: Bearer $CRON_SECRET`. Without it,
   the route fails closed (503) rather than running unauthenticated. Admins can
   also trigger reconciliation for a single order immediately via the "Recheck
-  payment" button on `/private/tickets` (`POST
+  payment" button on `/private/admin-portal` (`POST
   /api/tickets/admin/orders/[id]/recheck`), without waiting for the cron.
 
 ## Testing Security
@@ -195,5 +195,5 @@ signature does not verify, so knowing a ticket id is not sufficient to enter.
   scoped to a single performance chosen by the operator. The ticket-summary
   endpoint it depends on for the performance list (`GET
   /api/tickets/summary`, including customer/order data) is shared by both
-  roles; the `/private/tickets` order-management page and its nav link
+  roles; the `/private/admin-portal` order-management page and its nav link
   remain `ADMIN`-only.

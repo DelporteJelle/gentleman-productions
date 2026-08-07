@@ -3,7 +3,7 @@
 import { useEffect, useState } from "react";
 import { Stack } from "@mantine/core";
 import { LoadingScreen, ErrorScreen } from "@/components/StateScreens/StateScreens";
-import styles from "./Tickets.module.css";
+import styles from "./AdminPortal.module.css";
 
 interface DateSummary {
   event_uuid: string;

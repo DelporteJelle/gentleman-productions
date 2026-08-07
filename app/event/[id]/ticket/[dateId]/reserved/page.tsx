@@ -33,7 +33,7 @@ function ReservedContent() {
         QR-code{plural ? "s" : ""} opnieuw downloaden, of de plaats{plural ? "en" : ""} weer
         vrijgeven zodat {plural ? "ze opnieuw verkocht kunnen" : "die opnieuw verkocht kan"} worden.
       </p>
-      <Link href="/private/tickets" className={styles.backLink}>
+      <Link href="/private/admin-portal" className={styles.backLink}>
         Naar het tickets-overzicht
       </Link>
     </main>

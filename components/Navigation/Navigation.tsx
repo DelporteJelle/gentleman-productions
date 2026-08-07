@@ -72,10 +72,10 @@ export default function Navigation() {
 
       {isAdmin && (
         <a
-          href="/private/tickets"
-          className={pathname === "/private/tickets" ? "active" : ""}
+          href="/private/admin-portal"
+          className={pathname === "/private/admin-portal" ? "active" : ""}
         >
-          Tickets
+          Admin portal
         </a>
       )}
 
