@@ -1,12 +1,14 @@
 "use client";
 
 import { Suspense, useEffect, useMemo, useState } from "react";
-import { useParams, useSearchParams } from "next/navigation";
+import { useParams, useSearchParams, useRouter } from "next/navigation";
 import Link from "next/link";
 import { Event, SeatTicket, isEvent } from "@/types";
 import { usePosts } from "@/app/contexts/PostsContext";
 import { splitTitleAccent } from "@/lib/text";
 import { addOrder } from "@/lib/orderStore";
+import { readCodes, clearCodes, type AppliedCode } from "@/lib/codeStore";
+import { computeOrderTotalCents } from "@/lib/ticketCodes";
 import CanvasBackground from "@/components/Background/CanvasBackground";
 import {
   LoadingScreen,
@@ -28,6 +30,7 @@ function formatNL(d: Date): string {
 function CheckoutContent() {
   const { id, dateId } = useParams();
   const searchParams = useSearchParams();
+  const router = useRouter();
   const { fetchPostById } = usePosts();
 
   const ticketIds = useMemo(
@@ -44,6 +47,8 @@ function CheckoutContent() {
   const [email, setEmail] = useState("");
   const [submitting, setSubmitting] = useState(false);
   const [submitError, setSubmitError] = useState("");
+  const [codes, setCodes] = useState<AppliedCode[]>([]);
+  const [codeNotice, setCodeNotice] = useState<string | null>(null);
 
   useEffect(() => {
     let cancelled = false;
@@ -92,6 +97,39 @@ function CheckoutContent() {
     };
   }, [id, dateId, fetchPostById, ticketIds]);
 
+  useEffect(() => {
+    let cancelled = false;
+    const stored = readCodes(window.sessionStorage, dateId as string);
+    if (stored.length === 0 || !event) return;
+
+    const run = async () => {
+      const surviving: AppliedCode[] = [];
+      for (const entry of stored) {
+        try {
+          const res = await fetch("/api/tickets/codes/validate", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ eventUuid: event.uuid, code: entry.code }),
+          });
+          if (res.ok) surviving.push(entry);
+        } catch {
+          // Network trouble is not proof the code is bad. Keep it — checkout
+          // re-checks server-side and is the only authority anyway.
+          surviving.push(entry);
+        }
+      }
+      if (cancelled) return;
+      setCodes(surviving);
+      if (surviving.length < stored.length) {
+        setCodeNotice("Eén of meer codes zijn niet meer geldig en zijn verwijderd.");
+      }
+    };
+    run();
+    return () => {
+      cancelled = true;
+    };
+  }, [dateId, event]);
+
   if (status === "loading") return <LoadingScreen />;
   if (status === "error") return <ErrorScreen message={errorMessage} />;
   if (status === "notFound" || !event) return <NotFoundScreen />;
@@ -102,7 +140,13 @@ function CheckoutContent() {
   const { main: titleMain, accent: titleAccent } = splitTitleAccent(event.title);
   const dateLabel = formatNL(new Date(date.start_time));
   const pricePerSeat = date.price ?? 0;
-  const total = pricePerSeat * ticketIds.length;
+  const freeCount = codes.filter((c) => c.kind === "free_ticket").length;
+  const totalCents = computeOrderTotalCents({
+    seatCount: ticketIds.length,
+    priceCents: Math.round(pricePerSeat * 100),
+    freeCodeCount: freeCount,
+  });
+  const total = totalCents / 100;
 
   const chosenSeats = seats
     .filter((t) => t.id !== null && ticketIds.includes(t.id))
@@ -120,9 +164,35 @@ function CheckoutContent() {
       const res = await fetch("/api/tickets/checkout", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ eventUuid: id, dateUuid: dateId, ticketIds, name, email }),
+        body: JSON.stringify({
+          eventUuid: id,
+          dateUuid: dateId,
+          ticketIds,
+          name,
+          email,
+          codes: codes.map((c) => c.code),
+        }),
       });
       const data = await res.json();
+      // No payment step exists for a fully discounted order — the server has
+      // already sold the seats and sent the tickets.
+      if (data.free && data.orderId) {
+        addOrder(typeof window === "undefined" ? undefined : window.localStorage, {
+          orderId: data.orderId,
+          eventUuid: id as string,
+          dateUuid: dateId as string,
+          eventTitle: event!.title,
+          startTime: date!.start_time,
+          seatLabels: chosenSeats.map((t) => `${t.seat.row}${t.seat.seat_number}`),
+          email,
+          savedAt: new Date().toISOString(),
+          lastKnownStatus: "pending",
+          statusChangedAt: new Date().toISOString(),
+        });
+        clearCodes(window.sessionStorage, dateId as string);
+        router.push(`/event/${id}/ticket/${dateId}/confirm?order=${data.orderId}`);
+        return;
+      }
       if (data.checkoutUrl) {
         // Written BEFORE the redirect, deliberately. This is the last moment
         // the browser holds the order id, the seats and the email together —
@@ -142,6 +212,7 @@ function CheckoutContent() {
             statusChangedAt: new Date().toISOString(),
           });
         }
+        clearCodes(window.sessionStorage, dateId as string);
         window.location.href = data.checkoutUrl;
       } else {
         setSubmitError(data.error || "Something went wrong. Please try again.");
@@ -202,6 +273,17 @@ function CheckoutContent() {
             ))}
           </div>
 
+          {freeCount > 0 && (
+            <div className={styles.totalRow}>
+              <span className={styles.totalLabel}>
+                {freeCount} gratis ticket{freeCount !== 1 ? "s" : ""}
+              </span>
+              <span className={styles.totalValue}>
+                &minus;&euro;{(freeCount * pricePerSeat).toFixed(2)}
+              </span>
+            </div>
+          )}
+          {codeNotice && <p className={styles.error}>{codeNotice}</p>}
           <div className={styles.totalRow}>
             <span className={styles.totalLabel}>
               {ticketIds.length} ticket{ticketIds.length !== 1 ? "s" : ""} &times; &euro;
@@ -230,7 +312,11 @@ function CheckoutContent() {
           />
           {submitError && <p className={styles.error}>{submitError}</p>}
           <button type="submit" disabled={submitting} className={styles.payBtn}>
-            {submitting ? "Redirecting to payment..." : `Pay €${total.toFixed(2)}`}
+            {submitting
+              ? "Redirecting to payment..."
+              : total === 0
+                ? "Bevestig gratis tickets"
+                : `Pay €${total.toFixed(2)}`}
           </button>
         </form>
       </div>
