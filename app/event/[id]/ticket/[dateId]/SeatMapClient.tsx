@@ -22,6 +22,10 @@ import {
   ErrorScreen,
   NotFoundScreen,
 } from "@/components/StateScreens/StateScreens";
+import CodeEntryPanel from "@/components/TicketCodes/CodeEntryPanel";
+import { useTicketCodes } from "@/components/TicketCodes/useTicketCodes";
+import { writeCodes } from "@/lib/codeStore";
+import codeStyles from "@/components/TicketCodes/TicketCodes.module.css";
 import styles from "./SeatMap.module.css";
 
 type Status = "loading" | "ready" | "notFound" | "error";
@@ -71,6 +75,13 @@ export default function SeatMapClient({ isAdmin }: { isAdmin: boolean }) {
 
   const [placeBusy, setPlaceBusy] = useState(false);
   const [placeError, setPlaceError] = useState<string | null>(null);
+
+  const codes = useTicketCodes(event?.uuid, dateId as string);
+  // The unlocked wheelchair anchor is tracked separately from `selected`.
+  // That array carries the contiguity rules; a wheelchair place is exempt from
+  // them, and threading an exemption flag through isSelectable/toggleSeat
+  // would put a special case inside logic that is currently uniform.
+  const [wheelchairTicketId, setWheelchairTicketId] = useState<string | null>(null);
 
   const seatGridRef = useRef<HTMLDivElement>(null);
   const [scrollLeft, setScrollLeft] = useState(false);
@@ -228,7 +239,8 @@ export default function SeatMapClient({ isAdmin }: { isAdmin: boolean }) {
    * through every seam.
    */
   function getPlaceCellStyle(cell: PlaceCell): React.CSSProperties {
-    const active = cell.groupId === hoverGroup || cell.groupId === selectedGroupId;
+    const chosen = anchorTicketIdFor(cell.groupId) === wheelchairTicketId && wheelchairTicketId !== null;
+    const active = cell.groupId === hoverGroup || cell.groupId === selectedGroupId || chosen;
     const { seats, gaps } = segmentSpan(cell.seatNums.length, cell.isRunEnd);
     const border = `2px solid ${active ? "#bfdbfe" : "rgba(96,165,250,0.55)"}`;
     const radius = "8px";
@@ -253,9 +265,9 @@ export default function SeatMapClient({ isAdmin }: { isAdmin: boolean }) {
 
       // Flat, not a gradient: a vertical gradient restarts in every row and
       // would band a place spanning rows into stripes.
-      background: SEAT.wheelchair,
       boxShadow: cell.continuesDown ? undefined : "0 2px 5px rgba(0,0,0,0.3)",
-      cursor: isAdmin ? "pointer" : "not-allowed",
+      cursor: isAdmin || codes.wheelchairCount > 0 ? "pointer" : "not-allowed",
+      background: chosen ? SEAT.selected : SEAT.wheelchair,
     };
   }
 
@@ -268,10 +280,26 @@ export default function SeatMapClient({ isAdmin }: { isAdmin: boolean }) {
   /** A place is selected as a whole, by group id — see the selectedGroupId
    *  declaration for why it cannot go through `selected`. */
   function handlePlaceClick(groupId: string) {
-    if (!isAdmin) return;
+    if (!isAdmin) {
+      // A validated wheelchair code unlocks exactly one place.
+      if (codes.wheelchairCount === 0) return;
+      const anchorId = anchorTicketIdFor(groupId);
+      if (!anchorId) return;
+      setWheelchairTicketId((prev) => (prev === anchorId ? null : anchorId));
+      return;
+    }
     setSelected([]);
     setPlaceError(null);
     setSelectedGroupId((prev) => (prev === groupId ? null : groupId));
+  }
+
+  /** The one sellable ticket of a place — the only member with an exposed id. */
+  function anchorTicketIdFor(groupId: string): string | null {
+    for (const key in index.seatMap) {
+      const cell = index.seatMap[key];
+      if (cell.wheelchair_group_id === groupId && cell.seat_kind === "wheelchair") return cell.id;
+    }
+    return null;
   }
 
   function placeLabel(groupId: string): string {
@@ -419,6 +447,14 @@ export default function SeatMapClient({ isAdmin }: { isAdmin: boolean }) {
 
       <SectionLabel>Choose Your Seats</SectionLabel>
 
+      <p className={codeStyles.notice}>
+        wil je een rolstoel plaats reserveren, mail naar{" "}
+        <a href="mailto:gentlemanproductions.official@gmail.com">
+          gentlemanproductions.official@gmail.com
+        </a>
+        , heb je een code gekregen, geef deze onderaan de pagina in.
+      </p>
+
       {tickets.length === 0 ? (
         <div className={styles.emptyState}>
           <p className={styles.emptyTitle}>Seats aren&rsquo;t available for this date yet.</p>
@@ -556,6 +592,14 @@ export default function SeatMapClient({ isAdmin }: { isAdmin: boolean }) {
         </div>
       </div>
 
+      <CodeEntryPanel
+        applied={codes.applied}
+        error={codes.error}
+        busy={codes.busy}
+        onApply={codes.apply}
+        onRemove={codes.remove}
+      />
+
       <div className={styles.bottomBar}>
         <div className={styles.bottomBarInfo}>
           <div className={styles.selectionCount}>
@@ -565,8 +609,11 @@ export default function SeatMapClient({ isAdmin }: { isAdmin: boolean }) {
                 ? "No seats selected"
                 : `${selected.length} seat${selected.length > 1 ? "s" : ""} selected`}
           </div>
-          {selected.length > 0 && (
-            <div className={styles.priceLine}>€{price.toFixed(2)} per seat</div>
+          {(selected.length > 0 || wheelchairTicketId) && (
+            <div className={styles.priceLine}>
+              €{price.toFixed(2)} per seat
+              {codes.freeCount > 0 && ` · ${codes.freeCount} gratis`}
+            </div>
           )}
         </div>
         <div className={styles.bottomBarActions}>
@@ -614,13 +661,15 @@ export default function SeatMapClient({ isAdmin }: { isAdmin: boolean }) {
           <button
             type="button"
             className={styles.continueBtn}
-            disabled={selected.length === 0}
-            onClick={() =>
-              selected.length > 0 &&
-              router.push(`/event/${id}/ticket/${dateId}/checkout?tickets=${selected.join(",")}`)
-            }
+            disabled={selected.length === 0 && !wheelchairTicketId}
+            onClick={() => {
+              const all = [...selected, ...(wheelchairTicketId ? [wheelchairTicketId] : [])];
+              if (all.length === 0) return;
+              writeCodes(window.sessionStorage, dateId as string, codes.applied);
+              router.push(`/event/${id}/ticket/${dateId}/checkout?tickets=${all.join(",")}`);
+            }}
           >
-            {selected.length > 0 ? "Continue →" : "Select seats"}
+            {selected.length > 0 || wheelchairTicketId ? "Continue →" : "Select seats"}
           </button>
         </div>
       </div>

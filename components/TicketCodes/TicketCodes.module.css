@@ -1,0 +1,108 @@
+.panel {
+  max-width: 520px;
+  margin: 0 auto 1.5rem;
+  padding: 0 1rem;
+}
+
+.notice {
+  max-width: 620px;
+  margin: 0 auto 1.25rem;
+  padding: 0 1rem;
+  text-align: center;
+  font-size: 0.85rem;
+  line-height: 1.6;
+  color: var(--cream-muted);
+}
+
+.notice a {
+  color: var(--gold);
+  text-decoration: underline;
+}
+
+.form {
+  display: flex;
+  gap: 0.5rem;
+}
+
+.input {
+  flex: 1;
+  padding: 0.6rem 0.85rem;
+  border-radius: 6px;
+  border: 1px solid rgba(245, 233, 213, 0.25);
+  background: rgba(0, 0, 0, 0.3);
+  color: var(--cream);
+  font-family: monospace;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.input:focus {
+  outline: none;
+  border-color: var(--gold);
+}
+
+.applyBtn {
+  padding: 0.6rem 1.1rem;
+  border-radius: 6px;
+  border: 1px solid var(--gold);
+  background: transparent;
+  color: var(--gold);
+  font-weight: 600;
+  font-size: 0.8rem;
+  letter-spacing: 0.04em;
+  cursor: pointer;
+}
+
+.applyBtn:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.error {
+  margin: 0.5rem 0 0;
+  font-size: 0.8rem;
+  color: #f87171;
+}
+
+.chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.4rem;
+  margin: 0.75rem 0 0;
+  padding: 0;
+  list-style: none;
+}
+
+.chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4rem;
+  padding: 0.3rem 0.5rem;
+  border-radius: 999px;
+  border: 1px solid rgba(245, 233, 213, 0.2);
+  font-size: 0.75rem;
+}
+
+.chipKind {
+  color: var(--gold);
+  font-weight: 600;
+}
+
+.chipCode {
+  font-family: monospace;
+  color: var(--cream-muted);
+}
+
+.chipRemove {
+  border: none;
+  background: transparent;
+  color: var(--cream-muted);
+  cursor: pointer;
+  font-size: 1rem;
+  line-height: 1;
+  padding: 0 0.1rem;
+}
+
+.chipRemove:hover {
+  color: #f87171;
+}
