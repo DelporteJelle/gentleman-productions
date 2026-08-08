@@ -157,6 +157,15 @@ export default function SeatMapClient({ isAdmin }: { isAdmin: boolean }) {
     };
   }, [tickets]);
 
+  // A removed code must not leave an unlocked place stranded. With no
+  // wheelchair code left, checkout would reject the anchor ticket anyway, and
+  // handlePlaceClick's non-admin branch guards on `wheelchairCount === 0`
+  // before it ever reaches the toggle-off logic — so without this, clicking
+  // the place after the code is gone does nothing and only a reload recovers.
+  useEffect(() => {
+    if (codes.wheelchairCount === 0) setWheelchairTicketId(null);
+  }, [codes.wheelchairCount]);
+
   if (status === "loading") return <LoadingScreen />;
   if (status === "error") return <ErrorScreen message={errorMessage} />;
   if (status === "notFound" || !event) return <NotFoundScreen />;
