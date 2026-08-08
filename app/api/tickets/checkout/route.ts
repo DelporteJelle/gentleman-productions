@@ -28,7 +28,9 @@ export async function POST(request: Request) {
   // pending order or a hold nothing will ever release before its 10-minute
   // expiry.
   const releaseAndDelete = async () => {
-    await releaseCodesForOrder(sql, orderId!);
+    // Seats are released FIRST, before codes: seats are the scarcer resource,
+    // so if releasing codes throws, the seats must already be free rather
+    // than stranded behind it.
     // `AND status = 'held'` bounds the blast radius: a ticket already sold
     // (by a fulfilment this same request triggered, or by anything else)
     // must never be un-sold. Mirrors expirePendingOrder in orderResume.ts.
@@ -36,6 +38,7 @@ export async function POST(request: Request) {
       UPDATE tickets SET status = 'available', held_until = NULL, order_id = NULL
       WHERE order_id = ${orderId} AND status = 'held';
     `;
+    await releaseCodesForOrder(sql, orderId!);
     // `AND status <> 'paid'` for the same reason: a paid order must never be
     // deleted out from under its own tickets.
     await sql`DELETE FROM orders WHERE id = ${orderId} AND status <> 'paid';`;
@@ -207,9 +210,10 @@ export async function POST(request: Request) {
       // shout: this order needs a human, not an automatic rollback.
       console.error(
         `Checkout order ${orderId} failed during €0 fulfilment and was NOT rolled back — ` +
-          `its tickets may already be marked 'sold' and/or the order may already be 'paid'. ` +
-          `Manual intervention required: check order ${orderId} (orders.status, tickets.order_id) ` +
-          `and complete or refund it by hand.`,
+          `its tickets may already be marked 'sold' and/or the order may already be 'paid', and ` +
+          `any ticket_codes it claimed may need manual release. ` +
+          `Manual intervention required: check order ${orderId} (orders.status, tickets.order_id, ` +
+          `ticket_codes.used_by_order_id) and complete or refund it by hand.`,
         err,
       );
     } else if (orderId) {

@@ -181,10 +181,11 @@ describe("expirePendingOrder", () => {
     await expirePendingOrder(sql, state.order!, { status: "open", isCancelable: true });
 
     expect(calls[0]).toBe("MOLLIE_CANCEL");
-    // The codes release lands first (it's the first statement inside the
-    // release), then the ticket release — both strictly after the cancel.
-    expect(calls[1]).toMatch(/^UPDATE ticket_codes SET used_by_order_id = NULL/);
-    expect(calls[2]).toMatch(/^UPDATE tickets SET status = 'available'/);
+    // The ticket release lands first (seats are the scarcer resource, so a
+    // codes-release failure must not strand them), then the codes release —
+    // both strictly after the cancel.
+    expect(calls[1]).toMatch(/^UPDATE tickets SET status = 'available'/);
+    expect(calls[2]).toMatch(/^UPDATE ticket_codes SET used_by_order_id = NULL/);
   });
 
   it("does not call Mollie cancel when the payment is not cancelable", async () => {

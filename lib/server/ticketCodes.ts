@@ -1,9 +1,19 @@
+import { randomBytes } from "crypto";
 import type { NeonQueryFunction } from "@neondatabase/serverless";
-import { normalizeCode, generateCode, codeState, type CodeKind, type CodeState } from "@/lib/ticketCodes";
+import {
+  normalizeCode,
+  codeState,
+  CODE_ALPHABET,
+  BODY_LENGTH,
+  format,
+  MAX_CODES_PER_ORDER,
+  type CodeKind,
+  type CodeState,
+} from "@/lib/ticketCodes";
 
 type Sql = NeonQueryFunction<false, false>;
 
-export const MAX_CODES_PER_ORDER = 10;
+export { MAX_CODES_PER_ORDER };
 
 export type CodeListResult =
   | { ok: true; codes: string[] }
@@ -115,6 +125,24 @@ export function validateGenerateInput(body: unknown): GenerateValidation {
     return { ok: false, error: `Kies een aantal tussen 1 en ${MAX_BATCH}.` };
 
   return { ok: true, value: { eventUuid, kind, label, quantity: requested } };
+}
+
+/**
+ * A fresh code. Rejection sampling, not modulo: 256 is not a multiple of 30,
+ * so `byte % 30` would make the first 16 symbols measurably likelier and
+ * quietly cost entropy.
+ */
+export function generateCode(): string {
+  const limit = Math.floor(256 / CODE_ALPHABET.length) * CODE_ALPHABET.length; // 240
+  let body = "";
+  while (body.length < BODY_LENGTH) {
+    for (const byte of randomBytes(BODY_LENGTH)) {
+      if (byte >= limit) continue;
+      body += CODE_ALPHABET[byte % CODE_ALPHABET.length];
+      if (body.length === BODY_LENGTH) break;
+    }
+  }
+  return format(body);
 }
 
 export async function generateCodes(

@@ -1,7 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useMemo, useState } from "react";
-import { normalizeCode } from "@/lib/ticketCodes";
+import { normalizeCode, MAX_CODES_PER_ORDER } from "@/lib/ticketCodes";
 import { readCodes, writeCodes, clearCodes, type AppliedCode } from "@/lib/codeStore";
 
 const storage = () => (typeof window === "undefined" ? undefined : window.sessionStorage);
@@ -34,8 +34,8 @@ export function useTicketCodes(eventUuid: string | undefined, dateUuid: string) 
         setError("Deze code is al toegevoegd.");
         return false;
       }
-      if (applied.length >= 10) {
-        setError("Je kan hoogstens 10 codes gebruiken.");
+      if (applied.length >= MAX_CODES_PER_ORDER) {
+        setError(`Je kan hoogstens ${MAX_CODES_PER_ORDER} codes gebruiken.`);
         return false;
       }
       if (!eventUuid) return false;

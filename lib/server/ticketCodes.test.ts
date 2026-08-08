@@ -5,9 +5,10 @@ import {
   claimCodes,
   releaseCodesForOrder,
   validateGenerateInput,
+  generateCode,
   MAX_BATCH,
 } from "@/lib/server/ticketCodes";
-import { generateCode } from "@/lib/ticketCodes";
+import { CODE_ALPHABET, normalizeCode } from "@/lib/ticketCodes";
 
 describe("normalizeCodeList", () => {
   it("accepts an absent list as empty", () => {
@@ -43,6 +44,27 @@ describe("normalizeCodeList", () => {
   it(`accepts exactly ${MAX_CODES_PER_ORDER} codes`, () => {
     const exact = Array.from({ length: MAX_CODES_PER_ORDER }, () => generateCode());
     expect(normalizeCodeList(exact).ok).toBe(true);
+  });
+});
+
+describe("generateCode", () => {
+  it("produces a code that normalizes to itself", () => {
+    for (let i = 0; i < 50; i++) {
+      const code = generateCode();
+      expect(normalizeCode(code)).toBe(code);
+    }
+  });
+
+  it("uses only alphabet symbols", () => {
+    for (let i = 0; i < 50; i++) {
+      const body = generateCode().replace(/^GP-/, "").replace("-", "");
+      for (const ch of body) expect(CODE_ALPHABET).toContain(ch);
+    }
+  });
+
+  it("does not repeat itself across many draws", () => {
+    const seen = new Set(Array.from({ length: 200 }, () => generateCode()));
+    expect(seen.size).toBe(200);
   });
 });
 

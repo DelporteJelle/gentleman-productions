@@ -63,13 +63,16 @@ export async function expirePendingOrder(
     }
   }
 
-  await releaseCodesForOrder(sql, order.id);
+  // Seats are released FIRST, before codes: seats are the scarcer resource,
+  // so if releasing codes throws, the seats must already be free rather than
+  // stranded behind it.
   // `AND status = 'held'` bounds the blast radius: a sold ticket carrying this
   // order_id (paid between our read and now) must never be un-sold.
   await sql`
     UPDATE tickets SET status = 'available', held_until = NULL, order_id = NULL
     WHERE order_id = ${order.id} AND status = 'held';
   `;
+  await releaseCodesForOrder(sql, order.id);
   await sql`
     UPDATE orders SET status = 'cancelled'
     WHERE id = ${order.id} AND status = 'pending';

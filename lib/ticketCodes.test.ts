@@ -2,7 +2,6 @@ import { describe, it, expect } from "vitest";
 import {
   CODE_ALPHABET,
   normalizeCode,
-  generateCode,
   computeOrderTotalCents,
   codeState,
 } from "@/lib/ticketCodes";
@@ -56,27 +55,6 @@ describe("normalizeCode", () => {
   it("is idempotent", () => {
     const once = normalizeCode("gp x8k4m 9rt2p")!;
     expect(normalizeCode(once)).toBe(once);
-  });
-});
-
-describe("generateCode", () => {
-  it("produces a code that normalizes to itself", () => {
-    for (let i = 0; i < 50; i++) {
-      const code = generateCode();
-      expect(normalizeCode(code)).toBe(code);
-    }
-  });
-
-  it("uses only alphabet symbols", () => {
-    for (let i = 0; i < 50; i++) {
-      const body = generateCode().replace(/^GP-/, "").replace("-", "");
-      for (const ch of body) expect(CODE_ALPHABET).toContain(ch);
-    }
-  });
-
-  it("does not repeat itself across many draws", () => {
-    const seen = new Set(Array.from({ length: 200 }, () => generateCode()));
-    expect(seen.size).toBe(200);
   });
 });
 

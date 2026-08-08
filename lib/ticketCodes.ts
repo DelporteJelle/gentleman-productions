@@ -1,5 +1,3 @@
-import { randomBytes } from "crypto";
-
 /**
  * Pure helpers for access and free-ticket codes, shared by the browser and the
  * API routes. Kept out of `lib/server/` deliberately — the seat page needs to
@@ -11,6 +9,15 @@ export type CodeKind = "wheelchair" | "free_ticket";
 export type CodeState = "unused" | "in_use" | "used" | "revoked";
 
 /**
+ * Codes a single order may claim. Lives here, not in `lib/server/`, because
+ * the seat-page hook enforces this same cap client-side before ever calling
+ * the server, and `lib/server/*` pulls in the Neon driver a client module
+ * cannot import. `lib/server/ticketCodes.ts` re-exports this so its existing
+ * callers are unaffected.
+ */
+export const MAX_CODES_PER_ORDER = 10;
+
+/**
  * 30 symbols. I, L, O, U, 0 and 1 are omitted so a code read off a screen or a
  * printed slip cannot be mistyped into a different valid code. 10 characters
  * of this gives about 49 bits — the entropy is what actually protects these,
@@ -18,10 +25,14 @@ export type CodeState = "unused" | "in_use" | "used" | "revoked";
  */
 export const CODE_ALPHABET = "23456789ABCDEFGHJKMNPQRSTVWXYZ";
 
-const BODY_LENGTH = 10;
+/** Exported so `lib/server/ticketCodes.ts`'s `generateCode` can build a code
+ *  of the same shape `normalizeCode` accepts, without duplicating either
+ *  constant. */
+export const BODY_LENGTH = 10;
 const PREFIX = "GP";
 
-function format(body: string): string {
+/** Exported for the same reason as `BODY_LENGTH` — see above. */
+export function format(body: string): string {
   return `${PREFIX}-${body.slice(0, 5)}-${body.slice(5)}`;
 }
 
@@ -49,24 +60,6 @@ export function normalizeCode(value: unknown): string | null {
 
   for (const ch of body) {
     if (!CODE_ALPHABET.includes(ch)) return null;
-  }
-  return format(body);
-}
-
-/**
- * A fresh code. Rejection sampling, not modulo: 256 is not a multiple of 30,
- * so `byte % 30` would make the first 16 symbols measurably likelier and
- * quietly cost entropy.
- */
-export function generateCode(): string {
-  const limit = Math.floor(256 / CODE_ALPHABET.length) * CODE_ALPHABET.length; // 240
-  let body = "";
-  while (body.length < BODY_LENGTH) {
-    for (const byte of randomBytes(BODY_LENGTH)) {
-      if (byte >= limit) continue;
-      body += CODE_ALPHABET[byte % CODE_ALPHABET.length];
-      if (body.length === BODY_LENGTH) break;
-    }
   }
   return format(body);
 }
