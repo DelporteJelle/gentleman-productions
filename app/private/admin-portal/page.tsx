@@ -103,6 +103,7 @@ export default function TicketsSummaryPage() {
   const [releasing, setReleasing] = useState<string | null>(null);
   const [rechecking, setRechecking] = useState<string | null>(null);
   const [codes, setCodes] = useState<CodeRow[]>([]);
+  const [codesError, setCodesError] = useState(false);
   const [revoking, setRevoking] = useState<string | null>(null);
 
   async function handleRecheck(order: OrderSummary) {
@@ -174,24 +175,40 @@ export default function TicketsSummaryPage() {
     async function load() {
       setLoading(true);
       setError(false);
+      setCodesError(false);
+
+      // allSettled so a codes-request rejection (network error, etc.) can
+      // never propagate into the summary's try/catch below — a codes
+      // failure must not blank the whole portal.
+      const [summaryResult, codesResult] = await Promise.allSettled([
+        fetch("/api/tickets/summary"),
+        fetch("/api/tickets/admin/codes"),
+      ]);
+
       try {
-        const [res, codesRes] = await Promise.all([
-          fetch("/api/tickets/summary"),
-          fetch("/api/tickets/admin/codes"),
-        ]);
+        if (summaryResult.status === "rejected") throw summaryResult.reason;
+        const res = summaryResult.value;
         if (!res.ok) throw new Error("Failed to load summary");
         const json = (await res.json()) as SummaryResponse;
         if (!cancelled) setData(json);
-        // A code-listing failure must not blank the whole portal — the
-        // summary is the page's primary content.
-        if (codesRes.ok && !cancelled) {
-          setCodes(((await codesRes.json()) as { codes: CodeRow[] }).codes);
-        }
       } catch {
         if (!cancelled) setError(true);
-      } finally {
-        if (!cancelled) setLoading(false);
       }
+
+      // A code-listing failure must not blank the whole portal — the
+      // summary is the page's primary content and keeps rendering above.
+      try {
+        if (codesResult.status === "rejected") throw codesResult.reason;
+        const codesRes = codesResult.value;
+        if (!codesRes.ok) throw new Error(`Failed to load codes: ${codesRes.status}`);
+        const json = (await codesRes.json()) as { codes: CodeRow[] };
+        if (!cancelled) setCodes(json.codes);
+      } catch (err) {
+        console.error("Failed to load ticket codes:", err);
+        if (!cancelled) setCodesError(true);
+      }
+
+      if (!cancelled) setLoading(false);
     }
 
     load();
@@ -329,7 +346,9 @@ export default function TicketsSummaryPage() {
 
       <section className={styles.section}>
         <h2 className={styles.sectionTitle}>Codes</h2>
-        {codes.length === 0 ? (
+        {codesError ? (
+          <p className={styles.empty}>Kon de codes niet laden.</p>
+        ) : codes.length === 0 ? (
           <p className={styles.empty}>Nog geen codes aangemaakt.</p>
         ) : (
           <div className={styles.tableWrap}>
