@@ -13,6 +13,12 @@ const NIL_UUID = "00000000-0000-0000-0000-000000000000";
 export async function POST(request: Request) {
   const sql = getDb();
   let orderId: string | null = null;
+  // Set immediately before the fulfilPaidOrder call, before anything inside it
+  // is known to have succeeded or failed. Once true, releaseAndDelete must
+  // never run: fulfilment may already have sold the tickets and/or marked the
+  // order paid, and compensation is only safe for an order that is still
+  // wholly ours to undo.
+  let fulfilmentStarted = false;
 
   // Best-effort compensation. Guarded on orderId being set (nothing to
   // release before the order INSERT commits) and called from both the known
@@ -23,11 +29,16 @@ export async function POST(request: Request) {
   // expiry.
   const releaseAndDelete = async () => {
     await releaseCodesForOrder(sql, orderId!);
+    // `AND status = 'held'` bounds the blast radius: a ticket already sold
+    // (by a fulfilment this same request triggered, or by anything else)
+    // must never be un-sold. Mirrors expirePendingOrder in orderResume.ts.
     await sql`
       UPDATE tickets SET status = 'available', held_until = NULL, order_id = NULL
-      WHERE order_id = ${orderId};
+      WHERE order_id = ${orderId} AND status = 'held';
     `;
-    await sql`DELETE FROM orders WHERE id = ${orderId};`;
+    // `AND status <> 'paid'` for the same reason: a paid order must never be
+    // deleted out from under its own tickets.
+    await sql`DELETE FROM orders WHERE id = ${orderId} AND status <> 'paid';`;
   };
 
   // Every ticket this order will produce has to be signed with
@@ -159,6 +170,7 @@ export async function POST(request: Request) {
     // Nothing left to pay: no Mollie session exists to settle this order, so
     // fulfil it here through the same function the paid path uses.
     if (totalCents === 0) {
+      fulfilmentStarted = true;
       await fulfilPaidOrder(sql, orderId);
       return jsonResponse({ orderId, free: true });
     }
@@ -188,7 +200,19 @@ export async function POST(request: Request) {
   } catch (err) {
     // Never echo driver or provider internals back to the browser.
     console.error("Checkout error:", err);
-    if (orderId) {
+    if (fulfilmentStarted) {
+      // fulfilPaidOrder may have already sold the tickets and/or marked the
+      // order paid before this throw — compensating now would risk un-selling
+      // a sold ticket or deleting a paid order. Leave it exactly as it is and
+      // shout: this order needs a human, not an automatic rollback.
+      console.error(
+        `Checkout order ${orderId} failed during €0 fulfilment and was NOT rolled back — ` +
+          `its tickets may already be marked 'sold' and/or the order may already be 'paid'. ` +
+          `Manual intervention required: check order ${orderId} (orders.status, tickets.order_id) ` +
+          `and complete or refund it by hand.`,
+        err,
+      );
+    } else if (orderId) {
       // Best-effort: a failure here must never replace the original error or
       // change the response. If the claim never committed this updates 0
       // tickets and deletes the order just inserted; if it did commit, this
