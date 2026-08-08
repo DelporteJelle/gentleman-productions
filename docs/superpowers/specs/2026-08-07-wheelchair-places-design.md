@@ -3,7 +3,7 @@
 Date: 2026-08-07
 Status: Approved
 
-This is **spec 1 of 2**. Spec 2 (`2026-08-07-access-codes-design.md`) adds the
+This is **spec 1 of 2**. Spec 2 (`2026-08-08-access-codes-design.md`) adds the
 admin-generated codes that let a customer actually buy a wheelchair place, plus
 free-ticket discount codes. Nothing here depends on spec 2; spec 2 depends on
 this.
