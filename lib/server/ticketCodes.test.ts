@@ -4,6 +4,8 @@ import {
   normalizeCodeList,
   claimCodes,
   releaseCodesForOrder,
+  validateGenerateInput,
+  MAX_BATCH,
 } from "@/lib/server/ticketCodes";
 import { generateCode } from "@/lib/ticketCodes";
 
@@ -186,5 +188,47 @@ describe("releaseCodesForOrder", () => {
   it("is a no-op for an order holding nothing", async () => {
     const sql = createFakeSql(freshCodes());
     expect(await releaseCodesForOrder(sql, "order-none")).toBe(0);
+  });
+});
+
+describe("validateGenerateInput", () => {
+  const base = { eventUuid: EVENT, kind: "free_ticket", label: "winactie radio 2", quantity: 3 };
+
+  it("accepts a well-formed free-ticket batch", () => {
+    const result = validateGenerateInput(base);
+    expect(result.ok).toBe(true);
+    if (result.ok) expect(result.value.quantity).toBe(3);
+  });
+
+  it("forces a wheelchair batch to a single code", () => {
+    // One wheelchair code unlocks one place; a batch of them would be
+    // meaningless and easy to over-hand-out by accident.
+    const result = validateGenerateInput({ ...base, kind: "wheelchair", quantity: 5 });
+    expect(result.ok).toBe(true);
+    if (result.ok) expect(result.value.quantity).toBe(1);
+  });
+
+  it("rejects an unknown kind", () => {
+    expect(validateGenerateInput({ ...base, kind: "discount" }).ok).toBe(false);
+  });
+
+  it("rejects a missing label", () => {
+    // The label is how the admin knows who they gave it to; without it the
+    // portal list is unusable.
+    expect(validateGenerateInput({ ...base, label: "   " }).ok).toBe(false);
+  });
+
+  it("rejects a non-uuid eventUuid", () => {
+    expect(validateGenerateInput({ ...base, eventUuid: "nope" }).ok).toBe(false);
+  });
+
+  it("rejects a quantity below 1 or above the batch cap", () => {
+    expect(validateGenerateInput({ ...base, quantity: 0 }).ok).toBe(false);
+    expect(validateGenerateInput({ ...base, quantity: MAX_BATCH + 1 }).ok).toBe(false);
+    expect(validateGenerateInput({ ...base, quantity: 1.5 }).ok).toBe(false);
+  });
+
+  it("accepts exactly the batch cap", () => {
+    expect(validateGenerateInput({ ...base, quantity: MAX_BATCH }).ok).toBe(true);
   });
 });
