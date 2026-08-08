@@ -73,3 +73,38 @@ export function formatPlaceLabel(members: PlaceSeat[]): string {
     })
     .join(" · ");
 }
+
+export interface RowCell {
+  /**
+   * Seat numbers this cell covers, in row order. One element for an ordinary
+   * seat or an aisle gap (whose seatNum is null); several for a run of one
+   * wheelchair place's members.
+   */
+  seatNums: (number | null)[];
+  /** Non-null when this cell is a run belonging to that wheelchair place. */
+  groupId: string | null;
+}
+
+/**
+ * Collapse consecutive members of the same wheelchair place into single cells,
+ * so a place draws as one solid seat rather than a line of separate ones.
+ *
+ * A run breaks at anything that is not the same place: an ordinary seat, an
+ * aisle gap, or a different place. That matters — a scattered place must not
+ * swallow the on-sale seat sitting between two of its members, which would
+ * make that seat invisible and unclickable.
+ */
+export function mergeRowRuns(
+  cells: { seatNum: number | null; groupId: string | null }[],
+): RowCell[] {
+  const out: RowCell[] = [];
+  for (const cell of cells) {
+    const last = out[out.length - 1];
+    if (cell.groupId !== null && last && last.groupId === cell.groupId) {
+      last.seatNums.push(cell.seatNum);
+    } else {
+      out.push({ seatNums: [cell.seatNum], groupId: cell.groupId });
+    }
+  }
+  return out;
+}

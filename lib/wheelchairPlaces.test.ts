@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { pickAnchor, formatPlaceLabel } from "@/lib/wheelchairPlaces";
+import { pickAnchor, formatPlaceLabel, mergeRowRuns } from "@/lib/wheelchairPlaces";
 
 const seat = (row: string, seat_number: number) => ({ row, seat_number });
 
@@ -75,5 +75,67 @@ describe("formatPlaceLabel", () => {
 
   it("returns an empty string for no members", () => {
     expect(formatPlaceLabel([])).toBe("");
+  });
+});
+
+describe("mergeRowRuns", () => {
+  const plain = (n: number) => ({ seatNum: n, groupId: null });
+  const member = (n: number, groupId: string) => ({ seatNum: n, groupId });
+
+  it("leaves ordinary seats as one cell each", () => {
+    expect(mergeRowRuns([plain(1), plain(2), plain(3)])).toEqual([
+      { seatNums: [1], groupId: null },
+      { seatNums: [2], groupId: null },
+      { seatNums: [3], groupId: null },
+    ]);
+  });
+
+  it("merges consecutive members of the same place into one run", () => {
+    expect(mergeRowRuns([plain(1), member(2, "g"), member(3, "g"), plain(4)])).toEqual([
+      { seatNums: [1], groupId: null },
+      { seatNums: [2, 3], groupId: "g" },
+      { seatNums: [4], groupId: null },
+    ]);
+  });
+
+  it("keeps two adjacent places apart", () => {
+    expect(mergeRowRuns([member(1, "g1"), member(2, "g2")])).toEqual([
+      { seatNums: [1], groupId: "g1" },
+      { seatNums: [2], groupId: "g2" },
+    ]);
+  });
+
+  it("splits one place into separate runs when an ordinary seat interrupts it", () => {
+    // A scattered place must not swallow the seat between its members —
+    // that seat is still on sale and has to stay visible and clickable.
+    expect(mergeRowRuns([member(1, "g"), plain(2), member(3, "g")])).toEqual([
+      { seatNums: [1], groupId: "g" },
+      { seatNums: [2], groupId: null },
+      { seatNums: [3], groupId: "g" },
+    ]);
+  });
+
+  it("breaks a run at an aisle gap", () => {
+    // Row P's centre aisle is a null seat; a run must never bridge it.
+    expect(mergeRowRuns([
+      member(13, "g"),
+      { seatNum: null, groupId: null },
+      member(23, "g"),
+    ])).toEqual([
+      { seatNums: [13], groupId: "g" },
+      { seatNums: [null], groupId: null },
+      { seatNums: [23], groupId: "g" },
+    ]);
+  });
+
+  it("merges a whole row into a single run", () => {
+    const cells = Array.from({ length: 9 }, (_, i) => member(i + 1, "g"));
+    expect(mergeRowRuns(cells)).toEqual([
+      { seatNums: [1, 2, 3, 4, 5, 6, 7, 8, 9], groupId: "g" },
+    ]);
+  });
+
+  it("returns nothing for an empty row", () => {
+    expect(mergeRowRuns([])).toEqual([]);
   });
 });
