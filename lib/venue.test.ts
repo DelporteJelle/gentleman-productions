@@ -17,6 +17,8 @@ describe("venue", () => {
   it("venueSeats excludes gaps and matches total seat count", () => {
     // A–E:22*5=110, F–J:25*5=125, K–O:27*5=135, P:13+7=20 => 390
     expect(venueSeats().length).toBe(390);
-    expect(venueSeats().some((s) => s.reserved_for === "wheelchair")).toBe(true);
+  });
+  it("no seat carries a wheelchair flag — places live on tickets now", () => {
+    expect(venueSeats().every((s) => !("reserved_for" in s))).toBe(true);
   });
 });

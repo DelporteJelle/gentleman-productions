@@ -13,9 +13,8 @@ export async function GET(request: Request) {
                THEN t.id::text
                ELSE NULL
              END AS id,
-             t.status, t.held_until,
-             s.id AS seat_id, s."row" AS seat_row,
-             s.seat_number, s.reserved_for
+             t.status, t.held_until, t.seat_kind, t.wheelchair_group_id,
+             s.id AS seat_id, s."row" AS seat_row, s.seat_number
       FROM tickets t
       JOIN seats s ON s.id = t.seat_id
       WHERE t.date_uuid = ${dateUuid};
@@ -24,11 +23,12 @@ export async function GET(request: Request) {
       id: r.id,
       status: r.status,
       held_until: r.held_until,
+      seat_kind: r.seat_kind,
+      wheelchair_group_id: r.wheelchair_group_id,
       seat: {
         id: r.seat_id,
         row: r.seat_row,
         seat_number: r.seat_number,
-        reserved_for: r.reserved_for,
       },
     }));
     return jsonResponse(data);

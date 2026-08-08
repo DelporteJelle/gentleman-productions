@@ -65,12 +65,13 @@ export async function POST(request: Request) {
          SET status = 'held',
              held_until = now() + interval '10 minutes',
              order_id = ${orderId}
-        FROM seats s
-       WHERE s.id = t.seat_id
-         AND t.id = ANY(${ticketIds})
+       WHERE t.id = ANY(${ticketIds})
          AND t.event_uuid = ${eventUuid}
          AND t.date_uuid = ${dateUuid}
-         AND s.reserved_for IS NULL
+         -- Wheelchair places are not purchasable. Spec 2 widens this to
+         -- allow the one ticket a redeemed access code unlocks; until then it
+         -- is an unconditional refusal.
+         AND t.seat_kind IS NULL
          AND (t.status = 'available'
               OR (t.status = 'held' AND t.held_until IS NOT NULL AND t.held_until < now()))
          -- A lapsed 10-minute hold is normally free to reclaim, but not while

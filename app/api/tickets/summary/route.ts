@@ -9,7 +9,12 @@ export async function GET(request: Request) {
     SELECT t.event_uuid, t.date_uuid,
       COUNT(*) FILTER (WHERE t.status = 'sold')      AS sold,
       COUNT(*) FILTER (WHERE t.status = 'held')      AS held,
-      COUNT(*) FILTER (WHERE t.status = 'available') AS available,
+      -- Narrowed to seats a customer can actually buy: a wheelchair anchor is
+      -- 'available' but not purchasable, so counting it here would overstate
+      -- what is left.
+      COUNT(*) FILTER (WHERE t.status = 'available' AND t.seat_kind IS NULL) AS available,
+      COUNT(*) FILTER (WHERE t.seat_kind = 'wheelchair') AS wheelchair,
+      COUNT(*) FILTER (WHERE t.status = 'blocked')   AS blocked,
       COUNT(*) AS total
     FROM tickets t GROUP BY t.event_uuid, t.date_uuid;
   `;

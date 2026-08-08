@@ -13,6 +13,8 @@ interface DateSummary {
   sold: number;
   held: number;
   available: number;
+  wheelchair: number;
+  blocked: number;
   total: number;
 }
 
@@ -160,7 +162,7 @@ export default function TicketsSummaryPage() {
                   <span className={styles.dateRowMeta}>{formatStartTime(d.start_time)}</span>
                 </span>
                 <span className={styles.dateRowStats}>
-                  {d.sold} sold · {d.available} available · {d.total} total
+                  {d.sold} sold · {d.available} available · {d.wheelchair} wheelchair · {d.total} total
                 </span>
               </div>
             ))}

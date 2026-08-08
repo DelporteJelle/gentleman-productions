@@ -57,13 +57,14 @@ const EVENT_UUID = uuid(1);
 const DATE_UUID = "date-1";
 
 interface FakeOrder { id: string; status: string; reserved_by_admin: boolean }
-interface FakeTicket { id: string; seat_id: string; order_id: string | null; status: string; event_uuid: string; date_uuid: string }
-interface FakeSeat { id: string; reserved_for: string | null }
+interface FakeTicket {
+  id: string; seat_id: string; order_id: string | null; status: string;
+  event_uuid: string; date_uuid: string; seat_kind: string | null;
+}
 interface FakeState {
   nextOrderId: number;
   orders: FakeOrder[];
   tickets: FakeTicket[];
-  seats: FakeSeat[];
   events: { uuid: string; title: string; dates: { uuid: string; start_time: string }[] }[];
 }
 
@@ -72,12 +73,8 @@ function freshState(overrides?: Partial<FakeState>): FakeState {
     nextOrderId: 1,
     orders: [],
     tickets: [
-      { id: "ticket-a", seat_id: "seat-a", order_id: null, status: "available", event_uuid: EVENT_UUID, date_uuid: DATE_UUID },
-      { id: "ticket-b", seat_id: "seat-b", order_id: null, status: "available", event_uuid: EVENT_UUID, date_uuid: DATE_UUID },
-    ],
-    seats: [
-      { id: "seat-a", reserved_for: null },
-      { id: "seat-b", reserved_for: null },
+      { id: "ticket-a", seat_id: "seat-a", order_id: null, status: "available", event_uuid: EVENT_UUID, date_uuid: DATE_UUID, seat_kind: null },
+      { id: "ticket-b", seat_id: "seat-b", order_id: null, status: "available", event_uuid: EVENT_UUID, date_uuid: DATE_UUID, seat_kind: null },
     ],
     events: [{ uuid: EVENT_UUID, title: "Test Show", dates: [{ uuid: DATE_UUID, start_time: "2026-08-01T19:00:00Z" }] }],
     ...overrides,
@@ -104,15 +101,20 @@ function createFakeSql(state: FakeState) {
     }
 
     if (head.startsWith("UPDATE tickets t")) {
+      // This fake MODELS the claim's conditions rather than executing them, so
+      // the cases below would pass no matter what the real statement said.
+      // Pin the guard in the SQL text itself — it is the only thing standing
+      // between the giveaway flow and a wheelchair place.
+      expect(full).toContain("t.seat_kind IS NULL");
+      expect(full).not.toContain("reserved_for");
       const [orderId, ticketIds, eventUuid, dateUuid] = values as [string, string[], string, string];
       const claimed: { id: string }[] = [];
       for (const t of state.tickets) {
-        const seat = state.seats.find((s) => s.id === t.seat_id)!;
         if (
           ticketIds.includes(t.id) &&
           t.event_uuid === eventUuid &&
           t.date_uuid === dateUuid &&
-          seat.reserved_for === null &&
+          t.seat_kind === null &&
           t.status === "available"
         ) {
           t.status = "sold";
@@ -210,6 +212,36 @@ describe("reserveSeatsForAdmin", () => {
 
     expect(result.ok).toBe(false);
     if (!result.ok) expect(result.status).toBe(404);
+  });
+
+  it("refuses to claim a wheelchair place anchor", async () => {
+    const state = freshState();
+    state.tickets[1].seat_kind = "wheelchair"; // ticket-b is an anchor
+    const sql = createFakeSql(state);
+
+    const result = await reserveSeatsForAdmin(sql, {
+      eventUuid: EVENT_UUID, dateUuid: DATE_UUID, ticketIds: ["ticket-a", "ticket-b"],
+    });
+
+    expect(result.ok).toBe(false);
+    if (!result.ok) expect(result.status).toBe(409);
+    expect(state.tickets.find((t) => t.id === "ticket-b")!.status).toBe("available");
+    expect(state.tickets.find((t) => t.id === "ticket-a")!.status).toBe("available"); // rolled back
+    expect(state.orders).toEqual([]);
+  });
+
+  it("refuses to claim a blocked floor seat", async () => {
+    const state = freshState();
+    state.tickets[1].seat_kind = "wheelchair_floor";
+    state.tickets[1].status = "blocked";
+    const sql = createFakeSql(state);
+
+    const result = await reserveSeatsForAdmin(sql, {
+      eventUuid: EVENT_UUID, dateUuid: DATE_UUID, ticketIds: ["ticket-a", "ticket-b"],
+    });
+
+    expect(result.ok).toBe(false);
+    if (!result.ok) expect(result.status).toBe(409);
   });
 });
 
