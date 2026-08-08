@@ -24,6 +24,7 @@ function isAppliedCode(value: unknown): value is AppliedCode {
   if (!value || typeof value !== "object") return false;
   const v = value as Record<string, unknown>;
   return (
+    typeof v.code === "string" &&
     normalizeCode(v.code) === v.code &&
     (v.kind === "wheelchair" || v.kind === "free_ticket")
   );

@@ -22,14 +22,6 @@ export function useTicketCodes(eventUuid: string | undefined, dateUuid: string) 
     setApplied(readCodes(storage(), dateUuid));
   }, [dateUuid]);
 
-  const persist = useCallback(
-    (next: AppliedCode[]) => {
-      setApplied(next);
-      writeCodes(storage(), dateUuid, next);
-    },
-    [dateUuid],
-  );
-
   const apply = useCallback(
     async (raw: string): Promise<boolean> => {
       setError(null);
@@ -60,7 +52,13 @@ export function useTicketCodes(eventUuid: string | undefined, dateUuid: string) 
           setError(data.error ?? "Deze code is niet geldig.");
           return false;
         }
-        persist([...applied, { code, kind: data.kind }]);
+        // Use functional update to append to the latest state, immune to stale closures
+        setApplied(prev => {
+          const newEntry = { code, kind: data.kind };
+          const next = [...prev, newEntry];
+          writeCodes(storage(), dateUuid, next);
+          return next;
+        });
         return true;
       } catch {
         setError("Kon de code niet controleren. Probeer opnieuw.");
@@ -69,15 +67,20 @@ export function useTicketCodes(eventUuid: string | undefined, dateUuid: string) 
         setBusy(false);
       }
     },
-    [applied, eventUuid, persist],
+    [applied, eventUuid, dateUuid],
   );
 
   const remove = useCallback(
     (code: string) => {
       setError(null);
-      persist(applied.filter((a) => a.code !== code));
+      // Use functional update to filter from the latest state, immune to stale closures
+      setApplied(prev => {
+        const next = prev.filter((a) => a.code !== code);
+        writeCodes(storage(), dateUuid, next);
+        return next;
+      });
     },
-    [applied, persist],
+    [dateUuid],
   );
 
   const clear = useCallback(() => {

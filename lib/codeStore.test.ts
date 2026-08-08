@@ -61,4 +61,23 @@ describe("codeStore", () => {
     expect(() => writeCodes(undefined, "date-1", [wc])).not.toThrow();
     expect(() => clearCodes(undefined, "date-1")).not.toThrow();
   });
+
+  it("filters out entries with non-string code values", () => {
+    // Ensure null, undefined, number, and other non-string values are rejected
+    storage.setItem(
+      CODE_STORE_KEY,
+      JSON.stringify({
+        "date-1": [
+          { code: null, kind: "wheelchair" },
+          { code: undefined, kind: "wheelchair" },
+          { code: 123, kind: "free_ticket" },
+          wc,
+          { code: "", kind: "wheelchair" },
+          { code: true, kind: "wheelchair" },
+        ],
+      }),
+    );
+    // Only wc should remain; all others have non-string or invalid codes
+    expect(readCodes(storage, "date-1")).toEqual([wc]);
+  });
 });
