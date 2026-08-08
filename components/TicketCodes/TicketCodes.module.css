@@ -106,3 +106,66 @@
 .chipRemove:hover {
   color: #f87171;
 }
+
+.adminTitle {
+  margin: 0 0 0.6rem;
+  font-size: 0.85rem;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--gold);
+}
+
+.adminForm {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+}
+
+.qtyInput {
+  width: 5rem;
+  padding: 0.6rem 0.85rem;
+  border-radius: 6px;
+  border: 1px solid rgba(245, 233, 213, 0.25);
+  background: rgba(0, 0, 0, 0.3);
+  color: var(--cream);
+}
+
+.generated {
+  margin-top: 0.75rem;
+}
+
+.generatedHint {
+  margin: 0 0 0.4rem;
+  font-size: 0.75rem;
+  color: var(--cream-muted);
+}
+
+.generatedList {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  display: flex;
+  flex-direction: column;
+  gap: 0.3rem;
+}
+
+.generatedCode {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.5rem;
+  padding: 0.35rem 0.6rem;
+  border-radius: 6px;
+  border: 1px solid rgba(245, 233, 213, 0.15);
+  font-family: monospace;
+  letter-spacing: 0.08em;
+}
+
+.copyBtn {
+  border: none;
+  background: transparent;
+  color: var(--gold);
+  cursor: pointer;
+  font-size: 0.75rem;
+  font-family: inherit;
+}

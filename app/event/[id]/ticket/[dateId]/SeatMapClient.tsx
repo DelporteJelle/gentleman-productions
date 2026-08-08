@@ -22,6 +22,7 @@ import {
   ErrorScreen,
   NotFoundScreen,
 } from "@/components/StateScreens/StateScreens";
+import AdminCodeGenerator from "@/components/TicketCodes/AdminCodeGenerator";
 import CodeEntryPanel from "@/components/TicketCodes/CodeEntryPanel";
 import { useTicketCodes } from "@/components/TicketCodes/useTicketCodes";
 import { writeCodes } from "@/lib/codeStore";
@@ -600,6 +601,8 @@ export default function SeatMapClient({ isAdmin }: { isAdmin: boolean }) {
           <div className={styles.stageGlow} />
         </div>
       </div>
+
+      {isAdmin && <AdminCodeGenerator eventUuid={event.uuid} />}
 
       <CodeEntryPanel
         applied={codes.applied}
