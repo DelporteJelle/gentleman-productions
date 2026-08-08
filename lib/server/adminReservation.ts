@@ -73,16 +73,15 @@ export async function reserveSeatsForAdmin(sql: Sql, input: AdminReserveInput): 
 
   // Same atomic-claim shape as the checkout route, minus the hold/expiry
   // conditions: there is no payment window to protect, so a seat is either
-  // available right now or it isn't.
+  // available right now or it isn't. `t.seat_kind IS NULL` is what keeps
+  // wheelchair places — anchors and floor seats alike — out of giveaways.
   const claimed = await sql`
     UPDATE tickets t
        SET status = 'sold', order_id = ${orderId}
-      FROM seats s
-     WHERE s.id = t.seat_id
-       AND t.id = ANY(${ticketIds})
+     WHERE t.id = ANY(${ticketIds})
        AND t.event_uuid = ${eventUuid}
        AND t.date_uuid = ${dateUuid}
-       AND s.reserved_for IS NULL
+       AND t.seat_kind IS NULL
        AND t.status = 'available'
     RETURNING t.id;
   `;
