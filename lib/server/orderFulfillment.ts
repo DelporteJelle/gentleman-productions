@@ -14,6 +14,78 @@ export function paymentAmountMatchesOrder(paymentValue: string, orderTotalCents:
 }
 
 /**
+ * Turn a held order into a paid one: sell its tickets, claim the order, email
+ * the PDFs.
+ *
+ * Sell first, claim second. Selling is a harmless 0-row no-op on a retry that
+ * already sold these tickets, and if anything below throws, the order is still
+ * 'pending' — a retry re-enters and re-runs this UPDATE rather than being
+ * short-circuited by an order that is already 'paid' with tickets stuck 'held'
+ * forever. The conditional claim, `WHERE status <> 'paid'`, is the exactly-once
+ * gate; it guards the email, not the sale.
+ *
+ * Called by the Mollie path and, for an order whose codes brought it to €0,
+ * directly by checkout — so exactly one code path ever issues a ticket.
+ */
+export async function fulfilPaidOrder(sql: Sql, orderId: string): Promise<"paid" | "ignored"> {
+  await sql`
+    UPDATE tickets SET status = 'sold', held_until = NULL
+    WHERE order_id = ${orderId} AND status = 'held';
+  `;
+
+  // Re-read rather than trust the UPDATE's own RETURNING, so a retry that
+  // finds 0 rows above (because an earlier call already sold them) still
+  // sees the authoritative sold set here.
+  const soldTickets = await sql`
+    SELECT t.id, s."row" AS row, s.seat_number AS seat_number
+    FROM tickets t JOIN seats s ON s.id = t.seat_id
+    WHERE t.order_id = ${orderId} AND t.status = 'sold';
+  `;
+
+  const claimed = await sql`
+    UPDATE orders SET status = 'paid'
+    WHERE id = ${orderId} AND status <> 'paid'
+    RETURNING *;
+  `;
+  if (claimed.length === 0) return "ignored";
+  const paidOrder = claimed[0] as Order;
+
+  if (soldTickets.length === 0) {
+    // Paid but holding no seats — they were taken by a later order, or already
+    // released. Sending a ticketless confirmation would make it worse; this
+    // needs a human (refund or reseat).
+    console.error(
+      `Order ${orderId} was paid but claimed no held tickets — seats lost, manual intervention required.`,
+    );
+    return "paid";
+  }
+
+  const events = await sql`SELECT * FROM events WHERE uuid = ${paidOrder.event_uuid};`;
+  const event = events[0] as Event | undefined;
+  const date = event?.dates?.find((d) => d.uuid === paidOrder.date_uuid);
+
+  try {
+    const { sendTicketEmail } = await import("@/lib/sendTicketEmail");
+    await sendTicketEmail({
+      order: paidOrder,
+      eventName: event?.title ?? "Show",
+      startTime: date?.start_time ?? null,
+      location: event?.eventlocation?.location || event?.eventlocation?.city || null,
+      productionTheme: event?.production_theme ?? null,
+      seats: soldTickets.map((t) => ({
+        ticketId: t.id,
+        row: t.row,
+        seat_number: t.seat_number,
+      })),
+    });
+  } catch (emailErr) {
+    console.error(`Email send failed for order ${orderId}:`, emailErr);
+  }
+
+  return "paid";
+}
+
+/**
  * Apply the current Mollie state of `paymentId` to its order.
  *
  * Safe to call any number of times for the same payment. On the paid path,
@@ -56,70 +128,7 @@ export async function applyMolliePaymentToOrder(sql: Sql, paymentId: string): Pr
       );
       return "ignored";
     }
-
-    // Sell first, claim second. Selling is a harmless 0-row no-op on a retry
-    // that already sold these tickets, and if anything below throws, the
-    // order is still 'pending' — a retry re-enters this whole function and
-    // re-runs this UPDATE (still a no-op the second time) rather than being
-    // short-circuited by an order that's already 'paid' with tickets stuck
-    // 'held' forever.
-    await sql`
-      UPDATE tickets SET status = 'sold', held_until = NULL
-      WHERE order_id = ${orderId} AND status = 'held';
-    `;
-
-    // Re-read rather than trust the UPDATE's own RETURNING, so a retry that
-    // finds 0 rows above (because an earlier call already sold them) still
-    // sees the authoritative sold set here.
-    const soldTickets = await sql`
-      SELECT t.id, s."row" AS row, s.seat_number AS seat_number
-      FROM tickets t JOIN seats s ON s.id = t.seat_id
-      WHERE t.order_id = ${orderId} AND t.status = 'sold';
-    `;
-
-    // Idempotency claim: zero rows means another call already fulfilled
-    // this order (marked it paid and, if it got this far, sent the email).
-    const claimed = await sql`
-      UPDATE orders SET status = 'paid'
-      WHERE id = ${orderId} AND status <> 'paid'
-      RETURNING *;
-    `;
-    if (claimed.length === 0) return "ignored";
-    const paidOrder = claimed[0] as Order;
-
-    if (soldTickets.length === 0) {
-      // The order was paid but held no seats — they were taken by a later
-      // order, or already released. Sending a ticketless confirmation would
-      // make it worse; this needs a human (refund or reseat).
-      console.error(
-        `Order ${orderId} was paid but claimed no held tickets — seats lost, manual intervention required.`,
-      );
-      return "paid";
-    }
-
-    const events = await sql`SELECT * FROM events WHERE uuid = ${paidOrder.event_uuid};`;
-    const event = events[0] as Event | undefined;
-    const date = event?.dates?.find((d) => d.uuid === paidOrder.date_uuid);
-
-    try {
-      const { sendTicketEmail } = await import("@/lib/sendTicketEmail");
-      await sendTicketEmail({
-        order: paidOrder,
-        eventName: event?.title ?? "Show",
-        startTime: date?.start_time ?? null,
-        location: event?.eventlocation?.location || event?.eventlocation?.city || null,
-        productionTheme: event?.production_theme ?? null,
-        seats: soldTickets.map((t) => ({
-          ticketId: t.id,
-          row: t.row,
-          seat_number: t.seat_number,
-        })),
-      });
-    } catch (emailErr) {
-      console.error(`Email send failed for order ${orderId}:`, emailErr);
-    }
-
-    return "paid";
+    return fulfilPaidOrder(sql, orderId);
   }
 
   if (["expired", "canceled", "failed"].includes(payment.status)) {

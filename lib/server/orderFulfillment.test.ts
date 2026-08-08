@@ -13,7 +13,7 @@ vi.mock("@/lib/sendTicketEmail", () => ({
   sendTicketEmail: mocks.sendTicketEmail,
 }));
 
-import { paymentAmountMatchesOrder, applyMolliePaymentToOrder, reconcileStuckOrders } from "@/lib/server/orderFulfillment";
+import { paymentAmountMatchesOrder, applyMolliePaymentToOrder, fulfilPaidOrder, reconcileStuckOrders } from "@/lib/server/orderFulfillment";
 
 describe("paymentAmountMatchesOrder", () => {
   it("matches Mollie's decimal string against the stored cent total", () => {
@@ -711,5 +711,43 @@ describe("reconcileStuckOrders", () => {
     expect(result.checked).toBe(1);
     expect(result.results).toEqual(["released"]);
     expect(state.orders[0].status).toBe("cancelled");
+  });
+});
+
+// ============================================================================
+// fulfilPaidOrder — the extracted core of applyMolliePaymentToOrder's paid
+// branch, exercised directly here (no Mollie payment object involved) since
+// checkout's €0-code path calls it without ever touching Mollie. Reuses the
+// single-order harness above.
+// ============================================================================
+
+describe("fulfilPaidOrder", () => {
+  it("sells held tickets and marks the order paid without touching Mollie", async () => {
+    const state = freshState();
+    state.order!.status = "pending";
+    state.tickets.forEach((t) => {
+      t.status = "held";
+      t.order_id = state.order!.id;
+    });
+    const { sql } = createFakeSql(state);
+
+    const result = await fulfilPaidOrder(sql, state.order!.id);
+
+    expect(result).toBe("paid");
+    expect(state.order?.status).toBe("paid");
+    expect(state.tickets.every((t) => t.status === "sold")).toBe(true);
+  });
+
+  it("is idempotent — a second call claims nothing", async () => {
+    const state = freshState();
+    state.order!.status = "pending";
+    state.tickets.forEach((t) => {
+      t.status = "held";
+      t.order_id = state.order!.id;
+    });
+    const { sql } = createFakeSql(state);
+
+    await fulfilPaidOrder(sql, state.order!.id);
+    expect(await fulfilPaidOrder(sql, state.order!.id)).toBe("ignored");
   });
 });
