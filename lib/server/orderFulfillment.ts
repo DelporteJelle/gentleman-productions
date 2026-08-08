@@ -1,5 +1,6 @@
 import type { NeonQueryFunction } from "@neondatabase/serverless";
 import { getMollie } from "./mollie";
+import { releaseCodesForOrder } from "./ticketCodes";
 import type { Event, Order } from "@/types";
 
 type Sql = NeonQueryFunction<false, false>;
@@ -132,6 +133,7 @@ export async function applyMolliePaymentToOrder(sql: Sql, paymentId: string): Pr
   }
 
   if (["expired", "canceled", "failed"].includes(payment.status)) {
+    await releaseCodesForOrder(sql, orderId);
     await sql`
       UPDATE tickets SET status = 'available', held_until = NULL, order_id = NULL
       WHERE order_id = ${orderId} AND status = 'held';

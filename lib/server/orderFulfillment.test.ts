@@ -217,6 +217,10 @@ function createFakeSql(state: FakeState) {
       return [];
     }
 
+    if (head.startsWith("UPDATE ticket_codes SET used_by_order_id = NULL")) {
+      return []; // no codes in these fixtures
+    }
+
     throw new Error(`Unhandled fake SQL in test: ${head}`);
   }) as unknown as Parameters<typeof applyMolliePaymentToOrder>[0];
 
@@ -555,6 +559,10 @@ describe("reconcileStuckOrders", () => {
           order.status = "cancelled";
         }
         return [];
+      }
+
+      if (head.startsWith("UPDATE ticket_codes SET used_by_order_id = NULL")) {
+        return []; // no codes in these fixtures
       }
 
       throw new Error(`Unhandled fake SQL in sweep test: ${head}`);

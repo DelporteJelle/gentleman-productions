@@ -95,3 +95,35 @@ describe("validateCheckoutInput", () => {
     expect(validateCheckoutInput({ ...base, name: 42 as never }).ok).toBe(false);
   });
 });
+
+describe("validateCheckoutInput — codes", () => {
+  const base = {
+    eventUuid: "3f1a9c0e-5b2d-4e77-9a10-c3b8e6d45f01",
+    dateUuid: "date-1",
+    ticketIds: ["3f1a9c0e-5b2d-4e77-9a10-c3b8e6d45f02"],
+    name: "Jan",
+    email: "jan@example.com",
+  };
+
+  it("defaults to no codes when the field is absent", () => {
+    const result = validateCheckoutInput(base);
+    expect(result.ok).toBe(true);
+    if (result.ok) expect(result.value.codes).toEqual([]);
+  });
+
+  it("normalizes supplied codes", () => {
+    const result = validateCheckoutInput({ ...base, codes: ["gp x8k4m 9rt2p"] });
+    expect(result.ok).toBe(true);
+    if (result.ok) expect(result.value.codes).toEqual(["GP-X8K4M-9RT2P"]);
+  });
+
+  it("rejects a malformed code", () => {
+    expect(validateCheckoutInput({ ...base, codes: ["nope"] }).ok).toBe(false);
+  });
+
+  it("collapses the same code supplied twice", () => {
+    const result = validateCheckoutInput({ ...base, codes: ["GP-X8K4M-9RT2P", "gp-x8k4m-9rt2p"] });
+    expect(result.ok).toBe(true);
+    if (result.ok) expect(result.value.codes).toEqual(["GP-X8K4M-9RT2P"]);
+  });
+});
