@@ -43,6 +43,24 @@ interface SummaryResponse {
   reservedSeats: ReservedSeat[];
 }
 
+interface CodeRow {
+  id: string;
+  code: string;
+  kind: "wheelchair" | "free_ticket";
+  label: string;
+  event_uuid: string;
+  created_at: string;
+  state: "unused" | "in_use" | "used" | "revoked";
+  order_id: string | null;
+}
+
+const CODE_STATE_LABEL: Record<CodeRow["state"], string> = {
+  unused: "ongebruikt",
+  in_use: "in gebruik",
+  used: "gebruikt",
+  revoked: "ingetrokken",
+};
+
 function formatStartTime(startTime: string | null): string {
   if (!startTime) return "Unknown date";
   const date = new Date(startTime);
@@ -67,12 +85,25 @@ function badgeClass(status: string): string {
   }
 }
 
+function badgeClassForCode(state: CodeRow["state"]): string {
+  switch (state) {
+    case "used":
+      return styles.badgePaid;
+    case "revoked":
+      return styles.badgeCancelled;
+    default:
+      return styles.badgePending;
+  }
+}
+
 export default function TicketsSummaryPage() {
   const [data, setData] = useState<SummaryResponse | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(false);
   const [releasing, setReleasing] = useState<string | null>(null);
   const [rechecking, setRechecking] = useState<string | null>(null);
+  const [codes, setCodes] = useState<CodeRow[]>([]);
+  const [revoking, setRevoking] = useState<string | null>(null);
 
   async function handleRecheck(order: OrderSummary) {
     setRechecking(order.id);
@@ -117,6 +148,26 @@ export default function TicketsSummaryPage() {
     }
   }
 
+  async function handleRevoke(row: CodeRow) {
+    const confirmed = window.confirm(
+      `Code ${row.code} intrekken? Hij kan daarna niet meer gebruikt worden.`,
+    );
+    if (!confirmed) return;
+
+    setRevoking(row.id);
+    try {
+      const res = await fetch(`/api/tickets/admin/codes/${row.id}/revoke`, { method: "POST" });
+      const body = await res.json().catch(() => ({}));
+      if (!res.ok) {
+        window.alert(body.error ?? "Kon de code niet intrekken.");
+        return;
+      }
+      setCodes((prev) => prev.map((c) => (c.id === row.id ? { ...c, state: "revoked" } : c)));
+    } finally {
+      setRevoking(null);
+    }
+  }
+
   useEffect(() => {
     let cancelled = false;
 
@@ -124,10 +175,18 @@ export default function TicketsSummaryPage() {
       setLoading(true);
       setError(false);
       try {
-        const res = await fetch("/api/tickets/summary");
+        const [res, codesRes] = await Promise.all([
+          fetch("/api/tickets/summary"),
+          fetch("/api/tickets/admin/codes"),
+        ]);
         if (!res.ok) throw new Error("Failed to load summary");
         const json = (await res.json()) as SummaryResponse;
         if (!cancelled) setData(json);
+        // A code-listing failure must not blank the whole portal — the
+        // summary is the page's primary content.
+        if (codesRes.ok && !cancelled) {
+          setCodes(((await codesRes.json()) as { codes: CodeRow[] }).codes);
+        }
       } catch {
         if (!cancelled) setError(true);
       } finally {
@@ -259,6 +318,55 @@ export default function TicketsSummaryPage() {
                       >
                         {releasing === s.ticket_id ? "Releasing…" : "Release"}
                       </button>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        )}
+      </section>
+
+      <section className={styles.section}>
+        <h2 className={styles.sectionTitle}>Codes</h2>
+        {codes.length === 0 ? (
+          <p className={styles.empty}>Nog geen codes aangemaakt.</p>
+        ) : (
+          <div className={styles.tableWrap}>
+            <table className={styles.table}>
+              <thead>
+                <tr>
+                  <th>Code</th>
+                  <th>Type</th>
+                  <th>Voor</th>
+                  <th>Status</th>
+                  <th>Aangemaakt</th>
+                  <th>Actions</th>
+                </tr>
+              </thead>
+              <tbody>
+                {codes.map((c) => (
+                  <tr key={c.id}>
+                    <td className={styles.codeCell}>{c.code}</td>
+                    <td>{c.kind === "wheelchair" ? "Rolstoelplaats" : "Gratis ticket"}</td>
+                    <td>{c.label}</td>
+                    <td>
+                      <span className={`${styles.badge} ${badgeClassForCode(c.state)}`}>
+                        {CODE_STATE_LABEL[c.state]}
+                      </span>
+                    </td>
+                    <td>{new Date(c.created_at).toLocaleString("en-GB")}</td>
+                    <td>
+                      {c.state === "unused" && (
+                        <button
+                          type="button"
+                          className={styles.releaseBtn}
+                          disabled={revoking === c.id}
+                          onClick={() => handleRevoke(c)}
+                        >
+                          {revoking === c.id ? "Bezig…" : "Intrekken"}
+                        </button>
+                      )}
                     </td>
                   </tr>
                 ))}
