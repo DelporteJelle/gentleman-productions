@@ -8,7 +8,12 @@ import { usePosts } from "@/app/contexts/PostsContext";
 import { splitTitleAccent } from "@/lib/text";
 import { ROWS, getRowSeats } from "@/lib/venue";
 import { buildIndex, effectiveStatus, isSelectable, toggleSeat, groupMembers } from "@/lib/seatSelection";
-import { formatPlaceLabel, mergeRowRuns } from "@/lib/wheelchairPlaces";
+import {
+  formatPlaceLabel,
+  buildRowCells,
+  segmentSpan,
+  type PlaceCell,
+} from "@/lib/wheelchairPlaces";
 import CanvasBackground from "@/components/Background/CanvasBackground";
 import SectionLabel from "@/components/SectionLabel/SectionLabel";
 import SavedOrderBanner from "@/components/SavedOrders/SavedOrderBanner";
@@ -202,68 +207,54 @@ export default function SeatMapClient({ isAdmin }: { isAdmin: boolean }) {
     };
   }
 
-  function groupAt(row: string, seatNum: number | null): string | null {
-    if (seatNum === null) return null;
+  function groupAt(row: string | null, seatNum: number | null): string | null {
+    if (row === null || seatNum === null) return null;
     return index.seatMap[`${row}-${seatNum}`]?.wheelchair_group_id ?? null;
   }
 
   /**
-   * Whether a run may grow into the neighbouring row to close the seam.
+   * One piece of a wheelchair place.
    *
-   * Only when EVERY column it covers belongs to the same place there. The grid
-   * renders rows reversed (P at the top), so the row drawn directly below is
-   * one step earlier in ROWS — direction -1 is down, +1 is up.
-   */
-  function runMergesInto(
-    row: string,
-    seatNums: (number | null)[],
-    groupId: string,
-    direction: -1 | 1,
-  ): boolean {
-    const neighbourIdx = ROWS.indexOf(row) + direction;
-    if (neighbourIdx < 0 || neighbourIdx >= ROWS.length) return false;
-    const neighbour = ROWS[neighbourIdx];
-    return seatNums.every((n) => groupAt(neighbour, n) === groupId);
-  }
-
-  /**
-   * One wheelchair place drawn as a single seat, sized to the largest box that
-   * cannot touch a neighbouring seat.
+   * Sized to the largest box that cannot touch a neighbouring seat.
+   * Horizontally that is its own columns plus the gaps BETWEEN them, leaving
+   * the 3px separating it from whatever sits either side. Vertically it grows
+   * by the 4px row gap only where the same place continues below — the row gap
+   * carried by `.seat` means that is a plain height increase, no negative
+   * margin involved.
    *
-   * Horizontally that is the run's own cells plus the gaps BETWEEN them
-   * (span * 22px + (span - 1) * 3px), which leaves the 3px separating it from
-   * whatever sits either side. Vertically it grows by the 4px row gap only
-   * when the row below is the same place for every column — otherwise those
-   * 4px belong to another seat. The negative margin cancels that growth in
-   * layout, so the flex line stays 28px and the rest of the grid never shifts.
+   * Edges that continue into another piece lose their border and their corner
+   * rounding, which is what actually makes the pieces read as one object. An
+   * `outline` cannot do this: it has no per-side control, so it drew a line
+   * through every seam.
    */
-  function getPlaceRunStyle(
-    groupId: string,
-    span: number,
-    mergesUp: boolean,
-    mergesDown: boolean,
-  ): React.CSSProperties {
-    const active = groupId === hoverGroup || groupId === selectedGroupId;
-    const stacked = mergesUp || mergesDown;
+  function getPlaceCellStyle(cell: PlaceCell): React.CSSProperties {
+    const active = cell.groupId === hoverGroup || cell.groupId === selectedGroupId;
+    const { seats, gaps } = segmentSpan(cell.seatNums.length, cell.isRunEnd);
+    const border = `2px solid ${active ? "#bfdbfe" : "rgba(96,165,250,0.55)"}`;
+    const radius = "8px";
 
     return {
-      width: `calc(${span} * var(--seat-w) + ${span - 1} * var(--seat-gap))`,
-      height: mergesDown ? "calc(var(--seat-h) + var(--row-gap))" : "var(--seat-h)",
-      marginBottom: mergesDown ? "calc(-1 * var(--row-gap))" : undefined,
-      // Square off only the edges that continue into another run, so the stack
-      // reads as one rounded shape rather than several.
-      borderTopLeftRadius: mergesUp ? 0 : undefined,
-      borderTopRightRadius: mergesUp ? 0 : undefined,
-      borderBottomLeftRadius: mergesDown ? 0 : undefined,
-      borderBottomRightRadius: mergesDown ? 0 : undefined,
-      // A vertical gradient would restart in every row and band a stacked
-      // place into stripes; flat fill keeps it one object.
-      background: stacked
-        ? SEAT.wheelchair
-        : `linear-gradient(180deg, #60a5fa 0%, ${SEAT.wheelchair} 50%, #1d4ed8 100%)`,
-      boxShadow: `inset 0 1px 0 rgba(255,255,255,0.12), inset 0 -1px 0 rgba(0,0,0,0.28), 0 2px 5px rgba(0,0,0,0.35)`,
-      outline: `2px solid ${active ? "#bfdbfe" : "rgba(96,165,250,0.5)"}`,
-      outlineOffset: "-2px",
+      width: `calc(${seats} * var(--seat-w) + ${gaps} * var(--seat-gap))`,
+      // Cancels the flex gap the extra gap-unit above accounts for, so a split
+      // run occupies exactly what an unsplit one would.
+      marginRight: cell.isRunEnd ? undefined : "calc(-1 * var(--seat-gap))",
+      height: cell.continuesDown ? "calc(var(--seat-h) + var(--row-gap))" : "var(--seat-h)",
+      marginBottom: cell.continuesDown ? 0 : "var(--row-gap)",
+
+      borderTop: cell.continuesUp ? "none" : border,
+      borderBottom: cell.continuesDown ? "none" : border,
+      borderLeft: cell.isRunStart ? border : "none",
+      borderRight: cell.isRunEnd ? border : "none",
+
+      borderTopLeftRadius: cell.isRunStart && !cell.continuesUp ? radius : 0,
+      borderTopRightRadius: cell.isRunEnd && !cell.continuesUp ? radius : 0,
+      borderBottomLeftRadius: cell.isRunStart && !cell.continuesDown ? radius : 0,
+      borderBottomRightRadius: cell.isRunEnd && !cell.continuesDown ? radius : 0,
+
+      // Flat, not a gradient: a vertical gradient restarts in every row and
+      // would band a place spanning rows into stripes.
+      background: SEAT.wheelchair,
+      boxShadow: cell.continuesDown ? undefined : "0 2px 5px rgba(0,0,0,0.3)",
       cursor: isAdmin ? "pointer" : "not-allowed",
     };
   }
@@ -500,46 +491,49 @@ export default function SeatMapClient({ isAdmin }: { isAdmin: boolean }) {
           <div className={styles.seatGrid} ref={seatGridRef}>
             <div className={styles.seatGridInner}>
               {[...ROWS].reverse().map((row) => {
-                const runs = mergeRowRuns(
-                  getRowSeats(row).map((seatNum) => ({ seatNum, groupId: groupAt(row, seatNum) })),
+                // Rows render reversed (P at the top), so the row drawn below
+                // this one is the previous entry in ROWS.
+                const rowIdx = ROWS.indexOf(row);
+                const rowAbove = rowIdx < ROWS.length - 1 ? ROWS[rowIdx + 1] : null;
+                const rowBelow = rowIdx > 0 ? ROWS[rowIdx - 1] : null;
+
+                const cells = buildRowCells(
+                  getRowSeats(row),
+                  (n) => groupAt(row, n),
+                  (n) => groupAt(rowAbove, n),
+                  (n) => groupAt(rowBelow, n),
                 );
+
                 return (
                   <div key={row} className={styles.seatRow}>
                     <span className={styles.rowLabel}>{row}</span>
-                    {runs.map((run, idx) => {
-                      if (run.groupId === null) {
-                        const seatNum = run.seatNums[0];
+                    {cells.map((cell, idx) => {
+                      if (cell.kind === "seat") {
                         return (
                           <div
                             key={idx}
-                            className={seatNum === null ? styles.seatGap : styles.seat}
-                            onClick={() => handleSeatClick(row, seatNum)}
-                            title={seatNum !== null ? `${row}${seatNum}` : ""}
-                            style={getSeatStyle(row, seatNum)}
+                            className={cell.seatNum === null ? styles.seatGap : styles.seat}
+                            onClick={() => handleSeatClick(row, cell.seatNum)}
+                            title={cell.seatNum !== null ? `${row}${cell.seatNum}` : ""}
+                            style={getSeatStyle(row, cell.seatNum)}
                           />
                         );
                       }
 
-                      const groupId = run.groupId;
-                      // Only the run holding the anchor gets the mark, so a
-                      // place stacked across rows shows exactly one.
-                      const hasAnchor = run.seatNums.some(
-                        (n) => n !== null && index.seatMap[`${row}-${n}`]?.seat_kind === "wheelchair",
+                      // Only the piece holding the anchor gets the mark, so a
+                      // place spanning rows still shows exactly one.
+                      const hasAnchor = cell.seatNums.some(
+                        (n) => index.seatMap[`${row}-${n}`]?.seat_kind === "wheelchair",
                       );
                       return (
                         <div
                           key={idx}
                           className={styles.placeSeat}
-                          onClick={() => handlePlaceClick(groupId)}
-                          onMouseEnter={() => setHoverGroup(groupId)}
+                          onClick={() => handlePlaceClick(cell.groupId)}
+                          onMouseEnter={() => setHoverGroup(cell.groupId)}
                           onMouseLeave={() => setHoverGroup(null)}
-                          title={`Rolstoelplaats ${placeLabel(groupId)}`}
-                          style={getPlaceRunStyle(
-                            groupId,
-                            run.seatNums.length,
-                            runMergesInto(row, run.seatNums, groupId, 1),
-                            runMergesInto(row, run.seatNums, groupId, -1),
-                          )}
+                          title={`Rolstoelplaats ${placeLabel(cell.groupId)}`}
+                          style={getPlaceCellStyle(cell)}
                         >
                           {hasAnchor && (
                             <span className={styles.wheelchairGlyph} aria-hidden="true">&#9855;</span>

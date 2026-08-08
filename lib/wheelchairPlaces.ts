@@ -74,37 +74,120 @@ export function formatPlaceLabel(members: PlaceSeat[]): string {
     .join(" · ");
 }
 
-export interface RowCell {
-  /**
-   * Seat numbers this cell covers, in row order. One element for an ordinary
-   * seat or an aisle gap (whose seatNum is null); several for a run of one
-   * wheelchair place's members.
-   */
-  seatNums: (number | null)[];
-  /** Non-null when this cell is a run belonging to that wheelchair place. */
-  groupId: string | null;
+/** An ordinary seat, or an aisle gap when seatNum is null. */
+export interface SeatCell {
+  kind: "seat";
+  seatNum: number | null;
 }
 
 /**
- * Collapse consecutive members of the same wheelchair place into single cells,
- * so a place draws as one solid seat rather than a line of separate ones.
- *
- * A run breaks at anything that is not the same place: an ordinary seat, an
- * aisle gap, or a different place. That matters — a scattered place must not
- * swallow the on-sale seat sitting between two of its members, which would
- * make that seat invisible and unclickable.
+ * One drawn piece of a wheelchair place: a horizontal run of its members,
+ * possibly split where the place's shape changes vertically.
  */
-export function mergeRowRuns(
-  cells: { seatNum: number | null; groupId: string | null }[],
+export interface PlaceCell {
+  kind: "place";
+  groupId: string;
+  seatNums: number[];
+  /** The same place occupies every one of these columns in the row above/below. */
+  continuesUp: boolean;
+  continuesDown: boolean;
+  /** Leftmost / rightmost piece of its horizontal run. */
+  isRunStart: boolean;
+  isRunEnd: boolean;
+}
+
+export type RowCell = SeatCell | PlaceCell;
+
+type GroupLookup = (seatNum: number) => string | null;
+
+/**
+ * Lay out one row as drawable cells, collapsing each wheelchair place into as
+ * few pieces as possible so it reads as a single seat rather than a line of
+ * them.
+ *
+ * Two rules shape the result:
+ *
+ * A run breaks at anything that is not the same place — an ordinary seat, an
+ * aisle gap, another place. A scattered place must never swallow the on-sale
+ * seat between two of its members, which would make that seat invisible and
+ * unclickable.
+ *
+ * A run is then split wherever its vertical continuation changes, so the drawn
+ * shape is the largest one that stays inside the place's own seats. Given
+ * E1–E9 sitting above D1–D4, the E run splits into E1–E4 (which bridges the
+ * row gap down to D) and E5–E9 (which must not, because the 4px beneath it
+ * fronts ordinary seats).
+ */
+export function buildRowCells(
+  seatNums: (number | null)[],
+  groupOf: GroupLookup,
+  groupAbove: GroupLookup,
+  groupBelow: GroupLookup,
 ): RowCell[] {
   const out: RowCell[] = [];
-  for (const cell of cells) {
-    const last = out[out.length - 1];
-    if (cell.groupId !== null && last && last.groupId === cell.groupId) {
-      last.seatNums.push(cell.seatNum);
-    } else {
-      out.push({ seatNums: [cell.seatNum], groupId: cell.groupId });
+  let i = 0;
+
+  while (i < seatNums.length) {
+    const seatNum = seatNums[i];
+    const groupId = seatNum === null ? null : groupOf(seatNum);
+
+    if (seatNum === null || groupId === null) {
+      out.push({ kind: "seat", seatNum });
+      i++;
+      continue;
     }
+
+    // Maximal horizontal run of this place.
+    let runEnd = i;
+    while (runEnd + 1 < seatNums.length) {
+      const next = seatNums[runEnd + 1];
+      if (next === null || groupOf(next) !== groupId) break;
+      runEnd++;
+    }
+
+    // Split it wherever (continuesUp, continuesDown) changes.
+    let segStart = i;
+    while (segStart <= runEnd) {
+      const first = seatNums[segStart] as number;
+      const continuesUp = groupAbove(first) === groupId;
+      const continuesDown = groupBelow(first) === groupId;
+
+      let segEnd = segStart;
+      while (segEnd + 1 <= runEnd) {
+        const next = seatNums[segEnd + 1] as number;
+        if ((groupAbove(next) === groupId) !== continuesUp) break;
+        if ((groupBelow(next) === groupId) !== continuesDown) break;
+        segEnd++;
+      }
+
+      out.push({
+        kind: "place",
+        groupId,
+        seatNums: seatNums.slice(segStart, segEnd + 1) as number[],
+        continuesUp,
+        continuesDown,
+        isRunStart: segStart === i,
+        isRunEnd: segEnd === runEnd,
+      });
+      segStart = segEnd + 1;
+    }
+
+    i = runEnd + 1;
   }
+
   return out;
+}
+
+/**
+ * How many seat-widths and gap-widths a piece's width must cover.
+ *
+ * A piece that is not the end of its run also swallows the flex gap that would
+ * otherwise show as a transparent stripe through the middle of the place. The
+ * caller pairs that extra gap with a negative right margin of the same size,
+ * so the run's total footprint still comes to exactly n seats + (n-1) gaps —
+ * identical to the individual seats it replaced, which is what keeps it from
+ * encroaching on its neighbours.
+ */
+export function segmentSpan(span: number, isRunEnd: boolean): { seats: number; gaps: number } {
+  return { seats: span, gaps: span - 1 + (isRunEnd ? 0 : 1) };
 }

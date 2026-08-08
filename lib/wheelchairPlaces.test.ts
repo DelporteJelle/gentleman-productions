@@ -1,5 +1,11 @@
 import { describe, it, expect } from "vitest";
-import { pickAnchor, formatPlaceLabel, mergeRowRuns } from "@/lib/wheelchairPlaces";
+import {
+  pickAnchor,
+  formatPlaceLabel,
+  buildRowCells,
+  segmentSpan,
+  type PlaceCell,
+} from "@/lib/wheelchairPlaces";
 
 const seat = (row: string, seat_number: number) => ({ row, seat_number });
 
@@ -78,64 +84,145 @@ describe("formatPlaceLabel", () => {
   });
 });
 
-describe("mergeRowRuns", () => {
-  const plain = (n: number) => ({ seatNum: n, groupId: null });
-  const member = (n: number, groupId: string) => ({ seatNum: n, groupId });
+describe("buildRowCells", () => {
+  const none = () => null;
+  /** Membership lookup for one row: these seat numbers belong to `g`. */
+  const members = (g: string, nums: number[]) => (n: number) => (nums.includes(n) ? g : null);
+  const seats = (n: number) => Array.from({ length: n }, (_, i) => i + 1);
 
   it("leaves ordinary seats as one cell each", () => {
-    expect(mergeRowRuns([plain(1), plain(2), plain(3)])).toEqual([
-      { seatNums: [1], groupId: null },
-      { seatNums: [2], groupId: null },
-      { seatNums: [3], groupId: null },
+    expect(buildRowCells([1, 2, 3], none, none, none)).toEqual([
+      { kind: "seat", seatNum: 1 },
+      { kind: "seat", seatNum: 2 },
+      { kind: "seat", seatNum: 3 },
     ]);
   });
 
-  it("merges consecutive members of the same place into one run", () => {
-    expect(mergeRowRuns([plain(1), member(2, "g"), member(3, "g"), plain(4)])).toEqual([
-      { seatNums: [1], groupId: null },
-      { seatNums: [2, 3], groupId: "g" },
-      { seatNums: [4], groupId: null },
+  it("merges consecutive members of one place into a single piece", () => {
+    const row = members("g", [2, 3]);
+    expect(buildRowCells([1, 2, 3, 4], row, none, none)).toEqual([
+      { kind: "seat", seatNum: 1 },
+      {
+        kind: "place", groupId: "g", seatNums: [2, 3],
+        continuesUp: false, continuesDown: false, isRunStart: true, isRunEnd: true,
+      },
+      { kind: "seat", seatNum: 4 },
     ]);
   });
 
   it("keeps two adjacent places apart", () => {
-    expect(mergeRowRuns([member(1, "g1"), member(2, "g2")])).toEqual([
-      { seatNums: [1], groupId: "g1" },
-      { seatNums: [2], groupId: "g2" },
-    ]);
+    const row = (n: number) => (n === 1 ? "g1" : n === 2 ? "g2" : null);
+    const cells = buildRowCells([1, 2], row, none, none) as PlaceCell[];
+    expect(cells.map((c) => c.groupId)).toEqual(["g1", "g2"]);
+    expect(cells.every((c) => c.isRunStart && c.isRunEnd)).toBe(true);
   });
 
-  it("splits one place into separate runs when an ordinary seat interrupts it", () => {
-    // A scattered place must not swallow the seat between its members —
-    // that seat is still on sale and has to stay visible and clickable.
-    expect(mergeRowRuns([member(1, "g"), plain(2), member(3, "g")])).toEqual([
-      { seatNums: [1], groupId: "g" },
-      { seatNums: [2], groupId: null },
-      { seatNums: [3], groupId: "g" },
+  it("splits a place when an ordinary seat interrupts it", () => {
+    // The interrupting seat is still on sale — it must stay its own cell,
+    // visible and clickable, not be swallowed by the place around it.
+    const row = members("g", [1, 3]);
+    expect(buildRowCells([1, 2, 3], row, none, none)).toEqual([
+      { kind: "place", groupId: "g", seatNums: [1], continuesUp: false, continuesDown: false, isRunStart: true, isRunEnd: true },
+      { kind: "seat", seatNum: 2 },
+      { kind: "place", groupId: "g", seatNums: [3], continuesUp: false, continuesDown: false, isRunStart: true, isRunEnd: true },
     ]);
   });
 
   it("breaks a run at an aisle gap", () => {
     // Row P's centre aisle is a null seat; a run must never bridge it.
-    expect(mergeRowRuns([
-      member(13, "g"),
-      { seatNum: null, groupId: null },
-      member(23, "g"),
-    ])).toEqual([
-      { seatNums: [13], groupId: "g" },
-      { seatNums: [null], groupId: null },
-      { seatNums: [23], groupId: "g" },
+    const row = members("g", [13, 23]);
+    const cells = buildRowCells([13, null, 23], row, none, none);
+    expect(cells.map((c) => c.kind)).toEqual(["place", "seat", "place"]);
+  });
+
+  it("merges a whole row into one piece", () => {
+    const row = members("g", seats(9));
+    expect(buildRowCells(seats(9), row, none, none)).toEqual([
+      {
+        kind: "place", groupId: "g", seatNums: seats(9),
+        continuesUp: false, continuesDown: false, isRunStart: true, isRunEnd: true,
+      },
     ]);
   });
 
-  it("merges a whole row into a single run", () => {
-    const cells = Array.from({ length: 9 }, (_, i) => member(i + 1, "g"));
-    expect(mergeRowRuns(cells)).toEqual([
-      { seatNums: [1, 2, 3, 4, 5, 6, 7, 8, 9], groupId: "g" },
-    ]);
+  it("marks a run that continues into the row below", () => {
+    const row = members("g", seats(4));
+    const below = members("g", seats(4));
+    const [cell] = buildRowCells(seats(4), row, none, below) as PlaceCell[];
+    expect(cell.continuesDown).toBe(true);
+    expect(cell.continuesUp).toBe(false);
+  });
+
+  it("marks a run that continues into the row above", () => {
+    const row = members("g", seats(4));
+    const above = members("g", seats(4));
+    const [cell] = buildRowCells(seats(4), row, above, none) as PlaceCell[];
+    expect(cell.continuesUp).toBe(true);
+    expect(cell.continuesDown).toBe(false);
+  });
+
+  it("splits a ragged place so only the overlapping columns bridge", () => {
+    // E1–E9 sitting above D1–D4. The 4px under E5–E9 fronts ordinary seats,
+    // so that piece must not grow into it.
+    const row = members("g", seats(9));
+    const below = members("g", seats(4));
+    const cells = buildRowCells(seats(9), row, none, below) as PlaceCell[];
+
+    expect(cells).toHaveLength(2);
+    expect(cells[0]).toMatchObject({
+      seatNums: [1, 2, 3, 4], continuesDown: true, isRunStart: true, isRunEnd: false,
+    });
+    expect(cells[1]).toMatchObject({
+      seatNums: [5, 6, 7, 8, 9], continuesDown: false, isRunStart: false, isRunEnd: true,
+    });
+  });
+
+  it("does not bridge to a different place in the row below", () => {
+    const row = members("g1", seats(4));
+    const below = members("g2", seats(4));
+    const [cell] = buildRowCells(seats(4), row, none, below) as PlaceCell[];
+    expect(cell.continuesDown).toBe(false);
   });
 
   it("returns nothing for an empty row", () => {
-    expect(mergeRowRuns([])).toEqual([]);
+    expect(buildRowCells([], none, none, none)).toEqual([]);
+  });
+});
+
+describe("segmentSpan", () => {
+  const SEAT_W = 22; // must match --seat-w in SeatMap.module.css
+  const SEAT_GAP = 3; // must match --seat-gap
+
+  const widthPx = (span: number, isRunEnd: boolean) => {
+    const { seats, gaps } = segmentSpan(span, isRunEnd);
+    return seats * SEAT_W + gaps * SEAT_GAP;
+  };
+  /** What n individual seats occupy, gaps included. */
+  const seatsFootprint = (n: number) => n * SEAT_W + (n - 1) * SEAT_GAP;
+
+  it("an unsplit run occupies exactly the seats it replaced", () => {
+    for (const n of [1, 2, 4, 9, 20]) {
+      expect(widthPx(n, true)).toBe(seatsFootprint(n));
+    }
+  });
+
+  it("a split run still occupies exactly the seats it replaced", () => {
+    // Two pieces covering 9 columns. The non-final piece carries one extra gap
+    // in its width and cancels the flex gap with a negative margin, so the
+    // pieces plus that flex gap come to the same total.
+    const total = widthPx(4, false) + SEAT_GAP - SEAT_GAP + widthPx(5, true);
+    expect(total).toBe(seatsFootprint(9));
+  });
+
+  it("gap units across a split run always sum to n - 1", () => {
+    const split = (parts: number[]) =>
+      parts.reduce(
+        (sum, span, i) => sum + segmentSpan(span, i === parts.length - 1).gaps,
+        0,
+      );
+    expect(split([9])).toBe(8);
+    expect(split([4, 5])).toBe(8);
+    expect(split([2, 3, 4])).toBe(8);
+    expect(split([1, 1, 1, 1, 1, 1, 1, 1, 1])).toBe(8);
   });
 });
