@@ -35,6 +35,12 @@ Because the grouping lives on `tickets` — already keyed by `(date_uuid,
 seat_id)` — per-performance configuration costs nothing structurally. It is the
 natural grain of the table.
 
+**A place may span rows.** D1–D4 together with E1–E4 is a single place, for a
+deeper wheelchair bay. Nothing in the data model or either endpoint is
+row-aware: membership is a shared `wheelchair_group_id`, the claim matches on
+`t.id = ANY(...)`, and anchor selection orders across rows. The only places rows
+matter are rendering and labelling, both handled under "Seat map UI".
+
 ## Decisions taken
 
 | Decision | Choice |
@@ -255,8 +261,12 @@ The id-withholding rule is unchanged — `available` (or lapsed-hold) rows expos
 
 ## Seat selection logic (`lib/seatSelection.ts`)
 
-`Cell` swaps `reserved_for` for `seat_kind`. `effectiveStatus` and the internal
-`getStatus` drop the `reserved_for === 'wheelchair'` branch:
+`Cell` swaps `reserved_for` for `seat_kind` and gains `wheelchair_group_id` —
+that is what lets a clicked cell resolve to its place without going through
+`ticketById`, which floor seats are absent from because their ids are withheld.
+
+`effectiveStatus` and the internal `getStatus` drop the
+`reserved_for === 'wheelchair'` branch:
 
 ```ts
 export function effectiveStatus(t: SeatTicket):
@@ -279,10 +289,20 @@ red. That ordering is dropped on purpose: an anchor can now legitimately be sold
 ## Seat map UI (`SeatMapClient.tsx`)
 
 **All users.** Members of a group render in the existing wheelchair blue, with
-the anchor cell carrying a ♿ glyph. Contiguous members read as one band; a
-non-contiguous group renders as several blue cells — the honest consequence of
-imposing no shape rule. Neither is clickable for non-admins. The existing
+the anchor cell carrying a ♿ glyph. Not clickable for non-admins. The existing
 "Wheelchair" legend entry keeps its colour and now means "wheelchair place".
+
+The grid renders row by row, so a place is drawn as one blue run **per row it
+occupies** — a place spanning D1–D4 and E1–E4 appears as two runs, one above
+the other, and a deliberately scattered place appears as several. Only the
+anchor carries the glyph, so without further treatment a multi-row place reads
+as several unrelated things.
+
+Every member cell therefore also carries a shared outline in the group colour,
+and hovering any member highlights all of them (resolved via
+`wheelchair_group_id`, which is on every member regardless of row). That is
+what makes one place read as one place. It is a styling concern only — no
+change to the grid's row-by-row structure, which stays as it is.
 
 **Admin.** Admin mode already permits free selection of any seats, so the
 selection mechanism exists.
@@ -293,9 +313,22 @@ selection mechanism exists.
   stand-in for the geometry validation we chose not to build. On confirm,
   `POST` the selection, then refetch `/api/tickets/seats` and clear the
   selection.
-- Clicking any cell of an existing place selects **the whole group** (by
-  `wheelchair_group_id`) rather than one seat, and surfaces a **"Zet terug naar
-  gewone stoelen"** button. On confirm, `POST …/revert`, refetch, clear.
+- Clicking any cell of an existing place selects **the whole group** rather than
+  one seat, and surfaces a **"Zet terug naar gewone stoelen"** button. On
+  confirm, `POST …/revert`, refetch, clear.
+
+  This selection is held in its own `selectedGroupId: string | null` state,
+  **not** in the existing `selected: string[]` array. That array is keyed by
+  ticket id, and the seats API withholds `t.id` for every row that is not
+  `available` — floor seats are `'blocked'`, so their ids arrive as `null` and
+  they can never enter it. On a multi-row place most members are floor seats,
+  so routing this through `selected` would select almost nothing. Group
+  membership is resolved by `wheelchair_group_id`, which is present on every
+  member whether or not its id was withheld.
+
+  The two selections are mutually exclusive: picking seats for a new place
+  clears `selectedGroupId`, and clicking an existing place clears `selected`.
+  Each drives its own button, so only one action is ever offered.
 
 Errors surface as inline text next to the buttons, reusing the existing
 `reserveError` pattern. No new toast or modal dependency.
@@ -331,9 +364,11 @@ Following the repo convention of testing pure logic in `lib/**` rather than
 route handlers:
 
 - `lib/server/wheelchairPlaces.test.ts` (new): input validation (bad uuids,
-  empty selection, over `MAX_SEATS_PER_PLACE`, duplicate ids collapsed) and
+  empty selection, over `MAX_SEATS_PER_PLACE`, duplicate ids collapsed);
   anchor selection (lowest row then lowest seat number; single-seat group;
-  group spanning rows).
+  group spanning rows — D1 anchors a D+E group even when E1 is listed first);
+  and `formatPlaceLabel` (single-row range, multi-row join, scattered seats,
+  single seat).
 - `lib/seatSelection.test.ts`: replace the `reserved_for` cases with `seat_kind`
   ones — anchor not selectable, floor seat not selectable, both refused in admin
   mode too, and a sold anchor still reporting `"wheelchair"`.
@@ -351,8 +386,12 @@ route handlers:
   is spec 2, and until it ships a place is unclaimable by the public *and* by
   the admin giveaway flow.
 - **Shape validation.** Explicitly declined; the confirm dialog is the guard.
-- **Naming places.** A place is identified by its seat labels (e.g. "D1–D9"),
-  derived at render time. No label column.
+- **Naming places.** A place is identified by its seat labels, derived at render
+  time from its members — no label column. Derivation groups members by row,
+  collapses each row into contiguous ranges, and joins with " · ": D1–D9 for a
+  single-row place, "D1–D4 · E1–E4" for one spanning rows, "D1–D2 · D7" for a
+  scattered one. A pure `formatPlaceLabel(members)` helper, used by both the
+  convert confirmation dialog and the revert button.
 - **Admin portal management of places.** Places are created, seen and reverted
   on the seat map, where the spatial context is. The portal only reports counts.
 - **Rate limiting** on the two new admin routes — consistent with the existing
