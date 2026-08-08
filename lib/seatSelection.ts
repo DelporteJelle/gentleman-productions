@@ -1,8 +1,14 @@
 import { ROWS, getRowSeats } from "@/lib/venue";
-import type { SeatTicket } from "@/types";
+import type { SeatTicket, SeatKind } from "@/types";
 
 export type SeatRef = { row: string; seatNum: number };
-type Cell = { id: string | null; status: string; reserved_for: string | null; held_until: string | null };
+type Cell = {
+  id: string | null;
+  status: string;
+  seat_kind: SeatKind;
+  wheelchair_group_id: string | null;
+  held_until: string | null;
+};
 export type TicketIndex = { ticketById: Record<string, SeatRef>; seatMap: Record<string, Cell> };
 
 export function buildIndex(tickets: SeatTicket[]): TicketIndex {
@@ -10,20 +16,19 @@ export function buildIndex(tickets: SeatTicket[]): TicketIndex {
   const ticketById: Record<string, SeatRef> = {};
   for (const t of tickets) {
     seatMap[`${t.seat.row}-${t.seat.seat_number}`] = {
-      id: t.id, status: t.status, reserved_for: t.seat.reserved_for, held_until: t.held_until,
+      id: t.id, status: t.status, seat_kind: t.seat_kind,
+      wheelchair_group_id: t.wheelchair_group_id, held_until: t.held_until,
     };
     if (t.id) ticketById[t.id] = { row: t.seat.row, seatNum: t.seat.seat_number };
   }
   return { seatMap, ticketById };
 }
 
-export function effectiveStatus(t: SeatTicket): "available" | "held" | "sold" | "wheelchair" {
-  // verbatim from source getStatus (lines 96-107), operating on a ticket
-  if (t.seat.reserved_for === "wheelchair") {
-    if (t.status === "sold") return "sold";
-    if (t.status === "held") return "held";
-    return "wheelchair";
-  }
+export function effectiveStatus(t: SeatTicket): "available" | "held" | "sold" | "wheelchair" | "blocked" {
+  // seat_kind wins over status, deliberately. An anchor can legitimately be
+  // sold (spec 2), and it must still render as a taken wheelchair place rather
+  // than as an ordinary red seat.
+  if (t.seat_kind) return t.seat_kind === "wheelchair" ? "wheelchair" : "blocked";
   if (t.status === "held" && t.held_until && new Date(t.held_until) < new Date()) return "available";
   return t.status as "available" | "held" | "sold";
 }
@@ -68,11 +73,7 @@ function getStatus(index: TicketIndex, row: string, seatNum: number | null): str
   if (seatNum === null) return 'gap';
   const t = index.seatMap[`${row}-${seatNum}`];
   if (!t) return 'gap';
-  if (t.reserved_for === 'wheelchair') {
-    if (t.status === 'sold') return 'sold';
-    if (t.status === 'held') return 'held';
-    return 'wheelchair';
-  }
+  if (t.seat_kind) return t.seat_kind === 'wheelchair' ? 'wheelchair' : 'blocked';
   if (t.status === 'held' && t.held_until && new Date(t.held_until) < new Date()) return 'available';
   return t.status;
 }
@@ -107,7 +108,7 @@ function placeSeats(index: TicketIndex, row: string, startSeat: number, count: n
 
 export function isSelectable(index: TicketIndex, selected: string[], multiRow: boolean, row: string, seatNum: number, isAdmin = false): boolean {
   const status = getStatus(index, row, seatNum);
-  if (status === 'sold' || status === 'held' || status === 'wheelchair') return false;
+  if (status === 'sold' || status === 'held' || status === 'wheelchair' || status === 'blocked') return false;
 
   const ticketId = index.seatMap[`${row}-${seatNum}`]?.id;
   if (ticketId && selected.includes(ticketId)) return true;
@@ -195,4 +196,23 @@ export function toggleSeat(index: TicketIndex, selected: string[], multiRow: boo
   }
 
   return selected;
+}
+
+/**
+ * Every seat belonging to one wheelchair place, ordered by row then seat.
+ *
+ * Resolved through `seatMap` (keyed by coordinate) rather than `ticketById`,
+ * because floor seats have no ticket id — the seats API withholds it for any
+ * row that is not 'available'. On a multi-row place most members are floor
+ * seats, so an id-based lookup would find almost nothing.
+ */
+export function groupMembers(index: TicketIndex, groupId: string): SeatRef[] {
+  const out: SeatRef[] = [];
+  for (const key in index.seatMap) {
+    if (index.seatMap[key].wheelchair_group_id !== groupId) continue;
+    const di = key.indexOf('-');
+    out.push({ row: key.substring(0, di), seatNum: parseInt(key.substring(di + 1)) });
+  }
+  return out.sort((a, b) =>
+    a.row === b.row ? a.seatNum - b.seatNum : ROWS.indexOf(a.row) - ROWS.indexOf(b.row));
 }

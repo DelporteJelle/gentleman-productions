@@ -191,14 +191,25 @@ export function createUUID(): string {
 // Ticketing Types
 // ============================================================================
 
-export type TicketStatus = "available" | "held" | "sold";
+export type TicketStatus = "available" | "held" | "sold" | "blocked";
+
+/**
+ * What a ticket IS, independent of what state it is in.
+ * - null               — an ordinary seat.
+ * - 'wheelchair'       — the single sellable ticket of a wheelchair place.
+ * - 'wheelchair_floor' — a seat the place's footprint covers; never sellable.
+ */
+export type SeatKind = "wheelchair" | "wheelchair_floor" | null;
 
 export interface SeatTicket {
-  /** null when the seat is not purchasable — the API withholds ids for sold/held seats. */
+  /** null when the seat is not purchasable — the API withholds ids for sold/held/blocked seats. */
   id: string | null;
   status: TicketStatus;
   held_until: string | null;
-  seat: { id: string; row: string; seat_number: number; reserved_for: string | null };
+  seat_kind: SeatKind;
+  /** Shared by every member of one wheelchair place; null for ordinary seats. */
+  wheelchair_group_id: string | null;
+  seat: { id: string; row: string; seat_number: number };
 }
 
 export interface Order {
