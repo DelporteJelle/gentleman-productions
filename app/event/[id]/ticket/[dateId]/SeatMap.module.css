@@ -553,3 +553,31 @@
   pointer-events: none;
   user-select: none;
 }
+
+/* Admin-only wheelchair place actions. Same metrics as .reserveBtn, in the
+   wheelchair blue so the action reads as belonging to the blue seats. */
+.placeBtn,
+.placeRevertBtn {
+  padding: 0.55rem 1.1rem;
+  border-radius: 6px;
+  font-size: 0.8rem;
+  font-weight: 600;
+  letter-spacing: 0.04em;
+  cursor: pointer;
+  background: transparent;
+  border: 1px solid rgba(96, 165, 250, 0.7);
+  color: #93c5fd;
+  transition: background 0.2s ease, color 0.2s ease;
+}
+
+.placeBtn:hover:not(:disabled),
+.placeRevertBtn:hover:not(:disabled) {
+  background: rgba(96, 165, 250, 0.15);
+  color: #dbeafe;
+}
+
+.placeBtn:disabled,
+.placeRevertBtn:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}

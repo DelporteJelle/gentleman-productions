@@ -7,7 +7,8 @@ import { Event, SeatTicket, isEvent } from "@/types";
 import { usePosts } from "@/app/contexts/PostsContext";
 import { splitTitleAccent } from "@/lib/text";
 import { ROWS, getRowSeats } from "@/lib/venue";
-import { buildIndex, effectiveStatus, isSelectable, toggleSeat } from "@/lib/seatSelection";
+import { buildIndex, effectiveStatus, isSelectable, toggleSeat, groupMembers } from "@/lib/seatSelection";
+import { formatPlaceLabel } from "@/lib/wheelchairPlaces";
 import CanvasBackground from "@/components/Background/CanvasBackground";
 import SectionLabel from "@/components/SectionLabel/SectionLabel";
 import SavedOrderBanner from "@/components/SavedOrders/SavedOrderBanner";
@@ -62,6 +63,9 @@ export default function SeatMapClient({ isAdmin }: { isAdmin: boolean }) {
 
   const [reserving, setReserving] = useState(false);
   const [reserveError, setReserveError] = useState<string | null>(null);
+
+  const [placeBusy, setPlaceBusy] = useState(false);
+  const [placeError, setPlaceError] = useState<string | null>(null);
 
   const seatGridRef = useRef<HTMLDivElement>(null);
   const [scrollLeft, setScrollLeft] = useState(false);
@@ -210,7 +214,93 @@ export default function SeatMapClient({ isAdmin }: { isAdmin: boolean }) {
 
   function handleSeatClick(row: string, seatNum: number | null) {
     if (seatNum === null) return;
+    const cell = index.seatMap[`${row}-${seatNum}`];
+
+    // A wheelchair place is selected as a whole, by group id — see the
+    // selectedGroupId declaration for why it cannot go through `selected`.
+    if (cell?.wheelchair_group_id) {
+      if (!isAdmin) return;
+      const groupId = cell.wheelchair_group_id;
+      setSelected([]);
+      setPlaceError(null);
+      setSelectedGroupId((prev) => (prev === groupId ? null : groupId));
+      return;
+    }
+
+    setSelectedGroupId(null);
     setSelected((prev) => toggleSeat(index, prev, multiRow, row, seatNum, isAdmin));
+  }
+
+  async function refreshSeats() {
+    const res = await fetch(`/api/tickets/seats?date_uuid=${dateId}`);
+    if (!res.ok) throw new Error("Failed to reload seat availability");
+    setTickets((await res.json()) as SeatTicket[]);
+  }
+
+  async function handleCreatePlace() {
+    if (selected.length === 0) return;
+    const members = selected
+      .map((ticketId) => index.ticketById[ticketId])
+      .filter((s): s is { row: string; seatNum: number } => Boolean(s))
+      .map((s) => ({ row: s.row, seat_number: s.seatNum }));
+
+    const confirmed = window.confirm(
+      `Van ${members.length} stoel${members.length === 1 ? "" : "en"} (${formatPlaceLabel(members)}) ` +
+        `één rolstoelplaats maken? Deze stoelen zijn daarna niet meer los te koop.`
+    );
+    if (!confirmed) return;
+
+    setPlaceBusy(true);
+    setPlaceError(null);
+    try {
+      const res = await fetch("/api/tickets/admin/wheelchair-places", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ eventUuid: event!.uuid, dateUuid: dateId, ticketIds: selected }),
+      });
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok) {
+        setPlaceError(data.error ?? "Kon de rolstoelplaats niet aanmaken. Probeer opnieuw.");
+        return;
+      }
+      await refreshSeats();
+      setSelected([]);
+    } catch {
+      setPlaceError("Kon de rolstoelplaats niet aanmaken. Probeer opnieuw.");
+    } finally {
+      setPlaceBusy(false);
+    }
+  }
+
+  async function handleRevertPlace() {
+    if (!selectedGroupId) return;
+    const members = groupMembers(index, selectedGroupId)
+      .map((s) => ({ row: s.row, seat_number: s.seatNum }));
+
+    const confirmed = window.confirm(
+      `Rolstoelplaats ${formatPlaceLabel(members)} terugzetten naar ${members.length} gewone ` +
+        `stoel${members.length === 1 ? "" : "en"}?`
+    );
+    if (!confirmed) return;
+
+    setPlaceBusy(true);
+    setPlaceError(null);
+    try {
+      const res = await fetch(`/api/tickets/admin/wheelchair-places/${selectedGroupId}/revert`, {
+        method: "POST",
+      });
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok) {
+        setPlaceError(data.error ?? "Kon de rolstoelplaats niet terugzetten. Probeer opnieuw.");
+        return;
+      }
+      await refreshSeats();
+      setSelectedGroupId(null);
+    } catch {
+      setPlaceError("Kon de rolstoelplaats niet terugzetten. Probeer opnieuw.");
+    } finally {
+      setPlaceBusy(false);
+    }
   }
 
   async function handleReserve() {
@@ -391,9 +481,13 @@ export default function SeatMapClient({ isAdmin }: { isAdmin: boolean }) {
       <div className={styles.bottomBar}>
         <div className={styles.bottomBarInfo}>
           <div className={styles.selectionCount}>
-            {selected.length === 0
-              ? "No seats selected"
-              : `${selected.length} seat${selected.length > 1 ? "s" : ""} selected`}
+            {selectedGroupId
+              ? `Rolstoelplaats ${formatPlaceLabel(
+                  groupMembers(index, selectedGroupId).map((s) => ({ row: s.row, seat_number: s.seatNum })),
+                )} geselecteerd`
+              : selected.length === 0
+                ? "No seats selected"
+                : `${selected.length} seat${selected.length > 1 ? "s" : ""} selected`}
           </div>
           {selected.length > 0 && (
             <div className={styles.priceLine}>€{price.toFixed(2)} per seat</div>
@@ -401,6 +495,7 @@ export default function SeatMapClient({ isAdmin }: { isAdmin: boolean }) {
         </div>
         <div className={styles.bottomBarActions}>
           {reserveError && <span className={styles.reserveError}>{reserveError}</span>}
+          {placeError && <span className={styles.reserveError}>{placeError}</span>}
           {selected.length > 0 && (
             <button
               type="button"
@@ -418,6 +513,26 @@ export default function SeatMapClient({ isAdmin }: { isAdmin: boolean }) {
               onClick={handleReserve}
             >
               {reserving ? "Reserving…" : "Reserve for giveaway"}
+            </button>
+          )}
+          {isAdmin && selected.length > 0 && (
+            <button
+              type="button"
+              className={styles.placeBtn}
+              disabled={placeBusy}
+              onClick={handleCreatePlace}
+            >
+              {placeBusy ? "Bezig…" : "Maak rolstoelplaats"}
+            </button>
+          )}
+          {isAdmin && selectedGroupId && (
+            <button
+              type="button"
+              className={styles.placeRevertBtn}
+              disabled={placeBusy}
+              onClick={handleRevertPlace}
+            >
+              {placeBusy ? "Bezig…" : "Zet terug naar gewone stoelen"}
             </button>
           )}
           <button
