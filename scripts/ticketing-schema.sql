@@ -50,3 +50,35 @@ alter table orders add column if not exists reserved_by_admin boolean not null d
 -- and let a rival claim the seats out from under someone mid-payment.
 -- Null on pre-existing rows; every reader uses coalesce(payment_started_at, created_at).
 alter table orders add column if not exists payment_started_at timestamptz;
+
+-- ---------------------------------------------------------------------------
+-- Wheelchair places.
+-- See docs/superpowers/specs/2026-08-07-wheelchair-places-design.md
+--
+-- A place is a set of tickets rows sharing one wheelchair_group_id. Exactly
+-- one member — the anchor — is seat_kind='wheelchair' and stays 'available':
+-- it is the single sellable ticket. The rest are seat_kind='wheelchair_floor'
+-- at status='blocked', which every existing `AND t.status = 'available'`
+-- guard already refuses without modification.
+-- ---------------------------------------------------------------------------
+alter table tickets add column if not exists wheelchair_group_id uuid;
+alter table tickets add column if not exists seat_kind text;
+
+-- The original inline column check was auto-named tickets_status_check by
+-- Postgres. VERIFY WITH `\d tickets` BEFORE RUNNING and adjust if it differs —
+-- a wrong name makes the drop a silent no-op and the add then fails.
+alter table tickets drop constraint if exists tickets_status_check;
+alter table tickets add constraint tickets_status_check
+  check (status in ('available','held','sold','blocked'));
+
+alter table tickets drop constraint if exists tickets_seat_kind_check;
+alter table tickets add constraint tickets_seat_kind_check
+  check (seat_kind is null or seat_kind in ('wheelchair','wheelchair_floor'));
+
+create index if not exists tickets_wheelchair_group_idx on tickets(wheelchair_group_id);
+
+-- Step 1 of 2 for retiring seats.reserved_for. Safe against the currently
+-- deployed code: it makes P1/P2/P28/P29 ordinary sellable seats, which is the
+-- desired end state anyway. The `drop column` is deliberately NOT here — see
+-- scripts/drop-reserved-for.sql.
+update seats set reserved_for = null where reserved_for is not null;

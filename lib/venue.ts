@@ -1,12 +1,5 @@
 export const ROWS = ["A","B","C","D","E","F","G","H","I","J","K","L","M","N","O","P"];
 
-export const WHEELCHAIR_SEATS = [
-  { row: "P", seat_number: 1 },
-  { row: "P", seat_number: 2 },
-  { row: "P", seat_number: 28 },
-  { row: "P", seat_number: 29 },
-];
-
 export function getRowSeats(row: string): (number | null)[] {
   if (row === "P")
     return [
@@ -20,14 +13,12 @@ export function getRowSeats(row: string): (number | null)[] {
   return Array.from({ length: count }, (_, i) => i + 1);
 }
 
-export function venueSeats(): { row: string; seat_number: number; reserved_for: string | null }[] {
-  const isWheelchair = (row: string, n: number) =>
-    WHEELCHAIR_SEATS.some((w) => w.row === row && w.seat_number === n);
-  const out: { row: string; seat_number: number; reserved_for: string | null }[] = [];
+export function venueSeats(): { row: string; seat_number: number }[] {
+  const out: { row: string; seat_number: number }[] = [];
   for (const row of ROWS) {
     for (const seat of getRowSeats(row)) {
       if (seat === null) continue;
-      out.push({ row, seat_number: seat, reserved_for: isWheelchair(row, seat) ? "wheelchair" : null });
+      out.push({ row, seat_number: seat });
     }
   }
   return out;
