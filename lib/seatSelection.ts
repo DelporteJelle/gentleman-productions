@@ -271,9 +271,10 @@ export function groupMembers(index: TicketIndex, groupId: string): SeatRef[] {
 /**
  * Ticket ids on this map that are currently out of service.
  *
- * Resolved through `seatMap` rather than `ticketById` for the same reason as
- * `groupMembers`: the caller wants every disabled seat, and only the admin
- * response carries ids for them at all.
+ * Resolved through `seatMap` rather than `ticketById`: a `Cell` carries both
+ * `status` and `id` together, so one lookup answers the question. Checking
+ * `ticketById` would require a second dereference to read status. The null-id
+ * guard is defensive against malformed data.
  */
 export function disabledTicketIds(index: TicketIndex): Set<string> {
   const out = new Set<string>();

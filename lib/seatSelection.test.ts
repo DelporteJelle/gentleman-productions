@@ -238,14 +238,47 @@ describe("disabled seats", () => {
     expect(toggleSeat(idx, sel, false, "A", 3, true)).toEqual([]);
   });
 
-  it("a customer's block selection breaks across the hole a disabled seat leaves", () => {
-    // A customer never receives the disabled row at all, so seat 3 is simply
-    // absent from their index — the run must not jump it.
+  it("a customer's block selection breaks across the hole left by an omitted seat", () => {
+    // A customer never receives disabled seats from the API, so seat 3 is simply
+    // absent from their index. This tests that the selection logic treats the gap
+    // as a break, not a continued run. The disabled-seat branch is tested below.
     const idx = buildIndex([mk(1), mk(2), mk(4), mk(5)]);
     const sel = toggleSeat(idx, [], false, "A", 2);
     expect(sel).toEqual(["A2"]);
     expect(isSelectable(idx, sel, false, "A", 3)).toBe(false);
     expect(isSelectable(idx, sel, false, "A", 4)).toBe(false);
+  });
+
+  it("a customer cannot select or extend across a disabled seat; an admin can", () => {
+    // This tests the actual disabled-seat branch where the cell exists in the
+    // index with status='disabled' (which only happens on an admin query).
+    // Customer: the seat is not selectable, and a contiguous block must break.
+    // Admin: the seat is selectable and can be held alongside non-adjacent seats.
+    const disabledInRow: SeatTicket = {
+      id: "t-disabled", status: "disabled", held_until: null,
+      seat_kind: null, wheelchair_group_id: null,
+      seat: { id: "s-disabled", row: "A", seat_number: 3 },
+    };
+    const idx = buildIndex([mk(1), mk(2), disabledInRow, mk(4), mk(5)]);
+
+    // Customer cannot select the disabled seat
+    expect(isSelectable(idx, [], false, "A", 3, false)).toBe(false);
+
+    // Customer's block from seat 2 cannot extend across the disabled seat to seat 4
+    const sel2 = toggleSeat(idx, [], false, "A", 2, false);
+    expect(sel2).toEqual(["A2"]);
+    expect(isSelectable(idx, sel2, false, "A", 3, false)).toBe(false);
+    expect(isSelectable(idx, sel2, false, "A", 4, false)).toBe(false);
+
+    // Admin can select the disabled seat
+    expect(isSelectable(idx, [], false, "A", 3, true)).toBe(true);
+
+    // Admin can hold it alongside a non-adjacent seat (bypassing contiguity)
+    const adminSel = toggleSeat(idx, [], false, "A", 3, true);
+    expect(adminSel).toEqual(["t-disabled"]);
+    expect(isSelectable(idx, adminSel, false, "A", 1, true)).toBe(true);
+    const adminTwo = toggleSeat(idx, adminSel, false, "A", 1, true);
+    expect(adminTwo.sort()).toEqual(["A1", "t-disabled"]);
   });
 
   it("disabledTicketIds returns the disabled ids and skips null ones", () => {
