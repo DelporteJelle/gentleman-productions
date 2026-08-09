@@ -54,6 +54,12 @@ export interface Event extends Post {
   images?: string[];
   dates: EventDateEntry[];
   eventlocation?: EventLocation;
+  /**
+   * Derived roll-up: true when at least one date is on sale. Sales are
+   * controlled per date (`EventDateEntry.tickets_open`); this is written by the
+   * admin form so event-level surfaces (home-page CTA, SEO) have one field to
+   * read, and it doubles as the fallback for dates predating per-date sales.
+   */
   tickets_open?: boolean;
   production_theme?: ProductionTheme;
 }
@@ -89,6 +95,13 @@ export interface EventDateEntry {
   end_time: string; // ISO date string
   timeLine: TimeLineEntry[];
   price?: number; // undefined if free
+  /**
+   * Per-date sales switch. `undefined` on dates written before per-date sales
+   * existed — those fall back to the event-level `tickets_open`.
+   */
+  tickets_open?: boolean;
+  /** Shown over the greyed-out card while this date is closed. */
+  closed_message?: string;
 }
 
 /**

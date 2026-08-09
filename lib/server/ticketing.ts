@@ -1,5 +1,5 @@
 import type { NeonQueryFunction } from "@neondatabase/serverless";
-import type { Event, EventDateEntry } from "@/types";
+import type { Event } from "@/types";
 
 type Sql = NeonQueryFunction<false, false>;
 
@@ -9,25 +9,23 @@ export function eurosToCents(euros: number): number {
 export function centsToEuros(cents: number): number {
   return cents / 100;
 }
-/**
- * A date is on sale only when the event has ticketing enabled and the date
- * carries a numeric price. Written as a type predicate so callers that go on
- * to charge for the date (checkout) get `price: number` without re-checking.
- */
-export function isDateOpen(
-  event: Event,
-  date: EventDateEntry,
-): date is EventDateEntry & { price: number } {
-  return event.tickets_open === true && typeof date.price === "number";
-}
 
 /**
- * For each open date of the event, ensure one `tickets` row exists per venue seat.
- * Idempotent: existing (date_uuid, seat_id) rows are left untouched.
+ * For each priced date of the event, ensure one `tickets` row exists per venue
+ * seat. Idempotent: existing (date_uuid, seat_id) rows are left untouched.
+ *
+ * Deliberately keyed on the price rather than on whether the date is on sale:
+ * seats are the room, not the sale. An admin needs to disable seats and place
+ * wheelchair spots on a date that is still closed — a rehearsal day held back
+ * until the other dates sell out — and opening it should then be an instant
+ * flip rather than a wait for provisioning. Closed dates stay unreachable to
+ * customers through `isDateOpen`, which gates the seat map and checkout.
  */
 export async function provisionTicketsForEvent(sql: Sql, event: Event): Promise<void> {
-  const openDates = (event.dates ?? []).filter((d) => isDateOpen(event, d));
-  if (openDates.length === 0) return;
+  const pricedDates = (event.dates ?? []).filter(
+    (d) => typeof d.price === "number",
+  );
+  if (pricedDates.length === 0) return;
   const seatRows = await sql`SELECT id FROM seats;`;
   const seatIds = seatRows.map((r) => r.id as string);
   if (seatIds.length === 0) {
@@ -36,12 +34,12 @@ export async function provisionTicketsForEvent(sql: Sql, event: Event): Promise<
     // downstream as an empty (all-black) seat map — so fail loudly here.
     console.warn(
       `provisionTicketsForEvent: event "${event.title}" (${event.uuid}) has ` +
-        `${openDates.length} open date(s) but the seats table is empty — no tickets ` +
+        `${pricedDates.length} priced date(s) but the seats table is empty — no tickets ` +
         `were created. Run \`npm run seed:venue\` to seed the venue.`,
     );
     return;
   }
-  for (const date of openDates) {
+  for (const date of pricedDates) {
     for (const seatId of seatIds) {
       await sql`
         INSERT INTO tickets (event_uuid, date_uuid, seat_id, status)

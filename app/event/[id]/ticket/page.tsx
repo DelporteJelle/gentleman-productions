@@ -3,8 +3,9 @@
 import { useEffect, useState } from "react";
 import { useParams } from "next/navigation";
 import Link from "next/link";
-import { Event, isEvent } from "@/types";
+import { Event, EventDateEntry, isEvent } from "@/types";
 import { usePosts } from "@/app/contexts/PostsContext";
+import { isDateOpen } from "@/lib/dateAvailability";
 import { splitTitleAccent } from "@/lib/text";
 import CanvasBackground from "@/components/Background/CanvasBackground";
 import SectionLabel from "@/components/SectionLabel/SectionLabel";
@@ -28,12 +29,13 @@ function formatNL(d: Date): string {
   });
 }
 
+function byStartTime(a: EventDateEntry, b: EventDateEntry): number {
+  return new Date(a.start_time).getTime() - new Date(b.start_time).getTime();
+}
+
 function computeDateRange(dates: Event["dates"]): string {
   if (!dates || dates.length === 0) return "";
-  const sorted = [...dates].sort(
-    (a, b) =>
-      new Date(a.start_time).getTime() - new Date(b.start_time).getTime(),
-  );
+  const sorted = [...dates].sort(byStartTime);
   const first = new Date(sorted[0].start_time);
   const last = new Date(sorted[sorted.length - 1].start_time);
   if (first.toDateString() === last.toDateString()) {
@@ -130,7 +132,12 @@ export default function TicketsPage() {
       <SectionLabel>Available Dates</SectionLabel>
 
       <div className={styles.grid}>
-        {event.dates.map((d) => {
+        {[...event.dates].sort(byStartTime).map((d) => {
+          // A closed date stays listed — it's how a visitor learns the
+          // performance exists — but it never opens.
+          if (!isDateOpen(event, d)) {
+            return <TicketDateCard key={d.uuid} date={d} event={event} closed />;
+          }
           if (d.uuid === activeCard) {
             return (
               <TicketDateExpanded

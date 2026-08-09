@@ -59,7 +59,7 @@ interface FakeState {
   order: FakeOrder | null;
   tickets: FakeTicket[];
   seats: { id: string; row: string; seat_number: number }[];
-  events: { uuid: string; title: string; tickets_open: boolean; dates: { uuid: string; price: number; start_time: string }[] }[];
+  events: { uuid: string; title: string; tickets_open: boolean; dates: { uuid: string; price: number; start_time: string; tickets_open?: boolean }[] }[];
 }
 
 function freshState(): FakeState {
@@ -284,5 +284,49 @@ describe("POST /api/tickets/checkout — guarded compensation", () => {
 
     expect(calls.some((c) => c.startsWith("UPDATE tickets SET status = 'available'"))).toBe(true);
     expect(calls.some((c) => c.startsWith("DELETE FROM orders"))).toBe(true);
+  });
+});
+
+describe("POST /api/tickets/checkout — per-date sales gate", () => {
+  const ORIGINAL_SECRET = process.env.TICKET_QR_SECRET;
+
+  beforeEach(() => {
+    process.env.TICKET_QR_SECRET = "test-secret";
+  });
+
+  afterEach(() => {
+    process.env.TICKET_QR_SECRET = ORIGINAL_SECRET;
+    vi.restoreAllMocks();
+  });
+
+  it("rejects a date that is closed even though the event roll-up is open", async () => {
+    // The rehearsal-day case, hand-crafted request: seats exist for this date
+    // (they're provisioned for every priced date) and the event as a whole is
+    // selling, so only the per-date switch stands between this request and a
+    // sale it shouldn't make.
+    const state = freshState();
+    state.events[0].dates[0].tickets_open = false;
+    const { sql, calls } = createFakeSql(state);
+    mocks.sqlImpl = sql;
+
+    const response = await POST(checkoutRequest());
+
+    expect(response.status).toBe(404);
+    expect(await response.text()).toContain("Date not on sale");
+    // Rejected before anything was written: no order, no seats held.
+    expect(state.order).toBeNull();
+    expect(state.tickets.every((t) => t.status === "available")).toBe(true);
+    expect(calls.some((c) => c.startsWith("INSERT INTO orders"))).toBe(false);
+  });
+
+  it("accepts a date whose own switch is on", async () => {
+    const state = freshState();
+    state.events[0].dates[0].tickets_open = true;
+    const { sql } = createFakeSql(state);
+    mocks.sqlImpl = sql;
+
+    const response = await POST(checkoutRequest());
+
+    expect(response.status).toBe(200);
   });
 });

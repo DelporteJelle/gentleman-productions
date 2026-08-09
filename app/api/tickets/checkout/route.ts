@@ -1,5 +1,6 @@
 import { getDb, jsonResponse, errorResponse, parseBody } from "@/lib/server/api";
-import { eurosToCents, isDateOpen } from "@/lib/server/ticketing";
+import { eurosToCents } from "@/lib/server/ticketing";
+import { isDateOpen } from "@/lib/dateAvailability";
 import { getMollie } from "@/lib/server/mollie";
 import { validateCheckoutInput, type CheckoutInput } from "@/lib/server/checkoutValidation";
 import { claimCodes, releaseCodesForOrder } from "@/lib/server/ticketCodes";

@@ -23,6 +23,7 @@ import {
   segmentSpan,
   type PlaceCell,
 } from "@/lib/wheelchairPlaces";
+import { closedMessageFor, isDateOpen } from "@/lib/dateAvailability";
 import CanvasBackground from "@/components/Background/CanvasBackground";
 import SectionLabel from "@/components/SectionLabel/SectionLabel";
 import SavedOrderBanner from "@/components/SavedOrders/SavedOrderBanner";
@@ -187,6 +188,60 @@ export default function SeatMapClient({ isAdmin }: { isAdmin: boolean }) {
   const { main: titleMain, accent: titleAccent } = splitTitleAccent(event.title);
   const dateLabel = formatNL(new Date(date.start_time));
   const price = date.price ?? 0;
+
+  // Seats exist for every priced date, on sale or not, so an admin can prepare
+  // the room ahead of time. Without this guard a customer who guesses the URL
+  // would get a fully clickable map for a date that isn't for sale and only be
+  // stopped at checkout. Admins keep access — preparing the room is the point.
+  if (!isAdmin && !isDateOpen(event, date)) {
+    return (
+      <div className={styles.page}>
+        <div className={styles.canvasLayer}>
+          <CanvasBackground />
+        </div>
+
+        <section className={styles.hero} aria-label="Seat selection">
+          <div className={styles.heroSide} aria-hidden="true">
+            <span className={styles.heroSideLine}></span>
+            RESERVE YOUR SEAT · GENTLEMAN PRODUCTIONS
+            <span className={styles.heroSideLine}></span>
+          </div>
+
+          <Link href={`/event/${event.uuid}/ticket`} className={styles.backLink}>
+            &larr; Back to dates
+          </Link>
+
+          <div className={styles.heroContent}>
+            <p className={styles.eyebrow}>Select your seats</p>
+            <h1 className={styles.title}>
+              {titleMain}
+              {titleAccent && (
+                <>
+                  {" "}
+                  <span className={styles.titleAccent}>{titleAccent}</span>
+                </>
+              )}
+            </h1>
+            <div className={styles.dateRow}>
+              <span className={styles.dateChevron}>&#9656;</span>
+              <span className={styles.dateMain}>{dateLabel}</span>
+            </div>
+          </div>
+        </section>
+
+        <div className={styles.emptyState}>
+          <p className={styles.emptyTitle}>{closedMessageFor(date)}</p>
+          <p className={styles.emptySub}>
+            De verkoop voor deze voorstelling is nog niet open.{" "}
+            <Link href={`/event/${event.uuid}/ticket`}>
+              Bekijk de andere data
+            </Link>
+            .
+          </p>
+        </div>
+      </div>
+    );
+  }
 
   function getSeatStyle(row: string, seatNum: number | null): React.CSSProperties {
     if (seatNum === null) return {};
