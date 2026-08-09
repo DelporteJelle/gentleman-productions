@@ -33,13 +33,22 @@ export async function GET(request: Request) {
     WHERE t.status = 'sold' AND o.reserved_by_admin = true
     ORDER BY o.created_at DESC;
   `;
-  const events = await sql`SELECT uuid, title, dates FROM events;`;
+  const events = await sql`SELECT uuid, title, dates, tickets_open FROM events;`;
 
   const byUuid = Object.fromEntries(events.map((e) => [e.uuid, e]));
   const dates = perDate.map((d) => {
     const ev = byUuid[d.event_uuid];
-    const de = ev?.dates?.find((x: { uuid: string }) => x.uuid === d.date_uuid);
-    return { ...d, title: ev?.title ?? "—", start_time: de?.start_time ?? null };
+    const de = ev?.dates?.find(
+      (x: { uuid: string }) => x.uuid === d.date_uuid,
+    ) as { start_time?: string; tickets_open?: boolean } | undefined;
+    return {
+      ...d,
+      title: ev?.title ?? "—",
+      start_time: de?.start_time ?? null,
+      // Seats exist for closed dates too, so the operator needs to see which
+      // rows in this list are not actually selling.
+      tickets_open: (de?.tickets_open ?? ev?.tickets_open) === true,
+    };
   });
   const orderRows = orders.map((o) => ({ ...o, event_title: byUuid[o.event_uuid]?.title ?? "—" }));
   const reservedSeats = reserved.map((r) => {

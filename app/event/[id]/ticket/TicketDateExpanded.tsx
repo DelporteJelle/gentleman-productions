@@ -3,6 +3,7 @@
 import { Image } from "@mantine/core";
 import { Event, EventDateEntry, EventLocation } from "@/types";
 import { splitTitleAccent } from "@/lib/text";
+import { isDateOpen } from "@/lib/dateAvailability";
 import GoldShimmerCTA from "@/components/GoldShimmerCTA/GoldShimmerCTA";
 import styles from "./TicketDateExpanded.module.css";
 
@@ -156,7 +157,7 @@ export default function TicketDateExpanded({
           </div>
         </div>
 
-        {event.tickets_open && date.price != null && (
+        {isDateOpen(event, date) && (
           <div className={styles.ctaRow}>
             <GoldShimmerCTA href={`/event/${event.uuid}/ticket/${date.uuid}`}>
               Buy Tickets

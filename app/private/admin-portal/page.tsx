@@ -17,6 +17,7 @@ interface DateSummary {
   blocked: number;
   disabled: number;
   total: number;
+  tickets_open: boolean;
 }
 
 interface OrderSummary {
@@ -236,7 +237,10 @@ export default function TicketsSummaryPage() {
                 <span>
                   <span className={styles.dateRowTitle}>{d.title}</span>
                   {" · "}
-                  <span className={styles.dateRowMeta}>{formatStartTime(d.start_time)}</span>
+                  <span className={styles.dateRowMeta}>
+                    {formatStartTime(d.start_time)}
+                    {d.tickets_open ? "" : " · gesloten"}
+                  </span>
                 </span>
                 <span className={styles.dateRowStats}>
                   {d.sold} sold · {d.available} available · {d.wheelchair} wheelchair

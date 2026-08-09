@@ -2,7 +2,7 @@ import type { NeonQueryFunction } from "@neondatabase/serverless";
 import { getMollie } from "./mollie";
 import { applyMolliePaymentToOrder } from "./orderFulfillment";
 import { releaseCodesForOrder } from "./ticketCodes";
-import { isDateOpen } from "./ticketing";
+import { isDateOpen } from "@/lib/dateAvailability";
 import type { Event } from "@/types";
 
 type Sql = NeonQueryFunction<false, false>;

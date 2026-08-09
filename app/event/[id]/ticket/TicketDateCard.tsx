@@ -3,13 +3,17 @@
 import { Image } from "@mantine/core";
 import { Event, EventDateEntry } from "@/types";
 import { splitTitleAccent } from "@/lib/text";
+import { closedMessageFor } from "@/lib/dateAvailability";
 import styles from "./TicketDateCard.module.css";
 
 interface TicketDateCardProps {
   date: EventDateEntry;
   event: Event;
-  inactive: boolean;
-  onSelect: () => void;
+  /** Dimmed because another date is expanded. Still selectable. */
+  inactive?: boolean;
+  /** Tickets aren't on sale for this date: greyed out and not selectable. */
+  closed?: boolean;
+  onSelect?: () => void;
 }
 
 function formatDateTime(date: EventDateEntry): string {
@@ -35,20 +39,36 @@ export default function TicketDateCard({
   date,
   event,
   inactive,
+  closed,
   onSelect,
 }: TicketDateCardProps) {
   const { main, accent } = splitTitleAccent(event.title);
   const venue = event.eventlocation?.location ?? event.eventlocation?.city ?? "";
+  const closedMessage = closed ? closedMessageFor(date) : "";
 
   return (
     <button
       type="button"
-      className={`${styles.card} ${inactive ? styles.inactive : ""}`}
+      // Disabling natively takes the card out of the tab order and swallows the
+      // click, so there's no handler left to guard.
+      disabled={closed}
+      className={`${styles.card} ${inactive ? styles.inactive : ""} ${
+        closed ? styles.closed : ""
+      }`}
       onClick={onSelect}
-      aria-label={`Select date ${formatDateTime(date)} for ${event.title}`}
+      aria-label={
+        closed
+          ? `${formatDateTime(date)} for ${event.title} — ${closedMessage}`
+          : `Select date ${formatDateTime(date)} for ${event.title}`
+      }
     >
       <span className={styles.corner} aria-hidden="true" />
       <span className={`${styles.corner} ${styles.cornerBr}`} aria-hidden="true" />
+      {closed && (
+        <div className={styles.closedOverlay}>
+          <span className={styles.closedText}>{closedMessage}</span>
+        </div>
+      )}
       <div className={styles.imageWrap}>
         <Image
           src={event.display_image}
