@@ -73,15 +73,21 @@ export async function reserveSeatsForAdmin(sql: Sql, input: AdminReserveInput): 
 
   // Same atomic-claim shape as the checkout route, minus the hold/expiry
   // conditions: there is no payment window to protect, so a seat is either
-  // available right now or it isn't. `t.seat_kind IS NULL` is what keeps
-  // wheelchair places — anchors and floor seats alike — out of giveaways.
+  // available right now or it isn't.
+  //
+  // A wheelchair place IS giveable: an admin can hand one to a guest who
+  // arranged it by email, without minting an access code. Only the anchor is
+  // claimable, and only while available — its floor members are permanently
+  // 'blocked', so `t.status = 'available'` excludes them on its own, and
+  // naming the two allowed kinds keeps that from being the only thing
+  // standing between a giveaway and a seat nobody can sit in.
   const claimed = await sql`
     UPDATE tickets t
        SET status = 'sold', order_id = ${orderId}
      WHERE t.id = ANY(${ticketIds})
        AND t.event_uuid = ${eventUuid}
        AND t.date_uuid = ${dateUuid}
-       AND t.seat_kind IS NULL
+       AND (t.seat_kind IS NULL OR t.seat_kind = 'wheelchair')
        AND t.status = 'available'
     RETURNING t.id;
   `;

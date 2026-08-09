@@ -125,6 +125,10 @@ function createFakeSql(state: FakeState) {
       return [];
     }
 
+    if (head.startsWith("UPDATE ticket_codes SET used_by_order_id = NULL")) {
+      return []; // no codes in these fixtures
+    }
+
     if (head.startsWith("UPDATE orders SET mollie_payment_id")) {
       const [paymentId, orderId, previousPaymentId] = values;
       const guardedPending = full.includes("AND status = 'pending'");
@@ -177,7 +181,11 @@ describe("expirePendingOrder", () => {
     await expirePendingOrder(sql, state.order!, { status: "open", isCancelable: true });
 
     expect(calls[0]).toBe("MOLLIE_CANCEL");
+    // The ticket release lands first (seats are the scarcer resource, so a
+    // codes-release failure must not strand them), then the codes release —
+    // both strictly after the cancel.
     expect(calls[1]).toMatch(/^UPDATE tickets SET status = 'available'/);
+    expect(calls[2]).toMatch(/^UPDATE ticket_codes SET used_by_order_id = NULL/);
   });
 
   it("does not call Mollie cancel when the payment is not cancelable", async () => {

@@ -82,3 +82,45 @@ create index if not exists tickets_wheelchair_group_idx on tickets(wheelchair_gr
 -- desired end state anyway. The `drop column` is deliberately NOT here — see
 -- scripts/drop-reserved-for.sql.
 update seats set reserved_for = null where reserved_for is not null;
+
+-- ---------------------------------------------------------------------------
+-- Access codes and free-ticket codes.
+-- See docs/superpowers/specs/2026-08-08-access-codes-design.md
+--
+-- Single-use, event-scoped, revocable. State is DERIVED, not stored: a code is
+-- unused while used_by_order_id is null, in use while that order is pending,
+-- and used once it is paid — so nothing can drift out of sync with the order.
+--
+-- Stored in plaintext on purpose: the admin has to read codes back in the
+-- portal to hand them out. ~49 bits of entropy is the protection.
+-- ---------------------------------------------------------------------------
+create table if not exists ticket_codes (
+  id               uuid primary key default gen_random_uuid(),
+  code             text not null unique,
+  kind             text not null check (kind in ('wheelchair','free_ticket')),
+  label            text not null,
+  event_uuid       text not null,
+  created_at       timestamptz not null default now(),
+  created_by       text,
+  revoked_at       timestamptz,
+  used_by_order_id uuid references orders(id) on delete set null,
+  used_at          timestamptz
+);
+create index if not exists ticket_codes_event_idx on ticket_codes(event_uuid);
+create index if not exists ticket_codes_order_idx on ticket_codes(used_by_order_id);
+
+-- ---------------------------------------------------------------------------
+-- Disabled seats (2026-08-09)
+--
+-- An admin takes an individual seat out of service. status='disabled' is
+-- excluded by every existing `AND t.status = 'available'` guard for free —
+-- the same reasoning that made wheelchair floor seats 'blocked' rather than
+-- a flag.
+--
+-- As with the wheelchair migration above: the original inline column check
+-- was auto-named tickets_status_check by Postgres. VERIFY WITH `\d tickets`
+-- BEFORE RUNNING and adjust if it differs.
+-- ---------------------------------------------------------------------------
+alter table tickets drop constraint if exists tickets_status_check;
+alter table tickets add constraint tickets_status_check
+  check (status in ('available','held','sold','blocked','disabled'));

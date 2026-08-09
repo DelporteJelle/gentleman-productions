@@ -141,3 +141,9 @@
 .releaseBtn:not(:disabled):hover {
   border-color: #fca5a5;
 }
+
+.codeCell {
+  font-family: monospace;
+  letter-spacing: 0.08em;
+  white-space: nowrap;
+}

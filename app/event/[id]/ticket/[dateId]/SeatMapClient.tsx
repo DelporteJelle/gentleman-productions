@@ -7,8 +7,22 @@ import { Event, SeatTicket, isEvent } from "@/types";
 import { usePosts } from "@/app/contexts/PostsContext";
 import { splitTitleAccent } from "@/lib/text";
 import { ROWS, getRowSeats } from "@/lib/venue";
-import { buildIndex, effectiveStatus, isSelectable, toggleSeat, groupMembers } from "@/lib/seatSelection";
-import { formatPlaceLabel } from "@/lib/wheelchairPlaces";
+import {
+  buildIndex,
+  effectiveStatus,
+  isSelectable,
+  toggleSeat,
+  groupMembers,
+  placeStatus,
+  anchorTicketId,
+  disabledTicketIds,
+} from "@/lib/seatSelection";
+import {
+  formatPlaceLabel,
+  buildRowCells,
+  segmentSpan,
+  type PlaceCell,
+} from "@/lib/wheelchairPlaces";
 import CanvasBackground from "@/components/Background/CanvasBackground";
 import SectionLabel from "@/components/SectionLabel/SectionLabel";
 import SavedOrderBanner from "@/components/SavedOrders/SavedOrderBanner";
@@ -17,6 +31,11 @@ import {
   ErrorScreen,
   NotFoundScreen,
 } from "@/components/StateScreens/StateScreens";
+import AdminCodeGenerator from "@/components/TicketCodes/AdminCodeGenerator";
+import CodeEntryPanel from "@/components/TicketCodes/CodeEntryPanel";
+import { useTicketCodes } from "@/components/TicketCodes/useTicketCodes";
+import { writeCodes } from "@/lib/codeStore";
+import codeStyles from "@/components/TicketCodes/TicketCodes.module.css";
 import styles from "./SeatMap.module.css";
 
 type Status = "loading" | "ready" | "notFound" | "error";
@@ -28,6 +47,7 @@ const SEAT = {
   held: "#f59e0b",
   sold: "#ef4444",
   wheelchair: "#3b82f6",
+  disabled: "#4b5563",
 };
 
 function formatNL(d: Date): string {
@@ -66,6 +86,13 @@ export default function SeatMapClient({ isAdmin }: { isAdmin: boolean }) {
 
   const [placeBusy, setPlaceBusy] = useState(false);
   const [placeError, setPlaceError] = useState<string | null>(null);
+
+  const codes = useTicketCodes(event?.uuid, dateId as string);
+  // The unlocked wheelchair anchor is tracked separately from `selected`.
+  // That array carries the contiguity rules; a wheelchair place is exempt from
+  // them, and threading an exemption flag through isSelectable/toggleSeat
+  // would put a special case inside logic that is currently uniform.
+  const [wheelchairTicketId, setWheelchairTicketId] = useState<string | null>(null);
 
   const seatGridRef = useRef<HTMLDivElement>(null);
   const [scrollLeft, setScrollLeft] = useState(false);
@@ -141,6 +168,15 @@ export default function SeatMapClient({ isAdmin }: { isAdmin: boolean }) {
     };
   }, [tickets]);
 
+  // A removed code must not leave an unlocked place stranded. With no
+  // wheelchair code left, checkout would reject the anchor ticket anyway, and
+  // handlePlaceClick's non-admin branch guards on `wheelchairCount === 0`
+  // before it ever reaches the toggle-off logic — so without this, clicking
+  // the place after the code is gone does nothing and only a reload recovers.
+  useEffect(() => {
+    if (codes.wheelchairCount === 0) setWheelchairTicketId(null);
+  }, [codes.wheelchairCount]);
+
   if (status === "loading") return <LoadingScreen />;
   if (status === "error") return <ErrorScreen message={errorMessage} />;
   if (status === "notFound" || !event) return <NotFoundScreen />;
@@ -169,9 +205,14 @@ export default function SeatMapClient({ isAdmin }: { isAdmin: boolean }) {
     } else if (statusValue === "sold") {
       background = `linear-gradient(180deg, #f87171 0%, ${SEAT.sold} 50%, #991b1b 100%)`;
     } else if (statusValue === "wheelchair" || statusValue === "blocked") {
-      // Anchor and floor share one fill so the place reads as a single object;
-      // the glyph and the shared outline are what distinguish them.
+      // Unreachable in normal operation — every member of a place is drawn by
+      // getPlaceRunStyle instead. Kept as a fallback so a member that somehow
+      // escaped its run shows up blue rather than vanishing.
       background = `linear-gradient(180deg, #60a5fa 0%, ${SEAT.wheelchair} 50%, #1d4ed8 100%)`;
+    } else if (statusValue === "disabled") {
+      // Admin-only: a customer never receives a disabled seat, so this is a
+      // slab of grey for the person who can put it back, not a chair for sale.
+      background = `linear-gradient(180deg, #6b7280 0%, ${SEAT.disabled} 50%, #374151 100%)`;
     } else if (statusValue === "available") {
       background = `linear-gradient(180deg, #22924a 0%, ${SEAT.available} 50%, #0f5c2a 100%)`;
     } else {
@@ -191,44 +232,155 @@ export default function SeatMapClient({ isAdmin }: { isAdmin: boolean }) {
         ? `inset 0 1px 0 rgba(255,255,255,0.1), inset 0 -1px 0 rgba(0,0,0,0.35), 0 2px 4px rgba(0,0,0,0.4)`
         : `inset 0 1px 0 rgba(255,255,255,0.05), inset 0 -1px 0 rgba(0,0,0,0.3), 0 1px 3px rgba(0,0,0,0.3)`;
 
-    const groupId = cell?.wheelchair_group_id ?? null;
-    const groupActive = groupId !== null && (groupId === hoverGroup || groupId === selectedGroupId);
-
     return {
       background,
-      cursor: selectable
-        ? "pointer"
-        : groupId && isAdmin
+      // "gap" covers both a coordinate with no ticket at all (never
+      // provisioned) and one the client holds no ticket for because it is
+      // 'disabled' and withheld by the API — either way there is nothing
+      // there, so it must read the same as a true aisle gap: no
+      // not-allowed cursor singling it out from an empty seam in the row.
+      cursor:
+        selectable
           ? "pointer"
-          : statusValue === "available"
+          : statusValue === "available" || statusValue === "gap"
             ? "default"
             : "not-allowed",
       opacity,
       boxShadow,
       transform: isSelected ? "scale(1.15)" : "scale(1)",
       zIndex: isSelected ? 1 : 0,
-      outline: groupId ? `2px solid ${groupActive ? "#bfdbfe" : "rgba(96,165,250,0.5)"}` : undefined,
-      outlineOffset: groupId ? "-2px" : undefined,
+    };
+  }
+
+  function groupAt(row: string | null, seatNum: number | null): string | null {
+    if (row === null || seatNum === null) return null;
+    return index.seatMap[`${row}-${seatNum}`]?.wheelchair_group_id ?? null;
+  }
+
+  /**
+   * One piece of a wheelchair place.
+   *
+   * Sized to the largest box that cannot touch a neighbouring seat.
+   * Horizontally that is its own columns plus the gaps BETWEEN them, leaving
+   * the 3px separating it from whatever sits either side. Vertically it grows
+   * by the 4px row gap only where the same place continues below — the row gap
+   * carried by `.seat` means that is a plain height increase, no negative
+   * margin involved.
+   *
+   * Edges that continue into another piece lose their border and their corner
+   * rounding, which is what actually makes the pieces read as one object. An
+   * `outline` cannot do this: it has no per-side control, so it drew a line
+   * through every seam.
+   */
+  function getPlaceCellStyle(cell: PlaceCell): React.CSSProperties {
+    const anchorId = anchorTicketId(index, cell.groupId);
+    const state = placeStatus(index, cell.groupId);
+    const taken = state === "held" || state === "sold";
+    // Admin selects a place by putting its anchor into `selected`, exactly as
+    // for any other seat; a code-holder marks it via wheelchairTicketId.
+    const chosen = anchorId !== null &&
+      (anchorId === wheelchairTicketId || (isAdmin && selected.includes(anchorId)));
+    const active = cell.groupId === hoverGroup || chosen;
+    const { seats, gaps } = segmentSpan(cell.seatNums.length, cell.isRunEnd);
+
+    // A taken place keeps its wheelchair shape and glyph but takes the colour
+    // of its state, so it reads the same way a held or sold seat does.
+    const fill = chosen
+      ? SEAT.selected
+      : state === "sold"
+        ? SEAT.sold
+        : state === "held"
+          ? SEAT.held
+          : SEAT.wheelchair;
+    const edge = chosen
+      ? "#f0dca0"
+      : state === "sold"
+        ? "rgba(248,113,113,0.75)"
+        : state === "held"
+          ? "rgba(251,191,36,0.75)"
+          : active
+            ? "#bfdbfe"
+            : "rgba(96,165,250,0.55)";
+    const border = `2px solid ${edge}`;
+    const radius = "8px";
+
+    return {
+      width: `calc(${seats} * var(--seat-w) + ${gaps} * var(--seat-gap))`,
+      // Cancels the flex gap the extra gap-unit above accounts for, so a split
+      // run occupies exactly what an unsplit one would.
+      marginRight: cell.isRunEnd ? undefined : "calc(-1 * var(--seat-gap))",
+      height: cell.continuesDown ? "calc(var(--seat-h) + var(--row-gap))" : "var(--seat-h)",
+      marginBottom: cell.continuesDown ? 0 : "var(--row-gap)",
+
+      borderTop: cell.continuesUp ? "none" : border,
+      borderBottom: cell.continuesDown ? "none" : border,
+      borderLeft: cell.isRunStart ? border : "none",
+      borderRight: cell.isRunEnd ? border : "none",
+
+      borderTopLeftRadius: cell.isRunStart && !cell.continuesUp ? radius : 0,
+      borderTopRightRadius: cell.isRunEnd && !cell.continuesUp ? radius : 0,
+      borderBottomLeftRadius: cell.isRunStart && !cell.continuesDown ? radius : 0,
+      borderBottomRightRadius: cell.isRunEnd && !cell.continuesDown ? radius : 0,
+
+      // Flat, not a gradient: a vertical gradient restarts in every row and
+      // would band a place spanning rows into stripes.
+      boxShadow: cell.continuesDown ? undefined : "0 2px 5px rgba(0,0,0,0.3)",
+      cursor:
+        taken || (!isAdmin && codes.wheelchairCount === 0) ? "not-allowed" : "pointer",
+      background: fill,
     };
   }
 
   function handleSeatClick(row: string, seatNum: number | null) {
     if (seatNum === null) return;
-    const cell = index.seatMap[`${row}-${seatNum}`];
-
-    // A wheelchair place is selected as a whole, by group id — see the
-    // selectedGroupId declaration for why it cannot go through `selected`.
-    if (cell?.wheelchair_group_id) {
-      if (!isAdmin) return;
-      const groupId = cell.wheelchair_group_id;
-      setSelected([]);
-      setPlaceError(null);
-      setSelectedGroupId((prev) => (prev === groupId ? null : groupId));
-      return;
-    }
-
     setSelectedGroupId(null);
     setSelected((prev) => toggleSeat(index, prev, multiRow, row, seatNum, isAdmin));
+  }
+
+  /** A place is acted on as a whole, via its anchor — the only member the API
+   *  gives an id for. */
+  function handlePlaceClick(groupId: string) {
+    // A held or sold place is nobody's to take: not a code-holder's, and not
+    // an admin's to give away or dissolve. The server refuses both, and the
+    // API withholds the anchor id anyway — refusing here stops the UI offering
+    // an action that can only fail.
+    if (placeStatus(index, groupId) !== "available") return;
+
+    const anchorId = anchorTicketId(index, groupId);
+    if (!anchorId) return;
+
+    if (!isAdmin) {
+      // A validated wheelchair code unlocks exactly one place.
+      if (codes.wheelchairCount === 0) return;
+      setWheelchairTicketId((prev) => (prev === anchorId ? null : anchorId));
+      return;
+    }
+    // The anchor joins `selected` like any other seat, so the existing
+    // giveaway flow reserves a place with no special case — on its own or
+    // alongside ordinary seats. `selectedGroupId` additionally tracks which
+    // place the revert action would dissolve, which is only ever one.
+    setPlaceError(null);
+    setSelected((prev) =>
+      prev.includes(anchorId) ? prev.filter((id) => id !== anchorId) : [...prev, anchorId],
+    );
+    setSelectedGroupId((prev) => (prev === groupId ? null : groupId));
+  }
+
+  /** Ticket ids that are wheelchair anchors, for telling a place apart from an
+   *  ordinary seat inside `selected`. */
+  function anchorIds(): Set<string> {
+    const out = new Set<string>();
+    for (const key in index.seatMap) {
+      const cell = index.seatMap[key];
+      if (cell.seat_kind === "wheelchair" && cell.id) out.add(cell.id);
+    }
+    return out;
+  }
+
+  function placeLabel(groupId: string): string {
+    return formatPlaceLabel(
+      groupMembers(index, groupId).map((s) => ({ row: s.row, seat_number: s.seatNum })),
+    );
   }
 
   async function refreshSeats() {
@@ -274,12 +426,11 @@ export default function SeatMapClient({ isAdmin }: { isAdmin: boolean }) {
 
   async function handleRevertPlace() {
     if (!selectedGroupId) return;
-    const members = groupMembers(index, selectedGroupId)
-      .map((s) => ({ row: s.row, seat_number: s.seatNum }));
+    const memberCount = groupMembers(index, selectedGroupId).length;
 
     const confirmed = window.confirm(
-      `Rolstoelplaats ${formatPlaceLabel(members)} terugzetten naar ${members.length} gewone ` +
-        `stoel${members.length === 1 ? "" : "en"}?`
+      `Rolstoelplaats ${placeLabel(selectedGroupId)} terugzetten naar ${memberCount} gewone ` +
+        `stoel${memberCount === 1 ? "" : "en"}?`
     );
     if (!confirmed) return;
 
@@ -298,6 +449,34 @@ export default function SeatMapClient({ isAdmin }: { isAdmin: boolean }) {
       setSelectedGroupId(null);
     } catch {
       setPlaceError("Kon de rolstoelplaats niet terugzetten. Probeer opnieuw.");
+    } finally {
+      setPlaceBusy(false);
+    }
+  }
+
+  /** Take seats out of service, or put them back. Shares `placeBusy` /
+   *  `placeError` with the wheelchair actions — same family of admin room
+   *  configuration, same busy semantics, two fewer pieces of state. */
+  async function handleSeatAvailability(action: "disable" | "enable") {
+    if (selected.length === 0) return;
+
+    setPlaceBusy(true);
+    setPlaceError(null);
+    try {
+      const res = await fetch(`/api/tickets/admin/seats/${action}`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ eventUuid: event!.uuid, dateUuid: dateId, ticketIds: selected }),
+      });
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok) {
+        setPlaceError(data.error ?? "Kon de stoelen niet aanpassen. Probeer opnieuw.");
+        return;
+      }
+      await refreshSeats();
+      setSelected([]);
+    } catch {
+      setPlaceError("Kon de stoelen niet aanpassen. Probeer opnieuw.");
     } finally {
       setPlaceBusy(false);
     }
@@ -331,6 +510,55 @@ export default function SeatMapClient({ isAdmin }: { isAdmin: boolean }) {
       setReserving(false);
     }
   }
+
+  // An admin's `selected` can hold ordinary seats, wheelchair anchors and
+  // disabled seats at once; a customer's holds only seats, with any place
+  // tracked separately.
+  const anchorIdSet = anchorIds();
+  const disabledIdSet = disabledTicketIds(index);
+  const selectedPlaces = selected.filter((id) => anchorIdSet.has(id));
+  const selectedDisabled = selected.filter((id) => disabledIdSet.has(id));
+  const seatCount = selected.length - selectedPlaces.length - selectedDisabled.length;
+  const placeCount = selectedPlaces.length + (wheelchairTicketId ? 1 : 0);
+
+  const selectionParts: string[] = [];
+  if (seatCount > 0) selectionParts.push(`${seatCount} seat${seatCount > 1 ? "s" : ""}`);
+  if (placeCount > 0)
+    selectionParts.push(`${placeCount} rolstoelplaats${placeCount > 1 ? "en" : ""}`);
+  if (selectedDisabled.length > 0)
+    selectionParts.push(`${selectedDisabled.length} uitgeschakeld`);
+
+  // Converting seats into a place needs ordinary seats only — an anchor means
+  // the admin picked an existing place and a disabled seat is not 'available',
+  // both of which the server would refuse. Reverting applies to exactly one
+  // place and nothing else.
+  const canCreatePlace =
+    seatCount > 0 && selectedPlaces.length === 0 && selectedDisabled.length === 0;
+  const canRevertPlace =
+    selectedGroupId !== null && selected.length === 1 && selectedPlaces.length === 1;
+
+  // Disabling and enabling are opposite actions, so a mixed selection offers
+  // neither: one button silently acting on a subset of what is highlighted is
+  // worse than no button at all.
+  //
+  // Byte-identical to canCreatePlace above, but coincidentally, not by rule:
+  // they answer independent questions (turn a selection into a place vs.
+  // take it out of service) that both currently reduce to "plain seats only."
+  // If either rule ever diverges, do not merge them into one constant.
+  const canDisableSeats =
+    seatCount > 0 && selectedPlaces.length === 0 && selectedDisabled.length === 0;
+  const canEnableSeats = selected.length > 0 && selectedDisabled.length === selected.length;
+
+  const legend: { color: string; label: string; dim?: boolean }[] = [
+    { color: SEAT.available, label: "Selectable" },
+    { color: SEAT.available, label: "Not selectable", dim: true },
+    { color: SEAT.selected, label: "Selected" },
+    { color: SEAT.held, label: "On hold" },
+    { color: SEAT.sold, label: "Sold" },
+    { color: SEAT.wheelchair, label: "Wheelchair place" },
+  ];
+  // Described only for the person who can see one.
+  if (isAdmin) legend.push({ color: SEAT.disabled, label: "Uitgeschakeld" });
 
   return (
     <div className={styles.page}>
@@ -371,6 +599,14 @@ export default function SeatMapClient({ isAdmin }: { isAdmin: boolean }) {
 
       <SectionLabel>Choose Your Seats</SectionLabel>
 
+      <p className={codeStyles.notice}>
+        wil je een rolstoel plaats reserveren, mail naar{" "}
+        <a href="mailto:gentlemanproductions.official@gmail.com">
+          gentlemanproductions.official@gmail.com
+        </a>
+        , heb je een code gekregen, geef deze onderaan de pagina in.
+      </p>
+
       {tickets.length === 0 ? (
         <div className={styles.emptyState}>
           <p className={styles.emptyTitle}>Seats aren&rsquo;t available for this date yet.</p>
@@ -382,14 +618,7 @@ export default function SeatMapClient({ isAdmin }: { isAdmin: boolean }) {
       <>
       <div className={styles.mapWrap}>
         <div className={styles.legend}>
-          {[
-            { color: SEAT.available, label: "Selectable" },
-            { color: SEAT.available, label: "Not selectable", dim: true },
-            { color: SEAT.selected, label: "Selected" },
-            { color: SEAT.held, label: "On hold" },
-            { color: SEAT.sold, label: "Sold" },
-            { color: SEAT.wheelchair, label: "Wheelchair place" },
-          ].map(({ color, label, dim }) => (
+          {legend.map(({ color, label, dim }) => (
             <div key={label} className={styles.legendItem}>
               <div
                 className={styles.legendDot}
@@ -442,30 +671,69 @@ export default function SeatMapClient({ isAdmin }: { isAdmin: boolean }) {
         >
           <div className={styles.seatGrid} ref={seatGridRef}>
             <div className={styles.seatGridInner}>
-              {[...ROWS].reverse().map((row) => (
-                <div key={row} className={styles.seatRow}>
-                  <span className={styles.rowLabel}>{row}</span>
-                  {getRowSeats(row).map((seatNum, idx) => {
-                    const cell = seatNum === null ? undefined : index.seatMap[`${row}-${seatNum}`];
-                    const groupId = cell?.wheelchair_group_id ?? null;
-                    return (
-                      <div
-                        key={idx}
-                        className={seatNum === null ? styles.seatGap : styles.seat}
-                        onClick={() => handleSeatClick(row, seatNum)}
-                        onMouseEnter={() => setHoverGroup(groupId)}
-                        onMouseLeave={() => setHoverGroup(null)}
-                        title={seatNum !== null ? `${row}${seatNum}` : ""}
-                        style={getSeatStyle(row, seatNum)}
-                      >
-                        {cell?.seat_kind === "wheelchair" && (
-                          <span className={styles.wheelchairGlyph} aria-hidden="true">&#9855;</span>
-                        )}
-                      </div>
-                    );
-                  })}
-                </div>
-              ))}
+              {[...ROWS].reverse().map((row) => {
+                // Rows render reversed (P at the top), so the row drawn below
+                // this one is the previous entry in ROWS.
+                const rowIdx = ROWS.indexOf(row);
+                const rowAbove = rowIdx < ROWS.length - 1 ? ROWS[rowIdx + 1] : null;
+                const rowBelow = rowIdx > 0 ? ROWS[rowIdx - 1] : null;
+
+                const cells = buildRowCells(
+                  getRowSeats(row),
+                  (n) => groupAt(row, n),
+                  (n) => groupAt(rowAbove, n),
+                  (n) => groupAt(rowBelow, n),
+                );
+
+                return (
+                  <div key={row} className={styles.seatRow}>
+                    <span className={styles.rowLabel}>{row}</span>
+                    {cells.map((cell, idx) => {
+                      if (cell.kind === "seat") {
+                        // A coordinate the client holds no ticket for — never
+                        // provisioned, or 'disabled' and withheld by the API
+                        // — gets no tooltip, same as a true aisle gap. The
+                        // class stays styles.seat (not styles.seatGap) so the
+                        // cell keeps its own reserved dimensions and the row
+                        // stays aligned; only the hover affordance changes.
+                        const hasTicket =
+                          cell.seatNum !== null &&
+                          Boolean(ticketsByCoord[`${row}-${cell.seatNum}`]);
+                        return (
+                          <div
+                            key={idx}
+                            className={cell.seatNum === null ? styles.seatGap : styles.seat}
+                            onClick={() => handleSeatClick(row, cell.seatNum)}
+                            title={hasTicket ? `${row}${cell.seatNum}` : ""}
+                            style={getSeatStyle(row, cell.seatNum)}
+                          />
+                        );
+                      }
+
+                      // Only the piece holding the anchor gets the mark, so a
+                      // place spanning rows still shows exactly one.
+                      const hasAnchor = cell.seatNums.some(
+                        (n) => index.seatMap[`${row}-${n}`]?.seat_kind === "wheelchair",
+                      );
+                      return (
+                        <div
+                          key={idx}
+                          className={styles.placeSeat}
+                          onClick={() => handlePlaceClick(cell.groupId)}
+                          onMouseEnter={() => setHoverGroup(cell.groupId)}
+                          onMouseLeave={() => setHoverGroup(null)}
+                          title={`Rolstoelplaats ${placeLabel(cell.groupId)}`}
+                          style={getPlaceCellStyle(cell)}
+                        >
+                          {hasAnchor && (
+                            <span className={styles.wheelchairGlyph} aria-hidden="true">&#9855;</span>
+                          )}
+                        </div>
+                      );
+                    })}
+                  </div>
+                );
+              })}
             </div>
           </div>
         </div>
@@ -478,19 +746,28 @@ export default function SeatMapClient({ isAdmin }: { isAdmin: boolean }) {
         </div>
       </div>
 
+      {isAdmin && <AdminCodeGenerator eventUuid={event.uuid} />}
+
+      <CodeEntryPanel
+        applied={codes.applied}
+        error={codes.error}
+        busy={codes.busy}
+        onApply={codes.apply}
+        onRemove={codes.remove}
+      />
+
       <div className={styles.bottomBar}>
         <div className={styles.bottomBarInfo}>
           <div className={styles.selectionCount}>
-            {selectedGroupId
-              ? `Rolstoelplaats ${formatPlaceLabel(
-                  groupMembers(index, selectedGroupId).map((s) => ({ row: s.row, seat_number: s.seatNum })),
-                )} geselecteerd`
-              : selected.length === 0
-                ? "No seats selected"
-                : `${selected.length} seat${selected.length > 1 ? "s" : ""} selected`}
+            {selectionParts.length === 0
+              ? "No seats selected"
+              : `${selectionParts.join(" + ")} selected`}
           </div>
-          {selected.length > 0 && (
-            <div className={styles.priceLine}>€{price.toFixed(2)} per seat</div>
+          {(selected.length > 0 || wheelchairTicketId) && (
+            <div className={styles.priceLine}>
+              €{price.toFixed(2)} per seat
+              {codes.freeCount > 0 && ` · ${codes.freeCount} gratis`}
+            </div>
           )}
         </div>
         <div className={styles.bottomBarActions}>
@@ -505,17 +782,37 @@ export default function SeatMapClient({ isAdmin }: { isAdmin: boolean }) {
               Clear
             </button>
           )}
+          {isAdmin && canDisableSeats && (
+            <button
+              type="button"
+              className={styles.disableBtn}
+              disabled={placeBusy}
+              onClick={() => handleSeatAvailability("disable")}
+            >
+              {placeBusy ? "Bezig…" : "Schakel stoelen uit"}
+            </button>
+          )}
+          {isAdmin && canEnableSeats && (
+            <button
+              type="button"
+              className={styles.enableBtn}
+              disabled={placeBusy}
+              onClick={() => handleSeatAvailability("enable")}
+            >
+              {placeBusy ? "Bezig…" : "Schakel stoelen in"}
+            </button>
+          )}
           {isAdmin && (
             <button
               type="button"
               className={styles.reserveBtn}
-              disabled={selected.length === 0 || reserving}
+              disabled={selected.length === 0 || reserving || selectedDisabled.length > 0}
               onClick={handleReserve}
             >
               {reserving ? "Reserving…" : "Reserve for giveaway"}
             </button>
           )}
-          {isAdmin && selected.length > 0 && (
+          {isAdmin && canCreatePlace && (
             <button
               type="button"
               className={styles.placeBtn}
@@ -525,7 +822,7 @@ export default function SeatMapClient({ isAdmin }: { isAdmin: boolean }) {
               {placeBusy ? "Bezig…" : "Maak rolstoelplaats"}
             </button>
           )}
-          {isAdmin && selectedGroupId && (
+          {isAdmin && canRevertPlace && (
             <button
               type="button"
               className={styles.placeRevertBtn}
@@ -538,13 +835,17 @@ export default function SeatMapClient({ isAdmin }: { isAdmin: boolean }) {
           <button
             type="button"
             className={styles.continueBtn}
-            disabled={selected.length === 0}
-            onClick={() =>
-              selected.length > 0 &&
-              router.push(`/event/${id}/ticket/${dateId}/checkout?tickets=${selected.join(",")}`)
+            disabled={
+              (selected.length === 0 && !wheelchairTicketId) || selectedDisabled.length > 0
             }
+            onClick={() => {
+              const all = [...selected, ...(wheelchairTicketId ? [wheelchairTicketId] : [])];
+              if (all.length === 0) return;
+              writeCodes(window.sessionStorage, dateId as string, codes.applied);
+              router.push(`/event/${id}/ticket/${dateId}/checkout?tickets=${all.join(",")}`);
+            }}
           >
-            {selected.length > 0 ? "Continue →" : "Select seats"}
+            {selected.length > 0 || wheelchairTicketId ? "Continue →" : "Select seats"}
           </button>
         </div>
       </div>

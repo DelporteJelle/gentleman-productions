@@ -7,6 +7,8 @@
  * type uuid`, which would surface as a 500.
  */
 
+import { normalizeCodeList } from "./ticketCodes";
+
 export const MAX_SEATS_PER_ORDER = 20;
 export const MAX_NAME_LENGTH = 120;
 export const MAX_EMAIL_LENGTH = 254;
@@ -21,6 +23,7 @@ export interface CheckoutInput {
   ticketIds: string[];
   name: string;
   email: string;
+  codes: string[];
 }
 
 export type ValidationResult =
@@ -64,5 +67,8 @@ export function validateCheckoutInput(body: Partial<CheckoutInput> | null | unde
     return { ok: false, error: `You can book at most ${MAX_SEATS_PER_ORDER} seats in one order.` };
   if (!ticketIds.every(isUuid)) return { ok: false, error: "Invalid seat selection." };
 
-  return { ok: true, value: { eventUuid, dateUuid, ticketIds, name, email } };
+  const codeList = normalizeCodeList((body as { codes?: unknown }).codes);
+  if (!codeList.ok) return { ok: false, error: codeList.error };
+
+  return { ok: true, value: { eventUuid, dateUuid, ticketIds, name, email, codes: codeList.codes } };
 }

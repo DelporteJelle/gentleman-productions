@@ -103,9 +103,12 @@ function createFakeSql(state: FakeState) {
     if (head.startsWith("UPDATE tickets t")) {
       // This fake MODELS the claim's conditions rather than executing them, so
       // the cases below would pass no matter what the real statement said.
-      // Pin the guard in the SQL text itself — it is the only thing standing
-      // between the giveaway flow and a wheelchair place.
-      expect(full).toContain("t.seat_kind IS NULL");
+      // Pin the guards in the SQL text itself: ordinary seats and wheelchair
+      // ANCHORS are giveable, floor members never are, and only while
+      // available.
+      expect(full).toContain("t.seat_kind IS NULL OR t.seat_kind = 'wheelchair'");
+      expect(full).not.toContain("wheelchair_floor");
+      expect(full).toContain("t.status = 'available'");
       expect(full).not.toContain("reserved_for");
       const [orderId, ticketIds, eventUuid, dateUuid] = values as [string, string[], string, string];
       const claimed: { id: string }[] = [];
@@ -114,7 +117,7 @@ function createFakeSql(state: FakeState) {
           ticketIds.includes(t.id) &&
           t.event_uuid === eventUuid &&
           t.date_uuid === dateUuid &&
-          t.seat_kind === null &&
+          (t.seat_kind === null || t.seat_kind === "wheelchair") &&
           t.status === "available"
         ) {
           t.status = "sold";
@@ -214,7 +217,9 @@ describe("reserveSeatsForAdmin", () => {
     if (!result.ok) expect(result.status).toBe(404);
   });
 
-  it("refuses to claim a wheelchair place anchor", async () => {
+  it("gives away an available wheelchair place alongside ordinary seats", async () => {
+    // An admin can hand a wheelchair place to a guest who arranged it by
+    // email, without minting an access code for them.
     const state = freshState();
     state.tickets[1].seat_kind = "wheelchair"; // ticket-b is an anchor
     const sql = createFakeSql(state);
@@ -223,9 +228,24 @@ describe("reserveSeatsForAdmin", () => {
       eventUuid: EVENT_UUID, dateUuid: DATE_UUID, ticketIds: ["ticket-a", "ticket-b"],
     });
 
+    expect(result.ok).toBe(true);
+    expect(state.tickets.find((t) => t.id === "ticket-b")!.status).toBe("sold");
+    expect(state.tickets.find((t) => t.id === "ticket-b")!.seat_kind).toBe("wheelchair");
+    expect(state.orders[0].reserved_by_admin).toBe(true);
+  });
+
+  it("refuses a wheelchair place that is already taken", async () => {
+    const state = freshState();
+    state.tickets[1].seat_kind = "wheelchair";
+    state.tickets[1].status = "sold";
+    const sql = createFakeSql(state);
+
+    const result = await reserveSeatsForAdmin(sql, {
+      eventUuid: EVENT_UUID, dateUuid: DATE_UUID, ticketIds: ["ticket-a", "ticket-b"],
+    });
+
     expect(result.ok).toBe(false);
     if (!result.ok) expect(result.status).toBe(409);
-    expect(state.tickets.find((t) => t.id === "ticket-b")!.status).toBe("available");
     expect(state.tickets.find((t) => t.id === "ticket-a")!.status).toBe("available"); // rolled back
     expect(state.orders).toEqual([]);
   });
@@ -259,6 +279,24 @@ describe("releaseAdminReservedSeat", () => {
     expect(state.tickets[0].status).toBe("available");
     expect(state.tickets[0].order_id).toBeNull();
     expect(state.orders[0].status).toBe("cancelled");
+  });
+
+  it("returns a released wheelchair place to being an available PLACE", async () => {
+    // seat_kind must survive the release. If it were cleared the anchor would
+    // come back as an ordinary seat, its floor members would stay 'blocked'
+    // forever, and the place would be gone with no way to rebuild it.
+    const state = freshState();
+    state.orders.push({ id: "order-1", status: "paid", reserved_by_admin: true });
+    state.tickets[0].seat_kind = "wheelchair";
+    state.tickets[0].status = "sold";
+    state.tickets[0].order_id = "order-1";
+    const sql = createFakeSql(state);
+
+    const result = await releaseAdminReservedSeat(sql, "ticket-a");
+
+    expect(result.ok).toBe(true);
+    expect(state.tickets[0].status).toBe("available");
+    expect(state.tickets[0].seat_kind).toBe("wheelchair");
   });
 
   it("does not cancel the order if another seat in it is still sold", async () => {

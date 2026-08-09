@@ -1,5 +1,14 @@
 import { describe, it, expect } from "vitest";
-import { buildIndex, toggleSeat, isSelectable, effectiveStatus, groupMembers } from "@/lib/seatSelection";
+import {
+  buildIndex,
+  toggleSeat,
+  isSelectable,
+  effectiveStatus,
+  groupMembers,
+  placeStatus,
+  anchorTicketId,
+  disabledTicketIds,
+} from "@/lib/seatSelection";
 import type { SeatTicket } from "@/types";
 
 // Minimal single-row A with seats 1..5 all available
@@ -149,5 +158,131 @@ describe("wheelchair places", () => {
 
   it("groupMembers returns nothing for an unknown group", () => {
     expect(groupMembers(buildIndex(place), "nope")).toEqual([]);
+  });
+
+  it("reports an untaken place as available and offers its anchor id", () => {
+    const idx = buildIndex(place);
+    expect(placeStatus(idx, GROUP)).toBe("available");
+    expect(anchorTicketId(idx, GROUP)).toBe("t-d1");
+  });
+
+  it("reports a held place as held and withholds its anchor id", () => {
+    // A held anchor comes back from the API with id: null, so there is nothing
+    // to act on — neither a customer nor an admin may take it.
+    const held = [{ ...anchor, id: null, status: "held" as const, held_until: null }, floorD2, floorE1, floorE2];
+    const idx = buildIndex(held);
+    expect(placeStatus(idx, GROUP)).toBe("held");
+    expect(anchorTicketId(idx, GROUP)).toBeNull();
+  });
+
+  it("reports a sold place as sold", () => {
+    const sold = [{ ...anchor, id: null, status: "sold" as const }, floorD2, floorE1, floorE2];
+    expect(placeStatus(buildIndex(sold), GROUP)).toBe("sold");
+  });
+
+  it("treats a lapsed hold as available, like an ordinary seat", () => {
+    const past = new Date(Date.now() - 60000).toISOString();
+    const lapsed = [{ ...anchor, status: "held" as const, held_until: past }, floorD2];
+    expect(placeStatus(buildIndex(lapsed), GROUP)).toBe("available");
+  });
+
+  it("keeps a live hold held", () => {
+    const future = new Date(Date.now() + 60000).toISOString();
+    const live = [{ ...anchor, id: null, status: "held" as const, held_until: future }, floorD2];
+    expect(placeStatus(buildIndex(live), GROUP)).toBe("held");
+  });
+
+  it("ignores floor members when deciding a place's status", () => {
+    // Floor seats are permanently 'blocked'; reading one instead of the anchor
+    // would make every place look unavailable.
+    expect(placeStatus(buildIndex([floorD2, floorE1, anchor]), GROUP)).toBe("available");
+  });
+
+  it("returns unknown for a group with no anchor on this map", () => {
+    const idx = buildIndex([floorD2, floorE1]);
+    expect(placeStatus(idx, GROUP)).toBe("unknown");
+    expect(anchorTicketId(idx, GROUP)).toBeNull();
+  });
+
+  it("returns unknown for a group that is not on this map at all", () => {
+    expect(placeStatus(buildIndex(place), "nope")).toBe("unknown");
+  });
+});
+
+describe("disabled seats", () => {
+  const off: SeatTicket = {
+    id: "t-off", status: "disabled", held_until: null,
+    seat_kind: null, wheelchair_group_id: null,
+    seat: { id: "s-off", row: "A", seat_number: 3 },
+  };
+  const offNoId: SeatTicket = {
+    id: null, status: "disabled", held_until: null,
+    seat_kind: null, wheelchair_group_id: null,
+    seat: { id: "s-off2", row: "A", seat_number: 4 },
+  };
+
+  it("reports 'disabled' from effectiveStatus", () => {
+    expect(effectiveStatus(off)).toBe("disabled");
+  });
+
+  it("an admin may select one; a customer may not", () => {
+    const idx = buildIndex([mk(1), mk(2), off]);
+    expect(isSelectable(idx, [], false, "A", 3, true)).toBe(true);
+    expect(isSelectable(idx, [], false, "A", 3, false)).toBe(false);
+  });
+
+  it("an admin's toggle adds and removes it", () => {
+    const idx = buildIndex([mk(1), mk(2), off]);
+    const sel = toggleSeat(idx, [], false, "A", 3, true);
+    expect(sel).toEqual(["t-off"]);
+    expect(toggleSeat(idx, sel, false, "A", 3, true)).toEqual([]);
+  });
+
+  it("a customer's block selection breaks across the hole left by an omitted seat", () => {
+    // A customer never receives disabled seats from the API, so seat 3 is simply
+    // absent from their index. This tests that the selection logic treats the gap
+    // as a break, not a continued run. The disabled-seat branch is tested below.
+    const idx = buildIndex([mk(1), mk(2), mk(4), mk(5)]);
+    const sel = toggleSeat(idx, [], false, "A", 2);
+    expect(sel).toEqual(["A2"]);
+    expect(isSelectable(idx, sel, false, "A", 3)).toBe(false);
+    expect(isSelectable(idx, sel, false, "A", 4)).toBe(false);
+  });
+
+  it("a customer cannot select or extend across a disabled seat; an admin can", () => {
+    // This tests the actual disabled-seat branch where the cell exists in the
+    // index with status='disabled' (which only happens on an admin query).
+    // Customer: the seat is not selectable, and a contiguous block must break.
+    // Admin: the seat is selectable and can be held alongside non-adjacent seats.
+    const disabledInRow: SeatTicket = {
+      id: "t-disabled", status: "disabled", held_until: null,
+      seat_kind: null, wheelchair_group_id: null,
+      seat: { id: "s-disabled", row: "A", seat_number: 3 },
+    };
+    const idx = buildIndex([mk(1), mk(2), disabledInRow, mk(4), mk(5)]);
+
+    // Customer cannot select the disabled seat
+    expect(isSelectable(idx, [], false, "A", 3, false)).toBe(false);
+
+    // Customer's block from seat 2 cannot extend across the disabled seat to seat 4
+    const sel2 = toggleSeat(idx, [], false, "A", 2, false);
+    expect(sel2).toEqual(["A2"]);
+    expect(isSelectable(idx, sel2, false, "A", 3, false)).toBe(false);
+    expect(isSelectable(idx, sel2, false, "A", 4, false)).toBe(false);
+
+    // Admin can select the disabled seat
+    expect(isSelectable(idx, [], false, "A", 3, true)).toBe(true);
+
+    // Admin can hold it alongside a non-adjacent seat (bypassing contiguity)
+    const adminSel = toggleSeat(idx, [], false, "A", 3, true);
+    expect(adminSel).toEqual(["t-disabled"]);
+    expect(isSelectable(idx, adminSel, false, "A", 1, true)).toBe(true);
+    const adminTwo = toggleSeat(idx, adminSel, false, "A", 1, true);
+    expect(adminTwo.sort()).toEqual(["A1", "t-disabled"]);
+  });
+
+  it("disabledTicketIds returns the disabled ids and skips null ones", () => {
+    const idx = buildIndex([mk(1), off, offNoId]);
+    expect(disabledTicketIds(idx)).toEqual(new Set(["t-off"]));
   });
 });

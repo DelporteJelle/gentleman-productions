@@ -191,7 +191,7 @@ export function createUUID(): string {
 // Ticketing Types
 // ============================================================================
 
-export type TicketStatus = "available" | "held" | "sold" | "blocked";
+export type TicketStatus = "available" | "held" | "sold" | "blocked" | "disabled";
 
 /**
  * What a ticket IS, independent of what state it is in.
@@ -202,7 +202,17 @@ export type TicketStatus = "available" | "held" | "sold" | "blocked";
 export type SeatKind = "wheelchair" | "wheelchair_floor" | null;
 
 export interface SeatTicket {
-  /** null when the seat is not purchasable — the API withholds ids for sold/held/blocked seats. */
+  /**
+   * The id to act on this row with, or null if there is nothing to act on.
+   *
+   * For every caller: present for 'available', and for a 'held' row whose
+   * hold has lapsed (`held_until` in the past) — both genuinely free right
+   * now. Null for 'sold', 'blocked', and a live hold.
+   *
+   * For an admin specifically: also present for 'disabled', so the row can
+   * be re-enabled. A non-admin never sees a 'disabled' row at all — the API
+   * omits it from the response entirely rather than sending it id-less.
+   */
   id: string | null;
   status: TicketStatus;
   held_until: string | null;

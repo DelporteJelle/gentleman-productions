@@ -3,7 +3,7 @@
 Date: 2026-08-07
 Status: Approved
 
-This is **spec 1 of 2**. Spec 2 (`2026-08-07-access-codes-design.md`) adds the
+This is **spec 1 of 2**. Spec 2 (`2026-08-08-access-codes-design.md`) adds the
 admin-generated codes that let a customer actually buy a wheelchair place, plus
 free-ticket discount codes. Nothing here depends on spec 2; spec 2 depends on
 this.
@@ -396,3 +396,34 @@ route handlers:
   on the seat map, where the spatial context is. The portal only reports counts.
 - **Rate limiting** on the two new admin routes — consistent with the existing
   admin-only routes, where the auth requirement is the gate.
+
+## Amendment — 2026-08-08
+
+Two decisions in this document have since been superseded. They are corrected
+here rather than edited above, so the reasoning that produced them stays
+readable.
+
+**Wheelchair places are now giveable by an admin.** The "Out of scope" note
+says a place is unclaimable "by the public *and* by the admin giveaway flow",
+and the decisions table records "Purchasable in spec 1: No — by anyone, public
+or admin". The public half stood only until spec 2 shipped access codes, as
+planned. The admin half is now lifted too: `reserveSeatsForAdmin`'s guard
+widened from `t.seat_kind IS NULL` to
+`(t.seat_kind IS NULL OR t.seat_kind = 'wheelchair')`, so an admin can hand a
+place to a guest who arranged it by email without minting a code for them.
+
+Only the ANCHOR is giveable, and only while available. Floor members remain
+`status = 'blocked'`, which `t.status = 'available'` excludes on its own — the
+kind check is defence in depth, not the only guard. Releasing such a giveaway
+leaves `seat_kind` intact, so the place returns to being an available place
+rather than collapsing into an ordinary seat. That is pinned by a test.
+
+**A taken place now renders as taken.** This document said a sold anchor
+"should render as a taken wheelchair place, not as a red seat", and
+`effectiveStatus` still reports identity for exactly that reason. But identity
+alone left a held or sold place drawing as though it were free. The seat map
+now colours a place by its anchor's state — blue available, amber held, red
+sold — keeping the wheelchair shape and glyph throughout, and refuses to select
+a place that is not available. `placeStatus(index, groupId)` in
+`lib/seatSelection.ts` is the shared answer to "can this place still be taken";
+`effectiveStatus` is unchanged.
