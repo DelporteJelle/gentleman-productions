@@ -191,7 +191,7 @@ export function createUUID(): string {
 // Ticketing Types
 // ============================================================================
 
-export type TicketStatus = "available" | "held" | "sold" | "blocked";
+export type TicketStatus = "available" | "held" | "sold" | "blocked" | "disabled";
 
 /**
  * What a ticket IS, independent of what state it is in.

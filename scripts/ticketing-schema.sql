@@ -108,3 +108,19 @@ create table if not exists ticket_codes (
 );
 create index if not exists ticket_codes_event_idx on ticket_codes(event_uuid);
 create index if not exists ticket_codes_order_idx on ticket_codes(used_by_order_id);
+
+-- ---------------------------------------------------------------------------
+-- Disabled seats (2026-08-09)
+--
+-- An admin takes an individual seat out of service. status='disabled' is
+-- excluded by every existing `AND t.status = 'available'` guard for free —
+-- the same reasoning that made wheelchair floor seats 'blocked' rather than
+-- a flag.
+--
+-- As with the wheelchair migration above: the original inline column check
+-- was auto-named tickets_status_check by Postgres. VERIFY WITH `\d tickets`
+-- BEFORE RUNNING and adjust if it differs.
+-- ---------------------------------------------------------------------------
+alter table tickets drop constraint if exists tickets_status_check;
+alter table tickets add constraint tickets_status_check
+  check (status in ('available','held','sold','blocked','disabled'));
