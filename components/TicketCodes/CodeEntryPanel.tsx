@@ -27,6 +27,13 @@ export default function CodeEntryPanel({
 
   return (
     <div className={styles.panel}>
+      <h3 className={styles.entryTitle}>Codes</h3>
+      <p className={styles.entryHint}>
+        Heb je een code gekregen? Geef ze hier in. Met een <strong>rolstoelcode</strong> kan
+        je een rolstoelplaats kiezen; een <strong>gratis-ticketcode</strong> haalt de prijs
+        van één ticket van je totaal. Je kan meerdere codes na elkaar ingeven.
+      </p>
+
       <form onSubmit={submit} className={styles.form}>
         <input
           type="text"

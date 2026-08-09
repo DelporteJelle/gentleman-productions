@@ -1,5 +1,13 @@
 import { describe, it, expect } from "vitest";
-import { buildIndex, toggleSeat, isSelectable, effectiveStatus, groupMembers } from "@/lib/seatSelection";
+import {
+  buildIndex,
+  toggleSeat,
+  isSelectable,
+  effectiveStatus,
+  groupMembers,
+  placeStatus,
+  anchorTicketId,
+} from "@/lib/seatSelection";
 import type { SeatTicket } from "@/types";
 
 // Minimal single-row A with seats 1..5 all available
@@ -149,5 +157,53 @@ describe("wheelchair places", () => {
 
   it("groupMembers returns nothing for an unknown group", () => {
     expect(groupMembers(buildIndex(place), "nope")).toEqual([]);
+  });
+
+  it("reports an untaken place as available and offers its anchor id", () => {
+    const idx = buildIndex(place);
+    expect(placeStatus(idx, GROUP)).toBe("available");
+    expect(anchorTicketId(idx, GROUP)).toBe("t-d1");
+  });
+
+  it("reports a held place as held and withholds its anchor id", () => {
+    // A held anchor comes back from the API with id: null, so there is nothing
+    // to act on — neither a customer nor an admin may take it.
+    const held = [{ ...anchor, id: null, status: "held" as const, held_until: null }, floorD2, floorE1, floorE2];
+    const idx = buildIndex(held);
+    expect(placeStatus(idx, GROUP)).toBe("held");
+    expect(anchorTicketId(idx, GROUP)).toBeNull();
+  });
+
+  it("reports a sold place as sold", () => {
+    const sold = [{ ...anchor, id: null, status: "sold" as const }, floorD2, floorE1, floorE2];
+    expect(placeStatus(buildIndex(sold), GROUP)).toBe("sold");
+  });
+
+  it("treats a lapsed hold as available, like an ordinary seat", () => {
+    const past = new Date(Date.now() - 60000).toISOString();
+    const lapsed = [{ ...anchor, status: "held" as const, held_until: past }, floorD2];
+    expect(placeStatus(buildIndex(lapsed), GROUP)).toBe("available");
+  });
+
+  it("keeps a live hold held", () => {
+    const future = new Date(Date.now() + 60000).toISOString();
+    const live = [{ ...anchor, id: null, status: "held" as const, held_until: future }, floorD2];
+    expect(placeStatus(buildIndex(live), GROUP)).toBe("held");
+  });
+
+  it("ignores floor members when deciding a place's status", () => {
+    // Floor seats are permanently 'blocked'; reading one instead of the anchor
+    // would make every place look unavailable.
+    expect(placeStatus(buildIndex([floorD2, floorE1, anchor]), GROUP)).toBe("available");
+  });
+
+  it("returns unknown for a group with no anchor on this map", () => {
+    const idx = buildIndex([floorD2, floorE1]);
+    expect(placeStatus(idx, GROUP)).toBe("unknown");
+    expect(anchorTicketId(idx, GROUP)).toBeNull();
+  });
+
+  it("returns unknown for a group that is not on this map at all", () => {
+    expect(placeStatus(buildIndex(place), "nope")).toBe("unknown");
   });
 });

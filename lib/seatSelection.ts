@@ -206,6 +206,51 @@ export function toggleSeat(index: TicketIndex, selected: string[], multiRow: boo
  * row that is not 'available'. On a multi-row place most members are floor
  * seats, so an id-based lookup would find almost nothing.
  */
+/** The sellable state of a wheelchair place, taken from its anchor. */
+export type PlaceStatus = "available" | "held" | "sold" | "unknown";
+
+function anchorOf(index: TicketIndex, groupId: string): Cell | null {
+  for (const key in index.seatMap) {
+    const cell = index.seatMap[key];
+    if (cell.wheelchair_group_id === groupId && cell.seat_kind === "wheelchair") return cell;
+  }
+  return null;
+}
+
+/**
+ * Whether a place can still be taken.
+ *
+ * `effectiveStatus` deliberately reports a place member's IDENTITY
+ * ("wheelchair"/"blocked") so a taken place still reads as a place rather than
+ * as a red seat. That leaves its state unanswered, which is what this is for:
+ * only the anchor carries the place's sellable state, since the floor members
+ * are permanently 'blocked'.
+ *
+ * A lapsed hold reads as available, matching `effectiveStatus`'s own rule for
+ * ordinary seats. "unknown" means no anchor was found — a group that is not on
+ * this map, or one whose anchor promotion failed.
+ */
+export function placeStatus(index: TicketIndex, groupId: string): PlaceStatus {
+  const anchor = anchorOf(index, groupId);
+  if (!anchor) return "unknown";
+  if (anchor.status === "held") {
+    return anchor.held_until && new Date(anchor.held_until) < new Date() ? "available" : "held";
+  }
+  if (anchor.status === "sold") return "sold";
+  return "available";
+}
+
+/**
+ * The place's one purchasable ticket id, or null.
+ *
+ * Null both when the group is unknown and when its anchor is held or sold —
+ * the seats API withholds ids for anything not 'available', so a taken place
+ * has no id to offer. Callers must treat null as "cannot act on this place".
+ */
+export function anchorTicketId(index: TicketIndex, groupId: string): string | null {
+  return anchorOf(index, groupId)?.id ?? null;
+}
+
 export function groupMembers(index: TicketIndex, groupId: string): SeatRef[] {
   const out: SeatRef[] = [];
   for (const key in index.seatMap) {

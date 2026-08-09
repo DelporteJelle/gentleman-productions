@@ -169,3 +169,25 @@
   font-size: 0.75rem;
   font-family: inherit;
 }
+
+/* Explains what the code box is for. Without it the input reads as a mystery
+   field — the seat-page notice above only mentions wheelchair codes. */
+.entryTitle {
+  margin: 0 0 0.4rem;
+  font-size: 0.85rem;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--gold);
+}
+
+.entryHint {
+  margin: 0 0 0.75rem;
+  font-size: 0.8rem;
+  line-height: 1.6;
+  color: var(--cream-muted);
+}
+
+.entryHint strong {
+  color: var(--cream);
+  font-weight: 600;
+}
