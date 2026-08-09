@@ -7,6 +7,7 @@ import {
   groupMembers,
   placeStatus,
   anchorTicketId,
+  disabledTicketIds,
 } from "@/lib/seatSelection";
 import type { SeatTicket } from "@/types";
 
@@ -205,5 +206,50 @@ describe("wheelchair places", () => {
 
   it("returns unknown for a group that is not on this map at all", () => {
     expect(placeStatus(buildIndex(place), "nope")).toBe("unknown");
+  });
+});
+
+describe("disabled seats", () => {
+  const off: SeatTicket = {
+    id: "t-off", status: "disabled", held_until: null,
+    seat_kind: null, wheelchair_group_id: null,
+    seat: { id: "s-off", row: "A", seat_number: 3 },
+  };
+  const offNoId: SeatTicket = {
+    id: null, status: "disabled", held_until: null,
+    seat_kind: null, wheelchair_group_id: null,
+    seat: { id: "s-off2", row: "A", seat_number: 4 },
+  };
+
+  it("reports 'disabled' from effectiveStatus", () => {
+    expect(effectiveStatus(off)).toBe("disabled");
+  });
+
+  it("an admin may select one; a customer may not", () => {
+    const idx = buildIndex([mk(1), mk(2), off]);
+    expect(isSelectable(idx, [], false, "A", 3, true)).toBe(true);
+    expect(isSelectable(idx, [], false, "A", 3, false)).toBe(false);
+  });
+
+  it("an admin's toggle adds and removes it", () => {
+    const idx = buildIndex([mk(1), mk(2), off]);
+    const sel = toggleSeat(idx, [], false, "A", 3, true);
+    expect(sel).toEqual(["t-off"]);
+    expect(toggleSeat(idx, sel, false, "A", 3, true)).toEqual([]);
+  });
+
+  it("a customer's block selection breaks across the hole a disabled seat leaves", () => {
+    // A customer never receives the disabled row at all, so seat 3 is simply
+    // absent from their index — the run must not jump it.
+    const idx = buildIndex([mk(1), mk(2), mk(4), mk(5)]);
+    const sel = toggleSeat(idx, [], false, "A", 2);
+    expect(sel).toEqual(["A2"]);
+    expect(isSelectable(idx, sel, false, "A", 3)).toBe(false);
+    expect(isSelectable(idx, sel, false, "A", 4)).toBe(false);
+  });
+
+  it("disabledTicketIds returns the disabled ids and skips null ones", () => {
+    const idx = buildIndex([mk(1), off, offNoId]);
+    expect(disabledTicketIds(idx)).toEqual(new Set(["t-off"]));
   });
 });

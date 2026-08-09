@@ -24,13 +24,15 @@ export function buildIndex(tickets: SeatTicket[]): TicketIndex {
   return { seatMap, ticketById };
 }
 
-export function effectiveStatus(t: SeatTicket): "available" | "held" | "sold" | "wheelchair" | "blocked" {
+export function effectiveStatus(
+  t: SeatTicket,
+): "available" | "held" | "sold" | "wheelchair" | "blocked" | "disabled" {
   // seat_kind wins over status, deliberately. An anchor can legitimately be
   // sold (spec 2), and it must still render as a taken wheelchair place rather
   // than as an ordinary red seat.
   if (t.seat_kind) return t.seat_kind === "wheelchair" ? "wheelchair" : "blocked";
   if (t.status === "held" && t.held_until && new Date(t.held_until) < new Date()) return "available";
-  return t.status as "available" | "held" | "sold";
+  return t.status;
 }
 
 // BFS: find the largest connected group of seats, return their ticket IDs
@@ -109,6 +111,10 @@ function placeSeats(index: TicketIndex, row: string, startSeat: number, count: n
 export function isSelectable(index: TicketIndex, selected: string[], multiRow: boolean, row: string, seatNum: number, isAdmin = false): boolean {
   const status = getStatus(index, row, seatNum);
   if (status === 'sold' || status === 'held' || status === 'wheelchair' || status === 'blocked') return false;
+  // A disabled seat is the admin's to put back and nobody else's. Customers
+  // never receive one — the seats API omits it — so this is defence in depth
+  // rather than the actual boundary.
+  if (status === 'disabled') return isAdmin;
 
   const ticketId = index.seatMap[`${row}-${seatNum}`]?.id;
   if (ticketId && selected.includes(ticketId)) return true;
@@ -260,4 +266,20 @@ export function groupMembers(index: TicketIndex, groupId: string): SeatRef[] {
   }
   return out.sort((a, b) =>
     a.row === b.row ? a.seatNum - b.seatNum : ROWS.indexOf(a.row) - ROWS.indexOf(b.row));
+}
+
+/**
+ * Ticket ids on this map that are currently out of service.
+ *
+ * Resolved through `seatMap` rather than `ticketById` for the same reason as
+ * `groupMembers`: the caller wants every disabled seat, and only the admin
+ * response carries ids for them at all.
+ */
+export function disabledTicketIds(index: TicketIndex): Set<string> {
+  const out = new Set<string>();
+  for (const key in index.seatMap) {
+    const cell = index.seatMap[key];
+    if (cell.status === "disabled" && cell.id) out.add(cell.id);
+  }
+  return out;
 }
