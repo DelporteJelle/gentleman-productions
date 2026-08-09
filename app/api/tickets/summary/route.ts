@@ -15,6 +15,7 @@ export async function GET(request: Request) {
       COUNT(*) FILTER (WHERE t.status = 'available' AND t.seat_kind IS NULL) AS available,
       COUNT(*) FILTER (WHERE t.seat_kind = 'wheelchair') AS wheelchair,
       COUNT(*) FILTER (WHERE t.status = 'blocked')   AS blocked,
+      COUNT(*) FILTER (WHERE t.status = 'disabled')  AS disabled,
       COUNT(*) AS total
     FROM tickets t GROUP BY t.event_uuid, t.date_uuid;
   `;
