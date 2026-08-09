@@ -69,6 +69,15 @@ function idEligibleStatuses(sql: string): string[] {
 function installFakeSql() {
   mocks.sqlImpl = (async (strings: TemplateStringsArray) => {
     lastSql = strings.join(" ");
+    // Recognise the one statement this route issues (either audience's
+    // variant) and throw on anything else, matching the house convention in
+    // lib/server/seatAvailability.test.ts, lib/server/wheelchairPlaces.test.ts
+    // and lib/server/adminReservation.test.ts — so a second query added later
+    // fails the test instead of silently getting answered with seat rows.
+    const head = strings[0].trim().replace(/\s+/g, " ");
+    if (!head.startsWith("SELECT CASE")) {
+      throw new Error(`Unhandled fake SQL in test: ${head}`);
+    }
     // MODELS the WHERE clause and the CASE's id-eligibility list rather than
     // executing either — so the assertions below also pin the SQL text (for
     // the WHERE) or derive from it (for the CASE, via idEligibleStatuses), or
@@ -143,20 +152,39 @@ describe("GET /api/tickets/seats", () => {
   });
 
   it("passes seat coordinates and the held_until/seat_kind/wheelchair_group_id fields through unchanged", async () => {
-    const res = await GET(request());
-    const body = (await res.json()) as {
-      status: string;
-      held_until: string | null;
-      seat_kind: string | null;
-      wheelchair_group_id: string | null;
-      seat: { id: string; row: string; seat_number: number };
-    }[];
+    // Looped over all three audiences, like the sold-id test above: the
+    // non-admin and admin queries are spelled out separately in route.ts, so
+    // asserting only the default (non-admin) auth would leave the admin
+    // query's column list — including t.wheelchair_group_id — unexercised.
+    for (const auth of [
+      null,
+      { id: "u1", username: "scanner", role: "SCANNER" },
+      { id: "u1", username: "admin", role: "ADMIN" },
+    ]) {
+      mocks.authPayload = auth;
+      const res = await GET(request());
+      const body = (await res.json()) as {
+        status: string;
+        held_until: string | null;
+        seat_kind: string | null;
+        wheelchair_group_id: string | null;
+        seat: { id: string; row: string; seat_number: number };
+      }[];
 
-    const sold = body.find((t) => t.status === "sold")!;
-    expect(sold.held_until).toBe("2026-08-09T12:00:00Z");
-    expect(sold.seat_kind).toBe("wheelchair");
-    expect(sold.wheelchair_group_id).toBe("wg-1");
-    expect(sold.seat).toEqual({ id: "s-4", row: "B", seat_number: 4 });
+      // Pins the actual SELECT list of whichever query just ran, so dropping
+      // a column from either branch's projection fails here rather than
+      // shipping silently (the fake below forwards fields unconditionally,
+      // so only a text pin on the real SQL catches a dropped column).
+      expect(lastSql).toContain("t.held_until");
+      expect(lastSql).toContain("t.seat_kind");
+      expect(lastSql).toContain("t.wheelchair_group_id");
+
+      const sold = body.find((t) => t.status === "sold")!;
+      expect(sold.held_until).toBe("2026-08-09T12:00:00Z");
+      expect(sold.seat_kind).toBe("wheelchair");
+      expect(sold.wheelchair_group_id).toBe("wg-1");
+      expect(sold.seat).toEqual({ id: "s-4", row: "B", seat_number: 4 });
+    }
   });
 
   it("400s without a date_uuid", async () => {

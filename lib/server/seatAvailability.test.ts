@@ -85,9 +85,19 @@ function createFakeSql(tickets: FakeTicket[], hooks: { onCompensate?: () => void
     if (head.startsWith("UPDATE tickets t SET status = 'disabled'")) {
       // This fake MODELS the claim's conditions rather than executing them, so
       // every case below would pass whatever the real statement said. Pin the
-      // two guards that make the claim safe.
+      // guards that make the claim safe.
+      expect(full).toContain("t.event_uuid =");
+      expect(full).toContain("t.date_uuid =");
       expect(full).toContain("t.status = 'available'");
       expect(full).toContain("t.seat_kind IS NULL");
+      // Negative pins: the positive ones above still hold if a guard is
+      // WIDENED rather than deleted — e.g. `t.status = 'available' OR
+      // t.status = 'held'` still contains "t.status = 'available'". Assert
+      // there is no OR attached to either guard, so widening either one (the
+      // status guard to admit a lapsed hold, or the seat_kind guard to admit
+      // a wheelchair anchor) fails here instead of shipping silently.
+      expect(full).not.toMatch(/OR\s+t\.status/i);
+      expect(full).not.toMatch(/OR\s+t\.seat_kind/i);
       const [ticketIds, eventUuid, dateUuid] = values as [string[], string, string];
       const changed: { id: string }[] = [];
       for (const t of tickets) {
@@ -108,8 +118,14 @@ function createFakeSql(tickets: FakeTicket[], hooks: { onCompensate?: () => void
     if (head.startsWith("UPDATE tickets t SET status = 'available'")) {
       // The only thing standing between this endpoint and un-selling a sold
       // seat, whatever ids it is handed.
+      expect(full).toContain("t.event_uuid =");
+      expect(full).toContain("t.date_uuid =");
       expect(full).toContain("t.status = 'disabled'");
       expect(full).toContain("t.seat_kind IS NULL");
+      // Same widening hole as disableSeats above: a guard OR'd with another
+      // status or seat_kind value would still contain the positive pins.
+      expect(full).not.toMatch(/OR\s+t\.status/i);
+      expect(full).not.toMatch(/OR\s+t\.seat_kind/i);
       const [ticketIds, eventUuid, dateUuid] = values as [string[], string, string];
       const changed: { id: string }[] = [];
       for (const t of tickets) {

@@ -234,7 +234,17 @@ export default function SeatMapClient({ isAdmin }: { isAdmin: boolean }) {
 
     return {
       background,
-      cursor: selectable ? "pointer" : statusValue === "available" ? "default" : "not-allowed",
+      // "gap" covers both a coordinate with no ticket at all (never
+      // provisioned) and one the client holds no ticket for because it is
+      // 'disabled' and withheld by the API — either way there is nothing
+      // there, so it must read the same as a true aisle gap: no
+      // not-allowed cursor singling it out from an empty seam in the row.
+      cursor:
+        selectable
+          ? "pointer"
+          : statusValue === "available" || statusValue === "gap"
+            ? "default"
+            : "not-allowed",
       opacity,
       boxShadow,
       transform: isSelected ? "scale(1.15)" : "scale(1)",
@@ -530,6 +540,11 @@ export default function SeatMapClient({ isAdmin }: { isAdmin: boolean }) {
   // Disabling and enabling are opposite actions, so a mixed selection offers
   // neither: one button silently acting on a subset of what is highlighted is
   // worse than no button at all.
+  //
+  // Byte-identical to canCreatePlace above, but coincidentally, not by rule:
+  // they answer independent questions (turn a selection into a place vs.
+  // take it out of service) that both currently reduce to "plain seats only."
+  // If either rule ever diverges, do not merge them into one constant.
   const canDisableSeats =
     seatCount > 0 && selectedPlaces.length === 0 && selectedDisabled.length === 0;
   const canEnableSeats = selected.length > 0 && selectedDisabled.length === selected.length;
@@ -675,12 +690,21 @@ export default function SeatMapClient({ isAdmin }: { isAdmin: boolean }) {
                     <span className={styles.rowLabel}>{row}</span>
                     {cells.map((cell, idx) => {
                       if (cell.kind === "seat") {
+                        // A coordinate the client holds no ticket for — never
+                        // provisioned, or 'disabled' and withheld by the API
+                        // — gets no tooltip, same as a true aisle gap. The
+                        // class stays styles.seat (not styles.seatGap) so the
+                        // cell keeps its own reserved dimensions and the row
+                        // stays aligned; only the hover affordance changes.
+                        const hasTicket =
+                          cell.seatNum !== null &&
+                          Boolean(ticketsByCoord[`${row}-${cell.seatNum}`]);
                         return (
                           <div
                             key={idx}
                             className={cell.seatNum === null ? styles.seatGap : styles.seat}
                             onClick={() => handleSeatClick(row, cell.seatNum)}
-                            title={cell.seatNum !== null ? `${row}${cell.seatNum}` : ""}
+                            title={hasTicket ? `${row}${cell.seatNum}` : ""}
                             style={getSeatStyle(row, cell.seatNum)}
                           />
                         );
