@@ -22,8 +22,10 @@ const date = (over: Partial<EventDateEntry>): EventDateEntry => ({
  */
 function createFakeSql(seatIds: string[]) {
   const provisioned: { dateUuid: string; seatId: string }[] = [];
+  let statements = 0;
 
   const fakeSql = (async (strings: TemplateStringsArray, ...values: unknown[]) => {
+    statements++;
     const head = strings[0].trim();
 
     if (head.startsWith("SELECT id FROM seats")) {
@@ -31,15 +33,17 @@ function createFakeSql(seatIds: string[]) {
     }
 
     if (head.startsWith("INSERT INTO tickets")) {
-      const [, dateUuid, seatId] = values as [string, string, string];
-      provisioned.push({ dateUuid, seatId });
+      // Set-based: the statement selects from `seats`, so a single call covers
+      // every seat of the venue for that date.
+      const [, dateUuid] = values as [string, string];
+      for (const seatId of seatIds) provisioned.push({ dateUuid, seatId });
       return [];
     }
 
     throw new Error(`Unhandled fake SQL in provisioning test: ${head}`);
   }) as unknown as NeonQueryFunction<false, false>;
 
-  return { fakeSql, provisioned };
+  return { fakeSql, provisioned, statementCount: () => statements };
 }
 
 describe("ticketing helpers", () => {
@@ -89,6 +93,28 @@ describe("provisionTicketsForEvent", () => {
     await provisionTicketsForEvent(fakeSql, event);
 
     expect(provisioned).toEqual([]);
+  });
+
+  it("provisions a full venue without a round trip per seat", async () => {
+    // This runs inside the events POST/PUT, before the response is sent. One
+    // statement per seat meant saving an event with 390 seats over 2 dates
+    // cost 780 sequential round trips — ~23s locally, and past the serverless
+    // timeout in production, so the admin got no confirmation and the client
+    // never ran its cache invalidation.
+    const seatIds = Array.from({ length: 390 }, (_, i) => `s${i}`);
+    const { fakeSql, provisioned, statementCount } = createFakeSql(seatIds);
+    const event = baseEvent({
+      dates: [
+        date({ uuid: "d1", price: 20 }),
+        date({ uuid: "d2", price: 20 }),
+      ],
+    });
+
+    await provisionTicketsForEvent(fakeSql, event);
+
+    expect(provisioned).toHaveLength(780);
+    // One seat lookup plus one insert per priced date.
+    expect(statementCount()).toBe(3);
   });
 
   it("warns instead of silently creating nothing when the venue is unseeded", async () => {

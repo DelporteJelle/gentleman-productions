@@ -9,85 +9,21 @@ import {
   invalidateCache,
   CacheTags,
 } from "@/lib/server/api";
-
-// Cache for 7 days with tags for manual revalidation
-export const revalidate = 604800;
+import { fetchPostsPage } from "@/lib/server/postsData";
 
 export async function GET(request: Request) {
-  const sql = getDb();
   const type = getQueryParam(request, "type");
   const page = parseInt(getQueryParam(request, "page") || "1", 10);
   const limit = parseInt(getQueryParam(request, "limit") || "10", 10);
 
   try {
-    let posts: any[];
-    let totalCount: number;
-
-    if (type === "EVENT") {
-      // Fetch only events
-      const query = sql`
-        SELECT 
-          posts.created_at AS post_created_at,
-          events.*
-        FROM posts
-        JOIN events ON posts.post_uuid::uuid = events.uuid
-        ORDER BY posts.created_at DESC
-        LIMIT ${limit} OFFSET ${(page - 1) * limit}
-      `;
-      posts = await query;
-
-      const total = await sql`SELECT COUNT(*) FROM events;`;
-      totalCount = parseInt(total[0].count, 10);
-    } else if (type === "BASIC_POST") {
-      // Fetch only basic posts
-      const query = sql`
-        SELECT 
-          posts.created_at AS post_created_at,
-          basic_posts.*
-        FROM posts
-        JOIN basic_posts ON posts.post_uuid::uuid = basic_posts.uuid
-        ORDER BY posts.created_at DESC
-        LIMIT ${limit} OFFSET ${(page - 1) * limit}
-      `;
-      posts = await query;
-
-      const total = await sql`SELECT COUNT(*) FROM basic_posts;`;
-      totalCount = parseInt(total[0].count, 10);
-    } else {
-      // Fetch both types separately and merge in JS to avoid UNION type mismatches
-      const [eventRows, basicPostRows] = await Promise.all([
-        sql`
-          SELECT 
-            posts.created_at AS post_created_at,
-            events.*
-          FROM posts
-          JOIN events ON posts.post_uuid::uuid = events.uuid
-          ORDER BY posts.created_at DESC
-        `,
-        sql`
-          SELECT 
-            posts.created_at AS post_created_at,
-            basic_posts.*
-          FROM posts
-          JOIN basic_posts ON posts.post_uuid::uuid = basic_posts.uuid
-          ORDER BY posts.created_at DESC
-        `,
-      ]);
-
-      // Merge and sort by created_at descending
-      const allPosts = [...eventRows, ...basicPostRows].sort(
-        (a: any, b: any) =>
-          new Date(b.post_created_at || b.created_at).getTime() -
-          new Date(a.post_created_at || a.created_at).getTime(),
-      );
-
-      totalCount = allPosts.length;
-      posts = allPosts.slice((page - 1) * limit, page * limit);
-    }
+    // Served from the `posts`-tagged data cache; every post mutation purges
+    // that tag, so this cannot outlive the data it describes.
+    const { data, total } = await fetchPostsPage(type, page, limit);
 
     return cachedResponse({
-      data: posts,
-      total: totalCount,
+      data,
+      total,
       page,
       limit,
     });

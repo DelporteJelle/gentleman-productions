@@ -3,6 +3,7 @@ import {
   getDb,
   jsonResponse,
   errorResponse,
+  cachedResponse,
   requireRole,
   parseBody,
   getPathId,
@@ -10,9 +11,9 @@ import {
   CacheTags,
 } from "@/lib/server/api";
 import { provisionTicketsForEvent } from "@/lib/server/ticketing";
+import { fetchEventById } from "@/lib/server/postsData";
 
 export async function GET(request: Request) {
-  const sql = getDb();
   const id = getPathId(request);
 
   if (!id) {
@@ -20,13 +21,15 @@ export async function GET(request: Request) {
   }
 
   try {
-    const event = await sql`SELECT * FROM events WHERE uuid = ${id};`;
+    // Served from the `posts`-tagged data cache, which every post mutation
+    // purges.
+    const event = await fetchEventById(id);
 
-    if (event.length === 0) {
+    if (!event) {
       return errorResponse("Event not found", 404);
     }
 
-    return jsonResponse(event[0]);
+    return cachedResponse(event);
   } catch (error) {
     console.error("Error fetching event:", error);
     return errorResponse("Failed to fetch event");

@@ -1,65 +1,83 @@
-# Caching Implementation Summary
+# Caching
 
-## Issues Fixed
+Post data is cached in two places. The rule that keeps them correct:
 
-### 1. **localStorage Problems**
+> **Every layer that can hold a post payload must be purgeable by a mutation.**
 
-- ✅ Fixed infinite re-renders caused by `useEffect` dependency array including `fetchPosts` and `fetchHighlight`
-- ✅ Removed redundant `if (!cachedPosts)` check
-- ✅ Added early return with `setLoading(false)` when using cached data
-- ✅ Cache expires after 7 days automatically
+## The layers
 
-### 2. **Server-Side Caching Added**
+### 1. Server-side data cache (`lib/server/postsData.ts`)
 
-- ✅ Added `revalidate = 604800` (7 days) to both API routes
-- ✅ Added Cache-Control headers: `public, s-maxage=604800, stale-while-revalidate=86400`
-  - `s-maxage=604800`: Cache on CDN for 7 days
-  - `stale-while-revalidate=86400`: Serve stale content while revalidating in background for 1 day
-- ✅ Created revalidation utility for manual cache invalidation
+The database reads for `/api/posts` and `/api/highlight` are wrapped in
+`unstable_cache` under a cache tag:
 
-## How It Works
+| Reader              | Tag         | Backstop TTL |
+| ------------------- | ----------- | ------------ |
+| `fetchPostsPage()`  | `posts`     | 1 day        |
+| `fetchEventById()`  | `posts`     | 1 day        |
+| `fetchHighlight()`  | `highlight` | 1 day        |
 
-### Client-Side (localStorage)
+This is what keeps traffic off Neon — repeat requests are served from the cache
+across all visitors. The TTL is only a backstop; the real freshness mechanism is
+tag invalidation, which is immediate.
 
-1. On first load, data fetches from API and saves to localStorage with expiry timestamp
-2. On subsequent loads, checks localStorage first
-3. If cached data is found and not expired (< 7 days), uses it immediately
-4. If expired or not found, fetches from API
-5. When you edit/create/delete posts, localStorage is cleared automatically
+### 2. TanStack Query (client, `app/providers/QueryProvider.tsx`)
 
-### Server-Side (Vercel/CDN)
+`staleTime`/`gcTime` of 1 hour, persisted to `localStorage` with a matching
+`maxAge`. Mutations in `PostsContext` invalidate the affected query keys, so
+this layer never outlives an edit either.
 
-1. API responses are cached on Vercel's edge network for 7 days
-2. Multiple users get the same cached response (no database hits)
-3. After 7 days, the cache auto-revalidates on next request
-4. When data is updated via admin panel, cache can be manually cleared
+### 3. Prerendered pages
 
-## Benefits
+`/` and `/sitemap.xml` are static with a 1-hour revalidate and embed event data
+(JSON-LD). Post mutations call `revalidatePath("/")`.
 
-- **Minimal Database Calls**: Data is cached for 7 days on both client and server
-- **Fast Load Times**: Instant loading from localStorage on repeat visits
-- **CDN Distribution**: API responses served from edge locations worldwide
-- **Auto-Updates**: Cache expires after 7 days to show fresh content
-- **Manual Control**: Admin edits immediately clear client cache
+No layer is configured above **one day**.
 
-## Vercel Environment
+## Invalidation
 
-Since you're on Vercel's free tier:
+Every mutating route calls `invalidateCache(tag)` from `lib/server/api.ts`,
+which calls `revalidateTag(tag)` and purges the prerendered pages built from the
+same data. `CacheTags.POSTS` also purges `highlight`, because the highlight
+endpoint `INNER JOIN`s the post tables — editing or deleting a post changes that
+payload too.
 
-- ✅ Edge caching reduces function invocations (100GB-hours/month limit)
-- ✅ Neon database calls minimized (512 MB storage, connection limits)
-- ✅ Fast response times from edge network
-- ✅ Automatic cache management
+On the client, post mutations call `invalidatePostData()`, which invalidates
+both the `posts` and `highlight` query keys for the same reason.
 
-## Optional: Manual Cache Invalidation
+## Reading one post
 
-To manually clear cache after updates (optional), you can use the revalidation utility in API routes:
+The detail pages (event, ticket, seat map, checkout) read a single post through
+`fetchPostById()` in `lib/postsQueries.ts`. It must go through `fetchQuery` on
+the `["posts", id]` key — **not** `getQueryData` on the list.
 
-```typescript
-import { revalidatePostsCache } from "@/lib/revalidate";
+`getQueryData` is a synchronous cache peek: it ignores `staleTime`, ignores
+invalidation, and never fetches. That was the second bug — creating and
+deleting posts looked fine because the list surfaces re-render straight off
+`useQuery`, but an *edited* event kept rendering its pre-edit copy on every
+detail page, because those pages read through the peek into `useState` once per
+mount. `byId` sits under the `posts` key prefix, so the invalidation a mutation
+already fires reaches it and the next read revalidates.
 
-// After creating/updating/deleting posts
-revalidatePostsCache();
-```
+`lib/postsQueries.test.ts` covers this.
 
-This is currently NOT implemented but available if needed.
+## Why responses are `no-store`
+
+`cachedResponse()` sends `Cache-Control: no-store, must-revalidate`.
+
+This is deliberate and must not be "optimised" back into
+`public, s-maxage=...`. A response cached by that header lives in **shared
+caches (Vercel's edge network) keyed by URL**, and neither `revalidateTag` nor
+`revalidatePath` can evict it — those only reach Next's own caches. That was the
+original bug: an admin deleted a post, the client correctly refetched, and the
+CDN answered with the pre-delete JSON for up to seven days.
+
+The API routes are dynamic (`ƒ` in the build output), so they have no route
+cache of their own; `export const revalidate` on them did nothing at all.
+
+Database load is handled by layer 1 instead, which is purgeable. The trade-off
+is that a GET now invokes the serverless function even on a cache hit — it just
+doesn't reach the database.
+
+`lib/server/api.test.ts` enforces both halves of this: no shared-cache headers,
+and no lifetime above one day.

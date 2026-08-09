@@ -39,13 +39,17 @@ export async function provisionTicketsForEvent(sql: Sql, event: Event): Promise<
     );
     return;
   }
+  // One statement per date, filled straight from the seats table, rather than
+  // one per seat. This runs inside the events POST/PUT before the response is
+  // sent, and a round trip per seat put a full venue at ~780 sequential
+  // queries — some 23 seconds, past the serverless timeout — so an admin saw
+  // no confirmation and the client never got to invalidate its caches.
   for (const date of pricedDates) {
-    for (const seatId of seatIds) {
-      await sql`
-        INSERT INTO tickets (event_uuid, date_uuid, seat_id, status)
-        VALUES (${event.uuid}, ${date.uuid}, ${seatId}, 'available')
-        ON CONFLICT (date_uuid, seat_id) DO NOTHING;
-      `;
-    }
+    await sql`
+      INSERT INTO tickets (event_uuid, date_uuid, seat_id, status)
+      SELECT ${event.uuid}, ${date.uuid}, seats.id, 'available'
+      FROM seats
+      ON CONFLICT (date_uuid, seat_id) DO NOTHING;
+    `;
   }
 }
