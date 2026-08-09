@@ -15,6 +15,7 @@ import {
   groupMembers,
   placeStatus,
   anchorTicketId,
+  disabledTicketIds,
 } from "@/lib/seatSelection";
 import {
   formatPlaceLabel,
@@ -46,6 +47,7 @@ const SEAT = {
   held: "#f59e0b",
   sold: "#ef4444",
   wheelchair: "#3b82f6",
+  disabled: "#4b5563",
 };
 
 function formatNL(d: Date): string {
@@ -207,6 +209,10 @@ export default function SeatMapClient({ isAdmin }: { isAdmin: boolean }) {
       // getPlaceRunStyle instead. Kept as a fallback so a member that somehow
       // escaped its run shows up blue rather than vanishing.
       background = `linear-gradient(180deg, #60a5fa 0%, ${SEAT.wheelchair} 50%, #1d4ed8 100%)`;
+    } else if (statusValue === "disabled") {
+      // Admin-only: a customer never receives a disabled seat, so this is a
+      // slab of grey for the person who can put it back, not a chair for sale.
+      background = `linear-gradient(180deg, #6b7280 0%, ${SEAT.disabled} 50%, #374151 100%)`;
     } else if (statusValue === "available") {
       background = `linear-gradient(180deg, #22924a 0%, ${SEAT.available} 50%, #0f5c2a 100%)`;
     } else {
@@ -438,6 +444,34 @@ export default function SeatMapClient({ isAdmin }: { isAdmin: boolean }) {
     }
   }
 
+  /** Take seats out of service, or put them back. Shares `placeBusy` /
+   *  `placeError` with the wheelchair actions — same family of admin room
+   *  configuration, same busy semantics, two fewer pieces of state. */
+  async function handleSeatAvailability(action: "disable" | "enable") {
+    if (selected.length === 0) return;
+
+    setPlaceBusy(true);
+    setPlaceError(null);
+    try {
+      const res = await fetch(`/api/tickets/admin/seats/${action}`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ eventUuid: event!.uuid, dateUuid: dateId, ticketIds: selected }),
+      });
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok) {
+        setPlaceError(data.error ?? "Kon de stoelen niet aanpassen. Probeer opnieuw.");
+        return;
+      }
+      await refreshSeats();
+      setSelected([]);
+    } catch {
+      setPlaceError("Kon de stoelen niet aanpassen. Probeer opnieuw.");
+    } finally {
+      setPlaceBusy(false);
+    }
+  }
+
   async function handleReserve() {
     if (selected.length === 0) return;
     setReserving(true);
@@ -467,24 +501,49 @@ export default function SeatMapClient({ isAdmin }: { isAdmin: boolean }) {
     }
   }
 
-  // An admin's `selected` can hold ordinary seats and wheelchair anchors at
-  // once; a customer's holds only seats, with any place tracked separately.
+  // An admin's `selected` can hold ordinary seats, wheelchair anchors and
+  // disabled seats at once; a customer's holds only seats, with any place
+  // tracked separately.
   const anchorIdSet = anchorIds();
+  const disabledIdSet = disabledTicketIds(index);
   const selectedPlaces = selected.filter((id) => anchorIdSet.has(id));
-  const seatCount = selected.length - selectedPlaces.length;
+  const selectedDisabled = selected.filter((id) => disabledIdSet.has(id));
+  const seatCount = selected.length - selectedPlaces.length - selectedDisabled.length;
   const placeCount = selectedPlaces.length + (wheelchairTicketId ? 1 : 0);
 
   const selectionParts: string[] = [];
   if (seatCount > 0) selectionParts.push(`${seatCount} seat${seatCount > 1 ? "s" : ""}`);
   if (placeCount > 0)
     selectionParts.push(`${placeCount} rolstoelplaats${placeCount > 1 ? "en" : ""}`);
+  if (selectedDisabled.length > 0)
+    selectionParts.push(`${selectedDisabled.length} uitgeschakeld`);
 
-  // Converting seats into a place needs ordinary seats only — an anchor in the
-  // selection means the admin picked an existing place, which the server would
-  // refuse. Reverting applies to exactly one place and nothing else.
-  const canCreatePlace = seatCount > 0 && selectedPlaces.length === 0;
+  // Converting seats into a place needs ordinary seats only — an anchor means
+  // the admin picked an existing place and a disabled seat is not 'available',
+  // both of which the server would refuse. Reverting applies to exactly one
+  // place and nothing else.
+  const canCreatePlace =
+    seatCount > 0 && selectedPlaces.length === 0 && selectedDisabled.length === 0;
   const canRevertPlace =
     selectedGroupId !== null && selected.length === 1 && selectedPlaces.length === 1;
+
+  // Disabling and enabling are opposite actions, so a mixed selection offers
+  // neither: one button silently acting on a subset of what is highlighted is
+  // worse than no button at all.
+  const canDisableSeats =
+    seatCount > 0 && selectedPlaces.length === 0 && selectedDisabled.length === 0;
+  const canEnableSeats = selected.length > 0 && selectedDisabled.length === selected.length;
+
+  const legend: { color: string; label: string; dim?: boolean }[] = [
+    { color: SEAT.available, label: "Selectable" },
+    { color: SEAT.available, label: "Not selectable", dim: true },
+    { color: SEAT.selected, label: "Selected" },
+    { color: SEAT.held, label: "On hold" },
+    { color: SEAT.sold, label: "Sold" },
+    { color: SEAT.wheelchair, label: "Wheelchair place" },
+  ];
+  // Described only for the person who can see one.
+  if (isAdmin) legend.push({ color: SEAT.disabled, label: "Uitgeschakeld" });
 
   return (
     <div className={styles.page}>
@@ -544,14 +603,7 @@ export default function SeatMapClient({ isAdmin }: { isAdmin: boolean }) {
       <>
       <div className={styles.mapWrap}>
         <div className={styles.legend}>
-          {[
-            { color: SEAT.available, label: "Selectable" },
-            { color: SEAT.available, label: "Not selectable", dim: true },
-            { color: SEAT.selected, label: "Selected" },
-            { color: SEAT.held, label: "On hold" },
-            { color: SEAT.sold, label: "Sold" },
-            { color: SEAT.wheelchair, label: "Wheelchair place" },
-          ].map(({ color, label, dim }) => (
+          {legend.map(({ color, label, dim }) => (
             <div key={label} className={styles.legendItem}>
               <div
                 className={styles.legendDot}
@@ -706,11 +758,31 @@ export default function SeatMapClient({ isAdmin }: { isAdmin: boolean }) {
               Clear
             </button>
           )}
+          {isAdmin && canDisableSeats && (
+            <button
+              type="button"
+              className={styles.disableBtn}
+              disabled={placeBusy}
+              onClick={() => handleSeatAvailability("disable")}
+            >
+              {placeBusy ? "Bezig…" : "Schakel stoelen uit"}
+            </button>
+          )}
+          {isAdmin && canEnableSeats && (
+            <button
+              type="button"
+              className={styles.enableBtn}
+              disabled={placeBusy}
+              onClick={() => handleSeatAvailability("enable")}
+            >
+              {placeBusy ? "Bezig…" : "Schakel stoelen in"}
+            </button>
+          )}
           {isAdmin && (
             <button
               type="button"
               className={styles.reserveBtn}
-              disabled={selected.length === 0 || reserving}
+              disabled={selected.length === 0 || reserving || selectedDisabled.length > 0}
               onClick={handleReserve}
             >
               {reserving ? "Reserving…" : "Reserve for giveaway"}
@@ -739,7 +811,9 @@ export default function SeatMapClient({ isAdmin }: { isAdmin: boolean }) {
           <button
             type="button"
             className={styles.continueBtn}
-            disabled={selected.length === 0 && !wheelchairTicketId}
+            disabled={
+              (selected.length === 0 && !wheelchairTicketId) || selectedDisabled.length > 0
+            }
             onClick={() => {
               const all = [...selected, ...(wheelchairTicketId ? [wheelchairTicketId] : [])];
               if (all.length === 0) return;
