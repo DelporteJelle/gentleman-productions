@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import Link from "next/link";
 import { Stack } from "@mantine/core";
 import { LoadingScreen, ErrorScreen } from "@/components/StateScreens/StateScreens";
 import styles from "./AdminPortal.module.css";
@@ -233,7 +234,11 @@ export default function TicketsSummaryPage() {
         ) : (
           <div className={styles.dateList}>
             {data.dates.map((d) => (
-              <div key={`${d.event_uuid}-${d.date_uuid}`} className={styles.dateRow}>
+              <Link
+                key={`${d.event_uuid}-${d.date_uuid}`}
+                href={`/event/${d.event_uuid}/ticket/${d.date_uuid}`}
+                className={styles.dateRow}
+              >
                 <span>
                   <span className={styles.dateRowTitle}>{d.title}</span>
                   {" · "}
@@ -246,7 +251,7 @@ export default function TicketsSummaryPage() {
                   {d.sold} sold · {d.available} available · {d.wheelchair} wheelchair
                   {Number(d.disabled) > 0 ? ` · ${d.disabled} disabled` : ""} · {d.total} total
                 </span>
-              </div>
+              </Link>
             ))}
           </div>
         )}

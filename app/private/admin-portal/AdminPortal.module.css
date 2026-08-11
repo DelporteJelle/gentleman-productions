@@ -28,6 +28,21 @@
   background: var(--noir-2);
   font-family: var(--font-body);
   color: var(--cream);
+  text-decoration: none;
+  transition: border-color 120ms ease, background-color 120ms ease;
+}
+
+/* The row is the link to that date's seat map — the only route in while every
+   date is still closed and the public ticket funnel has no entry point. */
+.dateRow:hover,
+.dateRow:focus-visible {
+  border-color: var(--gold-soft);
+  background: rgba(176, 138, 62, 0.08);
+}
+
+.dateRow:focus-visible {
+  outline: 2px solid var(--gold-soft);
+  outline-offset: 2px;
 }
 
 .dateRowTitle {
