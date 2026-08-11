@@ -11,8 +11,13 @@ interface TicketDateCardProps {
   event: Event;
   /** Dimmed because another date is expanded. Still selectable. */
   inactive?: boolean;
-  /** Tickets aren't on sale for this date: greyed out and not selectable. */
-  closed?: boolean;
+  /**
+   * Tickets aren't on sale for this date. "locked" is the customer's card:
+   * greyed out, out of the tab order, not selectable. "preview" is the admin's
+   * copy of the same card — same closed message, still selectable, because the
+   * room has to be configured before sales open.
+   */
+  closed?: "locked" | "preview";
   onSelect?: () => void;
 }
 
@@ -45,28 +50,36 @@ export default function TicketDateCard({
   const { main, accent } = splitTitleAccent(event.title);
   const venue = event.eventlocation?.location ?? event.eventlocation?.city ?? "";
   const closedMessage = closed ? closedMessageFor(date) : "";
+  const preview = closed === "preview";
+
+  const label = !closed
+    ? `Select date ${formatDateTime(date)} for ${event.title}`
+    : preview
+      ? `Configure seats for ${formatDateTime(date)} for ${event.title} — ${closedMessage}`
+      : `${formatDateTime(date)} for ${event.title} — ${closedMessage}`;
 
   return (
     <button
       type="button"
       // Disabling natively takes the card out of the tab order and swallows the
       // click, so there's no handler left to guard.
-      disabled={closed}
+      disabled={closed === "locked"}
       className={`${styles.card} ${inactive ? styles.inactive : ""} ${
         closed ? styles.closed : ""
-      }`}
+      } ${preview ? styles.preview : ""}`}
       onClick={onSelect}
-      aria-label={
-        closed
-          ? `${formatDateTime(date)} for ${event.title} — ${closedMessage}`
-          : `Select date ${formatDateTime(date)} for ${event.title}`
-      }
+      aria-label={label}
     >
       <span className={styles.corner} aria-hidden="true" />
       <span className={`${styles.corner} ${styles.cornerBr}`} aria-hidden="true" />
       {closed && (
         <div className={styles.closedOverlay}>
           <span className={styles.closedText}>{closedMessage}</span>
+          {preview && (
+            <span className={styles.previewHint}>
+              Beheerder &middot; stoelen configureren
+            </span>
+          )}
         </div>
       )}
       <div className={styles.imageWrap}>

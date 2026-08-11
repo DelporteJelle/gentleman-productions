@@ -10,6 +10,12 @@ import styles from "./TicketDateExpanded.module.css";
 interface TicketDateExpandedProps {
   date: EventDateEntry;
   event: Event;
+  /**
+   * This date isn't on sale and an admin is the one looking at it — a customer
+   * never gets this card expanded. The route through to the seat map stays
+   * open so the room can be configured before sales start.
+   */
+  adminPreview?: boolean;
   onClose: () => void;
 }
 
@@ -46,8 +52,10 @@ function formatStartDate(iso: string): string {
 export default function TicketDateExpanded({
   date,
   event,
+  adminPreview,
   onClose,
 }: TicketDateExpandedProps) {
+  const open = isDateOpen(event, date);
   const { main, accent } = splitTitleAccent(event.title);
   const venue =
     event.eventlocation?.location ?? event.eventlocation?.city ?? "";
@@ -157,10 +165,15 @@ export default function TicketDateExpanded({
           </div>
         </div>
 
-        {isDateOpen(event, date) && (
+        {(open || adminPreview) && (
           <div className={styles.ctaRow}>
+            {!open && (
+              <p className={styles.previewNote}>
+                Verkoop nog niet open &middot; alleen zichtbaar voor beheerders
+              </p>
+            )}
             <GoldShimmerCTA href={`/event/${event.uuid}/ticket/${date.uuid}`}>
-              Buy Tickets
+              {open ? "Buy Tickets" : "Stoelen configureren"}
             </GoldShimmerCTA>
           </div>
         )}

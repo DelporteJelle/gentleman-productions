@@ -169,12 +169,22 @@
   filter: grayscale(1) opacity(0.55);
 }
 
+/* A closed date an admin may still open. It keeps the closed treatment —
+   the date really is closed — but stays interactive, so hover clears the grey
+   to show the click leads somewhere. */
+.preview:hover .imageWrap,
+.preview:hover .info {
+  filter: none;
+}
+
 .closedOverlay {
   position: absolute;
   inset: 0;
   display: flex;
+  flex-direction: column;
   align-items: center;
   justify-content: center;
+  gap: 10px;
   padding: 24px;
   background: rgba(13, 6, 8, 0.72);
   /* Below the .corner brackets (z-index: 2) so the frame stays on top. */
@@ -191,6 +201,17 @@
   text-align: center;
   color: var(--cream);
   text-wrap: balance;
+}
+
+/* Says why this card is clickable when the message above it says the date is
+   closed. Only an admin is ever shown one. */
+.previewHint {
+  font-family: var(--font-deco);
+  font-size: 10px;
+  letter-spacing: 0.2em;
+  text-transform: uppercase;
+  text-align: center;
+  color: var(--gold-bright);
 }
 
 @media (max-width: 700px) {
