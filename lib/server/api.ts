@@ -6,7 +6,7 @@
 import { NextResponse } from "next/server";
 import { neon, NeonQueryFunction } from "@neondatabase/serverless";
 import jwt from "jsonwebtoken";
-import { revalidatePath } from "next/cache";
+import { revalidatePath, revalidateTag } from "next/cache";
 
 // ============================================================================
 // Database
@@ -49,17 +49,26 @@ export function successResponse(message: string, status = 200): NextResponse {
 }
 
 /**
- * Create a cached response with standard cache headers
+ * Ceiling for every cache lifetime in the app. Tag-based revalidation is the
+ * primary way stale data goes away; this is only the backstop for the case
+ * where an invalidation is somehow missed.
  */
-export function cachedResponse<T>(
-  data: T,
-  maxAge = 604800, // 7 days default
-  staleWhileRevalidate = 86400, // 1 day default
-): NextResponse {
+export const MAX_CACHE_TTL_SECONDS = 24 * 60 * 60; // 1 day
+
+/**
+ * Create a response for data that is cached server-side under a cache tag.
+ *
+ * Deliberately not storable by browsers or the CDN. A response cached via
+ * `Cache-Control: public, s-maxage=...` lives in shared caches keyed by URL,
+ * where neither `revalidateTag` nor `revalidatePath` can evict it — so admin
+ * edits stayed invisible until the entry aged out on its own. The payload is
+ * kept cheap by the tagged data cache behind this response instead (see
+ * `lib/server/postsData.ts`), which mutations *can* purge, so the database is
+ * still spared without anyone being served a deleted post.
+ */
+export function cachedResponse<T>(data: T): NextResponse {
   return NextResponse.json(data, {
-    headers: {
-      "Cache-Control": `public, s-maxage=${maxAge}, stale-while-revalidate=${staleWhileRevalidate}`,
-    },
+    headers: { "Cache-Control": "no-store, must-revalidate" },
   });
 }
 
@@ -142,23 +151,36 @@ export const CacheTags = {
 export type CacheTag = (typeof CacheTags)[keyof typeof CacheTags];
 
 /**
- * Invalidate a cache tag
+ * Expire tagged entries outright rather than letting them be served stale
+ * while they refresh. An admin who just deleted a post has to see it gone on
+ * the next read, so the stale-while-revalidate profiles are not usable here.
+ */
+const IMMEDIATE_EXPIRY = { expire: 0 } as const;
+
+/**
+ * Invalidate everything cached under a tag.
+ *
+ * The API routes are dynamic (`ƒ` in the build output), so they have no route
+ * cache of their own — `revalidatePath("/api/posts")` purged nothing. What
+ * actually holds the data is the tagged data cache, so purging is by tag.
+ * Prerendered *pages* built from the same data still need a path purge.
  */
 export function invalidateCache(tag: CacheTag): void {
+  revalidateTag(tag, IMMEDIATE_EXPIRY);
+
   switch (tag) {
     case CacheTags.POSTS:
-      revalidatePath("/api/posts");
+      // The highlight endpoint INNER JOINs the post tables, so its payload
+      // changes whenever a post does — a deleted post would otherwise live on
+      // as the highlight.
+      revalidateTag(CacheTags.HIGHLIGHT, IMMEDIATE_EXPIRY);
       revalidatePath("/");
       break;
     case CacheTags.HIGHLIGHT:
-      revalidatePath("/api/highlight");
       revalidatePath("/");
       break;
     case CacheTags.TEAM:
-      revalidatePath("/api/team");
-      break;
     case CacheTags.PARTNERS:
-      revalidatePath("/api/partners");
       break;
   }
 }

@@ -52,7 +52,7 @@ function getPostSortDate(post: Post): Date | null {
       ...event.dates.map((d) => new Date(d.start_time).getTime()),
     );
     return new Date(max);
-  }
+  } 
   if (post.post_type === DbObjectType.BASIC_POST) {
     const bp = post as BasicPost;
     return bp.date ? new Date(bp.date) : null;
@@ -170,7 +170,7 @@ export default function Home() {
         ctaLabel = "View Event";
         ctaHref = `/event/${highlight.uuid}`;
       } else if ((highlight as Event).tickets_open) {
-        ctaLabel = "More Info";
+        ctaLabel = "Buy Tickets";
         ctaHref = `/event/${highlight.uuid}/ticket`;
       } else {
         ctaLabel = "Tickets available soon";

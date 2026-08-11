@@ -3,11 +3,12 @@ import {
   getDb,
   jsonResponse,
   errorResponse,
-  requireAuth,
+  requireRole,
   parseBody,
   invalidateCache,
   CacheTags,
 } from "@/lib/server/api";
+import { provisionTicketsForEvent } from "@/lib/server/ticketing";
 
 export async function GET() {
   const sql = getDb();
@@ -22,7 +23,7 @@ export async function GET() {
 }
 
 export async function POST(request: Request) {
-  const authError = requireAuth(request);
+  const authError = requireRole(request, ["ADMIN", "CREATE_ONLY"]);
   if (authError) return authError;
 
   const sql = getDb();
@@ -41,7 +42,7 @@ export async function POST(request: Request) {
       INSERT INTO events (
         created_at, updated_at, created_by, uuid, title,
         post_type, description, display_image, images,
-        eventLocation, dates, tickets_open
+        eventLocation, dates, tickets_open, production_theme
       ) VALUES (
         ${body.created_at || new Date().toISOString()},
         ${body.updated_at || null},
@@ -54,13 +55,14 @@ export async function POST(request: Request) {
         ${body.images},
         ${JSON.stringify(body.eventlocation)},
         ${JSON.stringify(body.dates)},
-        ${body.tickets_open ?? false}
+        ${body.tickets_open ?? false},
+        ${body.production_theme ? JSON.stringify(body.production_theme) : null}
       )
       RETURNING *;
     `;
 
+    await provisionTicketsForEvent(sql, body);
     invalidateCache(CacheTags.POSTS);
-
     return jsonResponse(createdEvent[0], 201);
   } catch (error) {
     console.error("Error creating event:", error);

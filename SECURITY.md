@@ -92,7 +92,38 @@
 DATABASE_URL=your_neon_database_url
 JWT_SECRET=your_very_long_random_secret_at_least_32_chars
 NODE_ENV=production
+
+# Ticketing — all required wherever tickets are sold or scanned
+TICKET_QR_SECRET=32_bytes_of_hex_identical_in_every_environment
+MOLLIE_API_KEY=live_or_test_mollie_api_key
+RESEND_API_KEY=your_resend_api_key
+RESEND_FROM=tickets@yourdomain.example
+NEXT_PUBLIC_BASE_URL=https://yourdomain.example
+CRON_SECRET=32_bytes_of_hex_random_value
 ```
+
+- `TICKET_QR_SECRET` — signs and verifies every ticket QR. Both sides **fail
+  closed** without it: `POST /api/tickets/checkout` returns `503` (no order is
+  created and no payment is taken) and `POST /api/tickets/scan` returns `500`.
+  A deploy missing this variable therefore sells nothing rather than selling
+  tickets it cannot issue. See "Ticket Security" below for rotation rules.
+- `MOLLIE_API_KEY` — Mollie API key. `test_…` keys must never be used in
+  production; `live_…` keys must never be used anywhere else.
+- `RESEND_API_KEY` / `RESEND_FROM` — ticket delivery. `RESEND_FROM` must be a
+  verified sender on the ticketing domain.
+- `NEXT_PUBLIC_BASE_URL` — public origin, used to build the Mollie redirect and
+  webhook URLs. A wrong value breaks payment confirmation. When it contains
+  `localhost` the webhook URL is omitted (Mollie cannot reach it).
+- `CRON_SECRET` — authenticates Vercel's daily call to
+  `GET /api/tickets/cron/reconcile` (see `vercel.json`), which re-checks any
+  order still `pending` with Mollie in case both the webhook and the
+  confirm-page poll missed it (dropped webhook + interrupted redirect). Set
+  the same value in the Vercel project's environment variables — Vercel then
+  sends it automatically as `Authorization: Bearer $CRON_SECRET`. Without it,
+  the route fails closed (503) rather than running unauthenticated. Admins can
+  also trigger reconciliation for a single order immediately via the "Recheck
+  payment" button on `/private/admin-portal` (`POST
+  /api/tickets/admin/orders/[id]/recheck`), without waiting for the cron.
 
 ## Testing Security
 
@@ -141,3 +172,28 @@ If upgrading from previous version:
 1. No breaking changes to database schema
 2. Existing sessions remain valid
 3. Rate limiting is automatic (no configuration needed)
+
+## Ticket Security
+
+### QR Ticket Tokens
+
+Ticket QR codes contain `<ticket-uuid>.<base64url HMAC-SHA256>`, signed with
+`TICKET_QR_SECRET`. The scanner (`/api/tickets/scan`) rejects any payload whose
+signature does not verify, so knowing a ticket id is not sufficient to enter.
+
+- `TICKET_QR_SECRET` must be a high-entropy random value (32 bytes hex) and must
+  be **identical** in every environment that issues or scans tickets.
+- Rotating the secret invalidates every ticket already emailed. Re-send tickets
+  for all `sold` rows after any rotation, using the admin-only endpoint
+  `POST /api/tickets/orders/<order-id>/resend` (one call per paid order — it
+  re-signs with the current secret and re-attaches the PDFs). The same endpoint
+  is the recovery path for a customer who lost their confirmation email.
+  The confirmation page's own PDF download
+  (`GET /api/tickets/orders/<order-id>/pdf`) re-signs on every request
+  too, so it never needs a manual re-send after rotation.
+- The scan endpoint is restricted to the `ADMIN` and `SCANNER` roles and is
+  scoped to a single performance chosen by the operator. The ticket-summary
+  endpoint it depends on for the performance list (`GET
+  /api/tickets/summary`, including customer/order data) is shared by both
+  roles; the `/private/admin-portal` order-management page and its nav link
+  remain `ADMIN`-only.

@@ -10,6 +10,7 @@ export interface SeoEvent {
     end_time: string;
     price?: number;
     external_link?: string;
+    tickets_open?: boolean;
   }>;
   eventlocation: {
     location?: string;
@@ -99,13 +100,20 @@ export function buildEventJsonLd(event: SeoEvent) {
         },
       };
 
-  const offers = event.tickets_open
+  // Sales are per date, so the first date isn't necessarily one you can buy —
+  // advertise the price of a date that's actually on sale, or no offer at all.
+  const sellable = event.dates?.find(
+    (d) =>
+      (d.tickets_open ?? event.tickets_open) === true &&
+      typeof d.price === "number",
+  );
+  const offers = sellable
     ? {
         "@type": "Offer",
         url: `${url}/ticket`,
         availability: "https://schema.org/InStock",
         priceCurrency: "EUR",
-        price: event.dates?.[0]?.price ?? 0,
+        price: sellable.price,
       }
     : undefined;
 

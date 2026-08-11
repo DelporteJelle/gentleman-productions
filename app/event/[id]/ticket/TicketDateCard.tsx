@@ -3,13 +3,22 @@
 import { Image } from "@mantine/core";
 import { Event, EventDateEntry } from "@/types";
 import { splitTitleAccent } from "@/lib/text";
+import { closedMessageFor } from "@/lib/dateAvailability";
 import styles from "./TicketDateCard.module.css";
 
 interface TicketDateCardProps {
   date: EventDateEntry;
   event: Event;
-  inactive: boolean;
-  onSelect: () => void;
+  /** Dimmed because another date is expanded. Still selectable. */
+  inactive?: boolean;
+  /**
+   * Tickets aren't on sale for this date. "locked" is the customer's card:
+   * greyed out, out of the tab order, not selectable. "preview" is the admin's
+   * copy of the same card — same closed message, still selectable, because the
+   * room has to be configured before sales open.
+   */
+  closed?: "locked" | "preview";
+  onSelect?: () => void;
 }
 
 function formatDateTime(date: EventDateEntry): string {
@@ -35,20 +44,44 @@ export default function TicketDateCard({
   date,
   event,
   inactive,
+  closed,
   onSelect,
 }: TicketDateCardProps) {
   const { main, accent } = splitTitleAccent(event.title);
   const venue = event.eventlocation?.location ?? event.eventlocation?.city ?? "";
+  const closedMessage = closed ? closedMessageFor(date) : "";
+  const preview = closed === "preview";
+
+  const label = !closed
+    ? `Select date ${formatDateTime(date)} for ${event.title}`
+    : preview
+      ? `Configure seats for ${formatDateTime(date)} for ${event.title} — ${closedMessage}`
+      : `${formatDateTime(date)} for ${event.title} — ${closedMessage}`;
 
   return (
     <button
       type="button"
-      className={`${styles.card} ${inactive ? styles.inactive : ""}`}
+      // Disabling natively takes the card out of the tab order and swallows the
+      // click, so there's no handler left to guard.
+      disabled={closed === "locked"}
+      className={`${styles.card} ${inactive ? styles.inactive : ""} ${
+        closed ? styles.closed : ""
+      } ${preview ? styles.preview : ""}`}
       onClick={onSelect}
-      aria-label={`Select date ${formatDateTime(date)} for ${event.title}`}
+      aria-label={label}
     >
       <span className={styles.corner} aria-hidden="true" />
       <span className={`${styles.corner} ${styles.cornerBr}`} aria-hidden="true" />
+      {closed && (
+        <div className={styles.closedOverlay}>
+          <span className={styles.closedText}>{closedMessage}</span>
+          {preview && (
+            <span className={styles.previewHint}>
+              Beheerder &middot; stoelen configureren
+            </span>
+          )}
+        </div>
+      )}
       <div className={styles.imageWrap}>
         <Image
           src={event.display_image}

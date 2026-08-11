@@ -1,0 +1,97 @@
+.page {
+  min-height: 100vh;
+  background: var(--noir);
+  color: var(--cream);
+  font-family: var(--font-body);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: 32px;
+  text-align: center;
+  animation: heroFadeUp 0.5s ease-out both;
+}
+
+@keyframes heroFadeUp {
+  0% {
+    opacity: 0;
+    transform: translateY(20px);
+  }
+  100% {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.eyebrow {
+  font-family: var(--font-deco);
+  font-weight: 500;
+  font-size: 11px;
+  letter-spacing: 0.45em;
+  color: var(--gold);
+  margin: 0 0 24px;
+  text-transform: uppercase;
+}
+
+.title {
+  font-family: var(--font-display);
+  font-size: clamp(28px, 4.25vw, 48px);
+  font-weight: normal;
+  line-height: 0.95;
+  letter-spacing: 0.005em;
+  color: var(--cream);
+  margin: 0 0 16px;
+}
+
+.copy {
+  font-family: var(--font-body);
+  font-size: 15px;
+  line-height: 1.6;
+  color: var(--cream-muted);
+  max-width: 420px;
+  margin: 0 0 24px;
+}
+
+.downloadLink {
+  font-family: var(--font-deco);
+  font-size: 11px;
+  letter-spacing: 0.3em;
+  color: var(--gold);
+  text-decoration: none;
+  border-bottom: 1px solid var(--gold-soft);
+  padding-bottom: 4px;
+  text-transform: uppercase;
+  transition: color 0.3s, border-color 0.3s;
+  margin-bottom: 32px;
+}
+
+.downloadLink:hover {
+  color: var(--gold-bright);
+  border-color: var(--gold-bright);
+}
+
+.note {
+  font-family: var(--font-body);
+  font-size: 13px;
+  line-height: 1.6;
+  color: var(--cream-muted);
+  max-width: 380px;
+  margin: 0 0 16px;
+}
+
+.backLink {
+  font-family: var(--font-deco);
+  font-size: 11px;
+  letter-spacing: 0.3em;
+  color: var(--cream-muted);
+  text-decoration: none;
+  border-bottom: 1px solid rgba(245, 233, 213, 0.25);
+  padding-bottom: 4px;
+  text-transform: uppercase;
+  transition: color 0.3s, border-color 0.3s;
+}
+
+.backLink:hover {
+  color: var(--gold-bright);
+  border-color: var(--gold-bright);
+}

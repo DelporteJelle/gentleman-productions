@@ -4,38 +4,18 @@ import {
   jsonResponse,
   errorResponse,
   cachedResponse,
-  requireAuth,
+  requireRole,
   parseBody,
   invalidateCache,
   CacheTags,
 } from "@/lib/server/api";
-
-// Cache for 7 days with tags for manual revalidation
-export const revalidate = 604800;
+import { fetchHighlight } from "@/lib/server/postsData";
 
 export async function GET() {
-  const sql = getDb();
-
   try {
-    // Try to find highlight as an event first
-    const highlightWithEvent = await sql`
-      SELECT Events.*, Highlight.valid_date
-      FROM Events
-      INNER JOIN Highlight ON Events.uuid = Highlight.event_uuid;
-    `;
-
-    if (highlightWithEvent.length > 0) {
-      return cachedResponse(highlightWithEvent);
-    }
-
-    // If not found as event, try basic_posts
-    const highlightWithBasicPost = await sql`
-      SELECT basic_posts.*, Highlight.valid_date
-      FROM basic_posts
-      INNER JOIN Highlight ON basic_posts.uuid = Highlight.event_uuid;
-    `;
-
-    return cachedResponse(highlightWithBasicPost);
+    // Served from the `highlight`-tagged data cache, which both highlight and
+    // post mutations purge.
+    return cachedResponse(await fetchHighlight());
   } catch (error) {
     console.error("Error fetching highlight:", error);
     return errorResponse("Failed to fetch highlight");
@@ -43,7 +23,7 @@ export async function GET() {
 }
 
 export async function PUT(request: Request) {
-  const authError = requireAuth(request);
+  const authError = requireRole(request, ["ADMIN", "CREATE_ONLY"]);
   if (authError) return authError;
 
   const sql = getDb();
@@ -82,7 +62,7 @@ export async function PUT(request: Request) {
 }
 
 export async function DELETE(request: Request) {
-  const authError = requireAuth(request);
+  const authError = requireRole(request, ["ADMIN", "CREATE_ONLY"]);
   if (authError) return authError;
 
   const sql = getDb();

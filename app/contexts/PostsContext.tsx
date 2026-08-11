@@ -24,6 +24,10 @@ import {
   notifySuccess,
   notifyError,
 } from "@/lib/api";
+import {
+  postsQueryKeys,
+  fetchPostById as readPostById,
+} from "@/lib/postsQueries";
 
 // ============================================================================
 // Types
@@ -64,11 +68,7 @@ interface PostsContextValue extends PostsState {
 // Query Keys
 // ============================================================================
 
-export const postsQueryKeys = {
-  all: ["posts"] as const,
-  byId: (id: string) => ["posts", id] as const,
-  highlight: ["highlight"] as const,
-};
+export { postsQueryKeys };
 
 // ============================================================================
 // Context
@@ -87,10 +87,6 @@ const PostsAPI = {
       limit: String(limit),
     });
     return apiGet<PaginatedResponse<Post>>(`/api/posts?${params}`);
-  },
-
-  async fetchById(id: string): Promise<Post> {
-    return apiGet<Post>(`/api/events/${id}`);
   },
 
   async delete(uuid: string): Promise<void> {
@@ -175,6 +171,21 @@ export const PostsProvider: React.FC<{ children: React.ReactNode }> = ({
   const loading = postsLoading || highlightLoading || isRestoring;
   const error = postsError?.message ?? highlightError?.message ?? null;
 
+  /**
+   * Drop every client-side copy of post data after a mutation.
+   *
+   * The highlight goes with it: it is a post joined onto the highlight row, so
+   * deleting or editing a post changes that payload too — invalidating only
+   * `posts` left a deleted post on screen as the highlight until it went stale
+   * on its own.
+   */
+  const invalidatePostData = useCallback(async () => {
+    await Promise.all([
+      queryClient.invalidateQueries({ queryKey: postsQueryKeys.all }),
+      queryClient.invalidateQueries({ queryKey: postsQueryKeys.highlight }),
+    ]);
+  }, [queryClient]);
+
   // ============================================================================
   // Post Operations
   // ============================================================================
@@ -187,19 +198,7 @@ export const PostsProvider: React.FC<{ children: React.ReactNode }> = ({
   );
 
   const fetchPostById = useCallback(
-    async (id: string): Promise<Post | null> => {
-      const cached = queryClient.getQueryData<Post[]>(postsQueryKeys.all);
-      const existing = cached?.find((p) => p.uuid === id);
-      if (existing) return existing;
-
-      try {
-        const post = await PostsAPI.fetchById(id);
-        queryClient.setQueryData(postsQueryKeys.byId(id), post);
-        return post;
-      } catch {
-        return null;
-      }
-    },
+    (id: string): Promise<Post | null> => readPostById(queryClient, id),
     [queryClient],
   );
 
@@ -208,14 +207,14 @@ export const PostsProvider: React.FC<{ children: React.ReactNode }> = ({
       try {
         await PostsAPI.delete(uuid);
         notifySuccess("Success", "Post deleted successfully");
-        await queryClient.invalidateQueries({ queryKey: postsQueryKeys.all });
+        await invalidatePostData();
       } catch (err) {
         const message =
           err instanceof Error ? err.message : "Failed to delete post";
         notifyError("Error", message);
       }
     },
-    [queryClient],
+    [invalidatePostData],
   );
 
   // ============================================================================
@@ -227,14 +226,14 @@ export const PostsProvider: React.FC<{ children: React.ReactNode }> = ({
       try {
         await EventsAPI.create(event);
         notifySuccess("Success", "Event created successfully");
-        await queryClient.invalidateQueries({ queryKey: postsQueryKeys.all });
+        await invalidatePostData();
       } catch (err) {
         const message =
           err instanceof Error ? err.message : "Failed to create event";
         notifyError("Error", message);
       }
     },
-    [queryClient],
+    [invalidatePostData],
   );
 
   const updateEvent = useCallback(
@@ -242,14 +241,14 @@ export const PostsProvider: React.FC<{ children: React.ReactNode }> = ({
       try {
         await EventsAPI.update(uuid, event);
         notifySuccess("Success", "Event updated successfully");
-        await queryClient.invalidateQueries({ queryKey: postsQueryKeys.all });
+        await invalidatePostData();
       } catch (err) {
         const message =
           err instanceof Error ? err.message : "Failed to update event";
         notifyError("Error", message);
       }
     },
-    [queryClient],
+    [invalidatePostData],
   );
 
   // ============================================================================
@@ -261,14 +260,14 @@ export const PostsProvider: React.FC<{ children: React.ReactNode }> = ({
       try {
         await BasicPostsAPI.create(post);
         notifySuccess("Success", "Post created successfully");
-        await queryClient.invalidateQueries({ queryKey: postsQueryKeys.all });
+        await invalidatePostData();
       } catch (err) {
         const message =
           err instanceof Error ? err.message : "Failed to create post";
         notifyError("Error", message);
       }
     },
-    [queryClient],
+    [invalidatePostData],
   );
 
   const updateBasicPost = useCallback(
@@ -276,14 +275,14 @@ export const PostsProvider: React.FC<{ children: React.ReactNode }> = ({
       try {
         await BasicPostsAPI.update(uuid, post);
         notifySuccess("Success", "Post updated successfully");
-        await queryClient.invalidateQueries({ queryKey: postsQueryKeys.all });
+        await invalidatePostData();
       } catch (err) {
         const message =
           err instanceof Error ? err.message : "Failed to update post";
         notifyError("Error", message);
       }
     },
-    [queryClient],
+    [invalidatePostData],
   );
 
   // ============================================================================

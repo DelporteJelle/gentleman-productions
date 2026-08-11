@@ -12,6 +12,7 @@ import {
   CloseButton,
   Badge,
   Switch,
+  ColorInput,
 } from "@mantine/core";
 import { DbObjectType, Event } from "@/types";
 import { formRootRule, isNotEmpty, useForm } from "@mantine/form";
@@ -36,10 +37,17 @@ export default function CreateEventModal({
       // Convert string dates to Date objects for editing
       return {
         ...event,
+        production_theme: event.production_theme ?? { accent1: "", accent2: "", bg: "", tagline: "" },
         dates: event.dates.map((date) => ({
           ...date,
           start_time: date.start_time ? new Date(date.start_time) : "",
           end_time: date.end_time ? new Date(date.end_time) : "",
+          // Dates written before sales were per-date carry no switch of their
+          // own. Seeding from the old event-level flag means the first save of
+          // an existing event writes explicit flags matching its behaviour so
+          // far, rather than silently closing or opening anything.
+          tickets_open: date.tickets_open ?? event.tickets_open ?? false,
+          closed_message: date.closed_message ?? "",
         })),
       };
       // return event;
@@ -53,6 +61,7 @@ export default function CreateEventModal({
       description: "",
       display_image: "",
       tickets_open: false,
+      production_theme: { accent1: "", accent2: "", bg: "", tagline: "" },
       eventlocation: {
         country: "België",
         city: "",
@@ -68,6 +77,8 @@ export default function CreateEventModal({
             { time: "22:00", description: "End" },
           ],
           price: undefined,
+          tickets_open: false,
+          closed_message: "",
         },
       ],
       images: [""],
@@ -172,34 +183,45 @@ export default function CreateEventModal({
     form.validate();
     if (!form.isValid()) return;
 
+    const mappedDates = form.values.dates.map((date) => {
+      const baseDate = new Date(date.start_time);
+      if (date.timeLine.length === 0) {
+        return { ...date, start_time: baseDate.toISOString(), end_time: baseDate.toISOString() };
+      }
+      const startTime = date.timeLine[0].time.split(":").map(Number);
+      const endTime = date.timeLine[date.timeLine.length - 1].time
+        .split(":")
+        .map(Number);
+      const startDate = new Date(baseDate);
+      const endDate = new Date(baseDate);
+      startDate.setHours(startTime[0], startTime[1]);
+      endDate.setHours(endTime[0], endTime[1]);
+
+      return {
+        ...date,
+        start_time: startDate.toISOString(),
+        end_time: endDate.toISOString(),
+      };
+    });
+
     const eventData: Event = {
       ...form.values,
       post_type: DbObjectType.EVENT,
       updated_at: new Date().toISOString(),
-      tickets_open: form.values.tickets_open ?? false,
-      dates: form.values.dates.map((date) => {
-        const baseDate = new Date(date.start_time);
-        if (date.timeLine.length === 0) {
-          return { ...date, start_time: baseDate.toISOString(), end_time: baseDate.toISOString() };
-        }
-        const startTime = date.timeLine[0].time.split(":").map(Number);
-        const endTime = date.timeLine[date.timeLine.length - 1].time
-          .split(":")
-          .map(Number);
-        const startDate = new Date(baseDate);
-        const endDate = new Date(baseDate);
-        startDate.setHours(startTime[0], startTime[1]);
-        endDate.setHours(endTime[0], endTime[1]);
-
-        return {
-          ...date,
-          start_time: startDate.toISOString(),
-          end_time: endDate.toISOString(),
-        };
-      }),
+      // Sales are per date; the event-level column survives as a roll-up so
+      // event-wide surfaces (home-page CTA, SEO offers) have one field to read.
+      tickets_open: mappedDates.some(
+        (d) => d.tickets_open === true && typeof d.price === "number",
+      ),
+      production_theme: (() => {
+        const t = form.values.production_theme ?? {};
+        const cleaned = Object.fromEntries(
+          Object.entries(t).filter(([, v]) => typeof v === "string" && v.trim() !== "")
+        );
+        return Object.keys(cleaned).length ? cleaned : undefined;
+      })(),
+      dates: mappedDates,
     };
-    console.log(eventData);
-
     if (event) {
       updateEvent(event.uuid, eventData);
     } else {
@@ -228,14 +250,30 @@ export default function CreateEventModal({
           {...form.getInputProps(`dates.${index}.price`)}
         />
       </Group>
-      <Group grow>
-        <TextInput
-          label="Link to payment site"
-          placeholder="Enter link to external ticket site"
-          key={form.key(`dates.${index}.external_link`)}
-          {...form.getInputProps(`dates.${index}.external_link`)}
+
+      <Stack gap="xs" p={10}>
+        <Switch
+          label="Tickets open"
+          description="Enable when ticket sales are open for this date"
+          key={form.key(`dates.${index}.tickets_open`)}
+          {...form.getInputProps(`dates.${index}.tickets_open`, {
+            type: "checkbox",
+          })}
         />
-      </Group>
+        {/* Only worth filling in while the date is closed. Hiding it rather
+            than disabling it keeps the form state, so the text survives an
+            open/close cycle. */}
+        {!date.tickets_open && (
+          <Textarea
+            label="Closed message"
+            placeholder="Shown to visitors over the greyed-out date"
+            autosize
+            minRows={2}
+            key={form.key(`dates.${index}.closed_message`)}
+            {...form.getInputProps(`dates.${index}.closed_message`)}
+          />
+        )}
+      </Stack>
 
       <Group p={10}>
         {form
@@ -314,12 +352,6 @@ export default function CreateEventModal({
               key={form.key("description")}
               {...form.getInputProps("description")}
             />
-            <Switch
-              label="Tickets open"
-              description="Enable when ticket sales are open"
-              key={form.key("tickets_open")}
-              {...form.getInputProps("tickets_open", { type: "checkbox" })}
-            />
           </Stack>
         </Stepper.Step>
 
@@ -377,7 +409,6 @@ export default function CreateEventModal({
                   uuid: crypto.randomUUID(),
                   start_time: "",
                   end_time: "",
-                  external_link: "",
                   timeLine: [
                     {
                       time: "",
@@ -385,6 +416,8 @@ export default function CreateEventModal({
                     },
                   ],
                   price: undefined,
+                  tickets_open: false,
+                  closed_message: "",
                 });
               }}
             >
@@ -432,6 +465,41 @@ export default function CreateEventModal({
           </Stack>
         </Stepper.Step>
 
+        {/* ====================== Ticket theme ==================== */}
+
+        <Stepper.Step
+          color="yellow"
+          label="Ticket theme"
+          description="Optional PDF ticket styling"
+        >
+          <Stack>
+            <ColorInput
+              label="Primary accent"
+              format="hex"
+              key={form.key("production_theme.accent1")}
+              {...form.getInputProps("production_theme.accent1")}
+            />
+            <ColorInput
+              label="Secondary accent"
+              format="hex"
+              key={form.key("production_theme.accent2")}
+              {...form.getInputProps("production_theme.accent2")}
+            />
+            <ColorInput
+              label="Background"
+              format="hex"
+              key={form.key("production_theme.bg")}
+              {...form.getInputProps("production_theme.bg")}
+            />
+            <TextInput
+              label="Tagline"
+              placeholder="e.g. Storytelling in motion"
+              key={form.key("production_theme.tagline")}
+              {...form.getInputProps("production_theme.tagline")}
+            />
+          </Stack>
+        </Stepper.Step>
+
         <Stepper.Completed>
           {/* {!form.isValid() && } */}
           {Object.keys(form.errors).length > 0 && (
@@ -450,8 +518,8 @@ export default function CreateEventModal({
         <Button variant="default" onClick={prevStep}>
           Back
         </Button>
-        <Button color="red" onClick={active === 4 ? handleSubmit : nextStep}>
-          {active === 4
+        <Button color="red" onClick={active === 5 ? handleSubmit : nextStep}>
+          {active === 5
             ? event
               ? "Update Event"
               : "Create Event"

@@ -1,0 +1,96 @@
+.card {
+  border: 1px solid color-mix(in srgb, var(--gold) 35%, transparent);
+  background: color-mix(in srgb, var(--noir) 92%, black);
+  color: var(--cream);
+  font-family: var(--font-body);
+  border-radius: 4px;
+  padding: 24px;
+  margin: 0 auto 16px;
+  max-width: 620px;
+  text-align: center;
+}
+
+.eyebrow {
+  font-family: var(--font-deco);
+  font-size: 11px;
+  letter-spacing: 0.35em;
+  text-transform: uppercase;
+  color: var(--gold);
+  margin: 0 0 4px;
+}
+
+.seats {
+  font-size: 13px;
+  opacity: 0.75;
+  margin: 0 0 12px;
+}
+
+.title {
+  font-family: var(--font-display);
+  font-size: clamp(20px, 2.5vw, 28px);
+  font-weight: normal;
+  margin: 0 0 8px;
+}
+
+.copy {
+  font-size: 14px;
+  line-height: 1.6;
+  margin: 0 0 16px;
+}
+
+.primaryBtn {
+  display: inline-block;
+  border: 1px solid var(--gold);
+  background: transparent;
+  color: var(--gold);
+  font-family: var(--font-deco);
+  font-size: 12px;
+  letter-spacing: 0.2em;
+  text-transform: uppercase;
+  padding: 12px 24px;
+  cursor: pointer;
+  text-decoration: none;
+  transition: background 0.2s ease, color 0.2s ease;
+}
+
+.primaryBtn:hover:not(:disabled) {
+  background: var(--gold);
+  color: var(--noir);
+}
+
+.primaryBtn:disabled {
+  opacity: 0.5;
+  cursor: default;
+}
+
+.dismissBtn {
+  display: block;
+  margin: 12px auto 0;
+  border: none;
+  background: none;
+  color: var(--cream);
+  opacity: 0.5;
+  font-size: 12px;
+  text-decoration: underline;
+  cursor: pointer;
+}
+
+.note {
+  font-size: 12px;
+  opacity: 0.7;
+  margin: 16px 0 0;
+}
+
+.noteLink {
+  color: var(--gold);
+}
+
+.error {
+  color: #ef4444;
+  font-size: 13px;
+  margin: 0 0 12px;
+}
+
+.bannerWrap {
+  padding: 24px 16px 0;
+}
