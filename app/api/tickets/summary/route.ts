@@ -1,5 +1,21 @@
 import { getDb, jsonResponse, requireRole } from "@/lib/server/api";
 
+/**
+ * Soonest first. A date saved with a blank start_time still resolves — it IS in
+ * the event's `dates` — so it stays in the list, parked at the end rather than
+ * sorting as epoch 0.
+ */
+function byStartTimeAsc(
+  a: { start_time: string | null },
+  b: { start_time: string | null },
+): number {
+  const ta = a.start_time ? Date.parse(a.start_time) : NaN;
+  const tb = b.start_time ? Date.parse(b.start_time) : NaN;
+  if (Number.isNaN(ta)) return Number.isNaN(tb) ? 0 : 1;
+  if (Number.isNaN(tb)) return -1;
+  return ta - tb;
+}
+
 export async function GET(request: Request) {
   const authError = requireRole(request, ["ADMIN", "SCANNER"]);
   if (authError) return authError;
@@ -36,20 +52,32 @@ export async function GET(request: Request) {
   const events = await sql`SELECT uuid, title, dates, tickets_open FROM events;`;
 
   const byUuid = Object.fromEntries(events.map((e) => [e.uuid, e]));
-  const dates = perDate.map((d) => {
-    const ev = byUuid[d.event_uuid];
-    const de = ev?.dates?.find(
-      (x: { uuid: string }) => x.uuid === d.date_uuid,
-    ) as { start_time?: string; tickets_open?: boolean } | undefined;
-    return {
-      ...d,
-      title: ev?.title ?? "—",
-      start_time: de?.start_time ?? null,
-      // Seats exist for closed dates too, so the operator needs to see which
-      // rows in this list are not actually selling.
-      tickets_open: (de?.tickets_open ?? ev?.tickets_open) === true,
-    };
-  });
+  const dates = perDate
+    .flatMap((d) => {
+      const ev = byUuid[d.event_uuid];
+      const de = ev?.dates?.find(
+        (x: { uuid: string }) => x.uuid === d.date_uuid,
+      ) as { start_time?: string; tickets_open?: boolean } | undefined;
+      // Tickets outlive their event: DELETE FROM events (app/api/posts/route.ts)
+      // has no cascade to `tickets`, and provisionTicketsForEvent never deletes
+      // the rows of a date removed from the editor. Those orphans rendered as
+      // "— · Unknown date · gesloten" — a dead end, since the seat map 404s on a
+      // date_uuid the event does not have, and a performance the door scanner
+      // must never be offered. Drop them so every row a consumer sees is one
+      // that can actually be opened.
+      if (!ev || !de) return [];
+      return [
+        {
+          ...d,
+          title: ev.title,
+          start_time: de.start_time ?? null,
+          // Seats exist for closed dates too, so the operator needs to see which
+          // rows in this list are not actually selling.
+          tickets_open: (de.tickets_open ?? ev.tickets_open) === true,
+        },
+      ];
+    })
+    .sort(byStartTimeAsc);
   const orderRows = orders.map((o) => ({ ...o, event_title: byUuid[o.event_uuid]?.title ?? "—" }));
   const reservedSeats = reserved.map((r) => {
     const ev = byUuid[r.event_uuid];
