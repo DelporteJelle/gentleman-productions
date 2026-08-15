@@ -53,7 +53,7 @@ export function successResponse(message: string, status = 200): NextResponse {
  * primary way stale data goes away; this is only the backstop for the case
  * where an invalidation is somehow missed.
  */
-export const MAX_CACHE_TTL_SECONDS = 24 * 60 * 60; // 1 day
+export const MAX_CACHE_TTL_SECONDS = 60 * 60; // 1 hour
 
 /**
  * Create a response for data that is cached server-side under a cache tag.

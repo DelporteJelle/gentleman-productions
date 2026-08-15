@@ -54,19 +54,19 @@ describe("cachedResponse", () => {
     expect(header).toMatch(/\bno-store\b/);
   });
 
-  it("never grants any cache a lifetime beyond one day", () => {
+  it("never grants any cache a lifetime beyond one hour", () => {
     const header = cachedResponse({ data: [] }).headers.get("cache-control")!;
 
     for (const [directive, seconds] of cacheLifetimes(header)) {
       expect(
         seconds,
-        `Cache-Control "${directive}" exceeds the one-day ceiling`,
+        `Cache-Control "${directive}" exceeds the one-hour ceiling`,
       ).toBeLessThanOrEqual(MAX_CACHE_TTL_SECONDS);
     }
   });
 
-  it("caps the server-side data cache at one day", () => {
-    expect(MAX_CACHE_TTL_SECONDS).toBeLessThanOrEqual(24 * 60 * 60);
+  it("caps the server-side data cache at one hour", () => {
+    expect(MAX_CACHE_TTL_SECONDS).toBeLessThanOrEqual(60 * 60);
   });
 });
 
