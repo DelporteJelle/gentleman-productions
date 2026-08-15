@@ -13,9 +13,9 @@ The database reads for `/api/posts` and `/api/highlight` are wrapped in
 
 | Reader              | Tag         | Backstop TTL |
 | ------------------- | ----------- | ------------ |
-| `fetchPostsPage()`  | `posts`     | 1 day        |
-| `fetchEventById()`  | `posts`     | 1 day        |
-| `fetchHighlight()`  | `highlight` | 1 day        |
+| `fetchPostsPage()`  | `posts`     | 1 hour       |
+| `fetchEventById()`  | `posts`     | 1 hour       |
+| `fetchHighlight()`  | `highlight` | 1 hour       |
 
 This is what keeps traffic off Neon — repeat requests are served from the cache
 across all visitors. The TTL is only a backstop; the real freshness mechanism is
@@ -32,7 +32,7 @@ this layer never outlives an edit either.
 `/` and `/sitemap.xml` are static with a 1-hour revalidate and embed event data
 (JSON-LD). Post mutations call `revalidatePath("/")`.
 
-No layer is configured above **one day**.
+No layer is configured above **one hour**.
 
 ## Invalidation
 
@@ -80,4 +80,4 @@ is that a GET now invokes the serverless function even on a cache hit — it jus
 doesn't reach the database.
 
 `lib/server/api.test.ts` enforces both halves of this: no shared-cache headers,
-and no lifetime above one day.
+and no lifetime above one hour.
