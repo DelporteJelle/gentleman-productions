@@ -25,15 +25,18 @@ function formatDateTime(date: EventDateEntry): string {
   const start = new Date(date.start_time);
   const end = new Date(date.end_time);
   const day = start.toLocaleDateString("nl-BE", {
+    timeZone: "Europe/Brussels",
     day: "numeric",
     month: "short",
     year: "numeric",
   });
   const startHM = start.toLocaleTimeString("nl-BE", {
+    timeZone: "Europe/Brussels",
     hour: "2-digit",
     minute: "2-digit",
   });
   const endHM = end.toLocaleTimeString("nl-BE", {
+    timeZone: "Europe/Brussels",
     hour: "2-digit",
     minute: "2-digit",
   });

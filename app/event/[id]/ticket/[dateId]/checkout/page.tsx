@@ -21,6 +21,7 @@ type Status = "loading" | "ready" | "notFound" | "error";
 
 function formatNL(d: Date): string {
   return d.toLocaleDateString("nl-BE", {
+    timeZone: "Europe/Brussels",
     weekday: "long",
     day: "numeric",
     month: "long",

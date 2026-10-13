@@ -30,9 +30,9 @@ export async function sendTicketEmail({
 }): Promise<void> {
   const d = startTime ? new Date(startTime) : null;
   const date = d
-    ? d.toLocaleDateString("nl-BE", { weekday: "long", year: "numeric", month: "long", day: "numeric" })
+    ? d.toLocaleDateString("nl-BE", { timeZone: "Europe/Brussels", weekday: "long", year: "numeric", month: "long", day: "numeric" })
     : "";
-  const time = d ? d.toLocaleTimeString("nl-BE", { hour: "2-digit", minute: "2-digit" }) : "";
+  const time = d ? d.toLocaleTimeString("nl-BE", { timeZone: "Europe/Brussels", hour: "2-digit", minute: "2-digit" }) : "";
 
   // Generate one styled PDF per ticket
   const attachments = await Promise.all(

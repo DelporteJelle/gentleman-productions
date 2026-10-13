@@ -35,9 +35,9 @@ export async function loadTicketPdfForReservedSeat(sql: Sql, ticketId: string): 
 
   const d = date?.start_time ? new Date(date.start_time) : null;
   const dateStr = d
-    ? d.toLocaleDateString("nl-BE", { weekday: "long", year: "numeric", month: "long", day: "numeric" })
+    ? d.toLocaleDateString("nl-BE", { timeZone: "Europe/Brussels", weekday: "long", year: "numeric", month: "long", day: "numeric" })
     : "";
-  const timeStr = d ? d.toLocaleTimeString("nl-BE", { hour: "2-digit", minute: "2-digit" }) : "";
+  const timeStr = d ? d.toLocaleTimeString("nl-BE", { timeZone: "Europe/Brussels", hour: "2-digit", minute: "2-digit" }) : "";
 
   const seatLabel = `${row.row}${row.seat_number}`;
   const buffer = await generateTicketPdf({

@@ -28,6 +28,7 @@ const LOCATION_FIELD_LABELS: Record<keyof EventLocation, string> = {
 
 function formatLongDate(iso: string): string {
   return new Date(iso).toLocaleDateString("nl-BE", {
+    timeZone: "Europe/Brussels",
     day: "numeric",
     month: "long",
     year: "numeric",
@@ -36,6 +37,7 @@ function formatLongDate(iso: string): string {
 
 function formatTime(iso: string): string {
   return new Date(iso).toLocaleTimeString("nl-BE", {
+    timeZone: "Europe/Brussels",
     hour: "2-digit",
     minute: "2-digit",
   });
@@ -43,6 +45,7 @@ function formatTime(iso: string): string {
 
 function formatStartDate(iso: string): string {
   return new Date(iso).toLocaleDateString("nl-BE", {
+    timeZone: "Europe/Brussels",
     day: "2-digit",
     month: "2-digit",
     year: "numeric",

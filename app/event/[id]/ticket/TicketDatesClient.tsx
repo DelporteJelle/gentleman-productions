@@ -23,6 +23,7 @@ type Status = "loading" | "ready" | "notFound" | "error";
 
 function formatNL(d: Date): string {
   return d.toLocaleDateString("nl-BE", {
+    timeZone: "Europe/Brussels",
     day: "numeric",
     month: "long",
     year: "numeric",
@@ -38,7 +39,7 @@ function computeDateRange(dates: Event["dates"]): string {
   const sorted = [...dates].sort(byStartTime);
   const first = new Date(sorted[0].start_time);
   const last = new Date(sorted[sorted.length - 1].start_time);
-  if (first.toDateString() === last.toDateString()) {
+  if (formatNL(first) === formatNL(last)) {
     return formatNL(first);
   }
   return `${formatNL(first)} — ${formatNL(last)}`;
