@@ -1,6 +1,7 @@
 import type { NeonQueryFunction } from "@neondatabase/serverless";
 import { getMollie } from "./mollie";
 import { releaseCodesForOrder } from "./ticketCodes";
+import { cancelPendingOrder } from "./privateTicketLinks";
 import type { Event, Order } from "@/types";
 
 type Sql = NeonQueryFunction<false, false>;
@@ -44,7 +45,7 @@ export async function fulfilPaidOrder(sql: Sql, orderId: string): Promise<"paid"
   `;
 
   const claimed = await sql`
-    UPDATE orders SET status = 'paid'
+    UPDATE orders SET status = 'paid', private_capacity_reserved = false
     WHERE id = ${orderId} AND status <> 'paid'
     RETURNING *;
   `;
@@ -138,7 +139,7 @@ export async function applyMolliePaymentToOrder(sql: Sql, paymentId: string): Pr
       UPDATE tickets SET status = 'available', held_until = NULL, order_id = NULL
       WHERE order_id = ${orderId} AND status = 'held';
     `;
-    await sql`UPDATE orders SET status = 'cancelled' WHERE id = ${orderId} AND status = 'pending';`;
+    await cancelPendingOrder(sql, orderId);
     return "released";
   }
 

@@ -109,7 +109,7 @@ function CheckoutContent() {
           const res = await fetch("/api/tickets/codes/validate", {
             method: "POST",
             headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({ eventUuid: event.uuid, code: entry.code }),
+            body: JSON.stringify({ eventUuid: event.uuid, dateUuid: dateId, code: entry.code }),
           });
           if (res.ok) surviving.push(entry);
         } catch {

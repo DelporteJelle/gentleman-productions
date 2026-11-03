@@ -16,6 +16,7 @@ interface TicketDateExpandedProps {
    * open so the room can be configured before sales start.
    */
   adminPreview?: boolean;
+  privateAccess?: boolean;
   onClose: () => void;
 }
 
@@ -53,9 +54,10 @@ export default function TicketDateExpanded({
   date,
   event,
   adminPreview,
+  privateAccess,
   onClose,
 }: TicketDateExpandedProps) {
-  const open = isDateOpen(event, date);
+  const open = isDateOpen(event, date) || privateAccess === true;
   const { main, accent } = splitTitleAccent(event.title);
   const venue =
     event.eventlocation?.location ?? event.eventlocation?.city ?? "";

@@ -95,6 +95,12 @@ function createFakeSql(state: FakeState) {
       return [];
     }
 
+    if (head.startsWith("WITH cancelled AS (")) {
+      // These fixtures represent public orders, so no private allocation is
+      // reserved. The companion plain UPDATE handles their cancellation.
+      return [];
+    }
+
     if (head.startsWith("SELECT id, event_uuid, date_uuid, total_amount, status, mollie_payment_id")) {
       const [id] = values;
       if (!state.order || state.order.id !== id) return [];

@@ -110,6 +110,35 @@ create index if not exists ticket_codes_event_idx on ticket_codes(event_uuid);
 create index if not exists ticket_codes_order_idx on ticket_codes(used_by_order_id);
 
 -- ---------------------------------------------------------------------------
+-- Private ticket links (2026-11-03)
+--
+-- One capability link per event date. Replacing a link changes only its
+-- token_hash; allocated_tickets is retained so rotating a leaked/lost URL
+-- cannot reset the date's private allocation. Only hashes of invite tokens
+-- are stored. The allocation counter includes pending holds and paid orders.
+-- ---------------------------------------------------------------------------
+create table if not exists private_ticket_links (
+  id                 uuid primary key default gen_random_uuid(),
+  event_uuid         text not null,
+  date_uuid          text not null,
+  token_hash         text,
+  created_at         timestamptz not null default now(),
+  created_by         text,
+  expires_at         timestamptz,
+  revoked_at         timestamptz,
+  ticket_limit       integer check (ticket_limit is null or ticket_limit > 0),
+  allocated_tickets  integer not null default 0 check (allocated_tickets >= 0),
+  unique (event_uuid, date_uuid)
+);
+create unique index if not exists private_ticket_links_token_hash_idx
+  on private_ticket_links(token_hash) where token_hash is not null;
+
+alter table orders add column if not exists private_link_id uuid references private_ticket_links(id);
+alter table orders add column if not exists private_ticket_count integer not null default 0;
+alter table orders add column if not exists private_capacity_reserved boolean not null default false;
+create index if not exists orders_private_link_idx on orders(private_link_id);
+
+-- ---------------------------------------------------------------------------
 -- Disabled seats (2026-08-09)
 --
 -- An admin takes an individual seat out of service. status='disabled' is

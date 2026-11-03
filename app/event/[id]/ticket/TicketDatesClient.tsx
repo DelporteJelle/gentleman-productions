@@ -51,11 +51,13 @@ export default function TicketDatesClient({ isAdmin }: { isAdmin: boolean }) {
   const [status, setStatus] = useState<Status>("loading");
   const [errorMessage, setErrorMessage] = useState<string | undefined>(undefined);
   const [activeCard, setActiveCard] = useState<string | undefined>(undefined);
+  const [privateDateUuid, setPrivateDateUuid] = useState<string | null>(null);
 
   useEffect(() => {
     let cancelled = false;
     setStatus("loading");
     setEvent(null);
+    setPrivateDateUuid(null);
     setErrorMessage(undefined);
 
     const run = async () => {
@@ -65,6 +67,13 @@ export default function TicketDatesClient({ isAdmin }: { isAdmin: boolean }) {
         if (!fetched || !isEvent(fetched)) {
           setStatus("notFound");
           return;
+        }
+        if (!isAdmin) {
+          const access = await fetch(`/api/tickets/private-access?event_uuid=${encodeURIComponent(fetched.uuid)}`, { cache: "no-store" });
+          if (access.ok) {
+            const body = await access.json();
+            if (!cancelled) setPrivateDateUuid(body.authorizedDateUuid ?? null);
+          }
         }
         setEvent(fetched);
         setStatus("ready");
@@ -78,7 +87,7 @@ export default function TicketDatesClient({ isAdmin }: { isAdmin: boolean }) {
     return () => {
       cancelled = true;
     };
-  }, [id, fetchPostById]);
+  }, [id, fetchPostById, isAdmin]);
 
   if (status === "loading") return <LoadingScreen />;
   if (status === "error") return <ErrorScreen message={errorMessage} />;
@@ -133,7 +142,7 @@ export default function TicketDatesClient({ isAdmin }: { isAdmin: boolean }) {
 
       <div className={styles.grid}>
         {[...event.dates].sort(byStartTime).map((d) => {
-          const open = isDateOpen(event, d);
+          const open = isDateOpen(event, d) || privateDateUuid === d.uuid;
           // A closed date stays listed — it's how a visitor learns the
           // performance exists — but for a customer it never opens. An admin
           // walks the same route through to the seat map, because the room has
@@ -150,6 +159,7 @@ export default function TicketDatesClient({ isAdmin }: { isAdmin: boolean }) {
                 date={d}
                 event={event}
                 adminPreview={!open}
+                privateAccess={privateDateUuid === d.uuid}
                 onClose={() => setActiveCard(undefined)}
               />
             );

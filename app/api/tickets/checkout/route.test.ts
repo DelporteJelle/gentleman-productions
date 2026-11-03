@@ -31,6 +31,7 @@ vi.mock("@/lib/server/mollie", () => ({
 }));
 
 import { POST } from "./route";
+import { hashPrivateTicketToken } from "@/lib/server/privateTicketLinks";
 
 const EVENT_UUID = "22222222-2222-2222-2222-222222222222";
 const DATE_UUID = "date-1";
@@ -60,6 +61,7 @@ interface FakeState {
   tickets: FakeTicket[];
   seats: { id: string; row: string; seat_number: number }[];
   events: { uuid: string; title: string; tickets_open: boolean; dates: { uuid: string; price: number; start_time: string; tickets_open?: boolean }[] }[];
+  privateLink: { id: string; tokenHash: string; allocated: number; limit: number } | null;
 }
 
 function freshState(): FakeState {
@@ -75,6 +77,7 @@ function freshState(): FakeState {
     ],
     // price: 0 puts the order on the €0 fulfilment path without needing codes.
     events: [{ uuid: EVENT_UUID, title: "Free Show", tickets_open: true, dates: [{ uuid: DATE_UUID, price: 0, start_time: "2026-08-01T19:00:00Z" }] }],
+    privateLink: null,
   };
 }
 
@@ -101,9 +104,28 @@ function createFakeSql(state: FakeState, opts: { eventsSelectCountBeforeThrow?: 
       return state.events.filter((e) => e.uuid === uuid);
     }
 
+    if (head.startsWith("SELECT id") && head.includes("FROM private_ticket_links")) {
+      const [eventUuid, dateUuid, tokenHash] = values as [string, string, string];
+      return state.privateLink && state.events.some((e) => e.uuid === eventUuid) && dateUuid === DATE_UUID && state.privateLink.tokenHash === tokenHash
+        ? [{ id: state.privateLink.id }]
+        : [];
+    }
+
     if (head.startsWith("INSERT INTO orders")) {
       const [eventUuid, dateUuid, , , totalAmount] = values as [string, string, string, string, number];
       state.order = { id: ORDER_ID, status: "pending", total_amount: totalAmount, event_uuid: eventUuid, date_uuid: dateUuid };
+      return [{ id: ORDER_ID }];
+    }
+
+    if (head.startsWith("WITH released AS (")) {
+      return [];
+    }
+
+    if (head.startsWith("WITH eligible_order AS MATERIALIZED (")) {
+      const [orderId, linkId, count, tokenHash] = values as [string, string, number, string];
+      expect(orderId).toBe(ORDER_ID);
+      if (!state.privateLink || state.privateLink.id !== linkId || state.privateLink.tokenHash !== tokenHash || state.privateLink.allocated + count > state.privateLink.limit) return [];
+      state.privateLink.allocated += count;
       return [{ id: ORDER_ID }];
     }
 
@@ -202,9 +224,10 @@ function createFakeSql(state: FakeState, opts: { eventsSelectCountBeforeThrow?: 
   return { sql: fakeSql, calls };
 }
 
-function checkoutRequest(overrides?: Partial<{ ticketIds: string[] }>) {
+function checkoutRequest(overrides?: Partial<{ ticketIds: string[]; privateToken: string }>) {
   return new Request("http://localhost/api/tickets/checkout", {
     method: "POST",
+    headers: overrides?.privateToken ? { cookie: `private_ticket_access=${overrides.privateToken}` } : undefined,
     body: JSON.stringify({
       eventUuid: EVENT_UUID,
       dateUuid: DATE_UUID,
@@ -328,5 +351,35 @@ describe("POST /api/tickets/checkout — per-date sales gate", () => {
     const response = await POST(checkoutRequest());
 
     expect(response.status).toBe(200);
+  });
+
+  it("accepts a valid invite for a closed date and reserves its limited capacity", async () => {
+    const state = freshState();
+    state.events[0].dates[0].tickets_open = false;
+    const token = "a".repeat(43);
+    state.privateLink = { id: "private-link-1", tokenHash: hashPrivateTicketToken(token), allocated: 0, limit: 2 };
+    const { sql } = createFakeSql(state);
+    mocks.sqlImpl = sql;
+
+    const response = await POST(checkoutRequest({ ticketIds: [TICKET_A], privateToken: token }));
+
+    expect(response.status).toBe(200);
+    expect(state.privateLink.allocated).toBe(1);
+    expect(state.tickets[0].status).toBe("sold");
+  });
+
+  it("rejects a closed-date checkout that exceeds the private allocation", async () => {
+    const state = freshState();
+    state.events[0].dates[0].tickets_open = false;
+    const token = "b".repeat(43);
+    state.privateLink = { id: "private-link-1", tokenHash: hashPrivateTicketToken(token), allocated: 1, limit: 2 };
+    const { sql } = createFakeSql(state);
+    mocks.sqlImpl = sql;
+
+    const response = await POST(checkoutRequest({ ticketIds: [TICKET_A, TICKET_B], privateToken: token }));
+
+    expect(response.status).toBe(409);
+    expect(state.privateLink.allocated).toBe(1);
+    expect(state.order).toBeNull();
   });
 });

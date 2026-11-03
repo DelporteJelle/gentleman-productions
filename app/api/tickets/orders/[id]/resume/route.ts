@@ -23,7 +23,7 @@ export async function POST(
   }
 
   try {
-    const result = await resumeOrder(getDb(), id);
+    const result = await resumeOrder(getDb(), id, request);
     if (result.state === "not_found") return errorResponse("Order not found", 404);
     if (result.state === "checkout") return jsonResponse({ checkoutUrl: result.checkoutUrl });
     return jsonResponse({ state: result.state });

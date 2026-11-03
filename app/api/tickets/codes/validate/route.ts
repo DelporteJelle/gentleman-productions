@@ -2,6 +2,8 @@ import { getDb, jsonResponse, errorResponse, parseBody } from "@/lib/server/api"
 import { checkRateLimit, getClientIp } from "@/lib/rateLimit";
 import { normalizeCode } from "@/lib/ticketCodes";
 import { isUuid } from "@/lib/server/checkoutValidation";
+import { getDateAccess } from "@/lib/server/privateTicketLinks";
+import type { Event } from "@/types";
 
 /**
  * Advisory only. This endpoint GRANTS NOTHING and CONSUMES NOTHING — it exists
@@ -16,15 +18,23 @@ export async function POST(request: Request) {
   }
 
   try {
-    const body = await parseBody<{ eventUuid?: unknown; code?: unknown }>(request);
+    const body = await parseBody<{ eventUuid?: unknown; dateUuid?: unknown; code?: unknown }>(request);
 
     const eventUuid = typeof body?.eventUuid === "string" ? body.eventUuid.trim() : "";
+    const dateUuid = typeof body?.dateUuid === "string" ? body.dateUuid.trim() : "";
     if (!isUuid(eventUuid)) return errorResponse("Deze code is niet geldig.", 404);
+    if (!dateUuid) return errorResponse("Deze code is niet geldig.", 404);
 
     const code = normalizeCode(body?.code);
     if (!code) return errorResponse("Deze code is niet geldig.", 404);
 
     const sql = getDb();
+    const events = await sql`SELECT * FROM events WHERE uuid = ${eventUuid};`;
+    const event = events[0] as Event | undefined;
+    const date = event?.dates?.find((entry) => entry.uuid === dateUuid);
+    if (!event || !date || !(await getDateAccess(sql, request, event, date)).allowed) {
+      return errorResponse("Deze code is niet geldig.", 404);
+    }
     const rows = await sql`
       SELECT kind, revoked_at, used_by_order_id
         FROM ticket_codes

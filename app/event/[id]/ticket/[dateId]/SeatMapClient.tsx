@@ -65,6 +65,7 @@ export default function SeatMapClient({ isAdmin }: { isAdmin: boolean }) {
   const { fetchPostById } = usePosts();
 
   const [event, setEvent] = useState<Event | null>(null);
+  const [privateAccess, setPrivateAccess] = useState(false);
   const [tickets, setTickets] = useState<SeatTicket[]>([]);
   const [status, setStatus] = useState<Status>("loading");
   const [errorMessage, setErrorMessage] = useState<string | undefined>(undefined);
@@ -103,14 +104,15 @@ export default function SeatMapClient({ isAdmin }: { isAdmin: boolean }) {
     let cancelled = false;
     setStatus("loading");
     setEvent(null);
+    setPrivateAccess(false);
     setTickets([]);
     setErrorMessage(undefined);
 
     const run = async () => {
       try {
-        const [fetched, seatsRes] = await Promise.all([
+        const [fetched, accessRes] = await Promise.all([
           fetchPostById(id as string),
-          fetch(`/api/tickets/seats?date_uuid=${dateId}`),
+          fetch(`/api/tickets/private-access?event_uuid=${encodeURIComponent(id as string)}&date_uuid=${encodeURIComponent(dateId as string)}`, { cache: "no-store" }),
         ]);
         if (cancelled) return;
         if (!fetched || !isEvent(fetched)) {
@@ -122,12 +124,22 @@ export default function SeatMapClient({ isAdmin }: { isAdmin: boolean }) {
           setStatus("notFound");
           return;
         }
+        const access = accessRes.ok ? await accessRes.json() : { allowed: false };
+        const privateAllowed = access.allowed === true && !isDateOpen(fetched, dateEntry);
+        if (!isAdmin && !isDateOpen(fetched, dateEntry) && !privateAllowed) {
+          setEvent(fetched);
+          setPrivateAccess(false);
+          setStatus("ready");
+          return;
+        }
+        const seatsRes = await fetch(`/api/tickets/seats?date_uuid=${encodeURIComponent(dateId as string)}`);
         if (!seatsRes.ok) {
           throw new Error("Failed to load seat availability");
         }
         const seatData: SeatTicket[] = await seatsRes.json();
         if (cancelled) return;
         setEvent(fetched);
+        setPrivateAccess(privateAllowed);
         setTickets(seatData);
         setStatus("ready");
       } catch (e) {
@@ -140,7 +152,7 @@ export default function SeatMapClient({ isAdmin }: { isAdmin: boolean }) {
     return () => {
       cancelled = true;
     };
-  }, [id, dateId, fetchPostById]);
+  }, [id, dateId, fetchPostById, isAdmin]);
 
   const index = useMemo(() => buildIndex(tickets), [tickets]);
   const ticketsByCoord = useMemo(() => {
@@ -193,7 +205,7 @@ export default function SeatMapClient({ isAdmin }: { isAdmin: boolean }) {
   // the room ahead of time. Without this guard a customer who guesses the URL
   // would get a fully clickable map for a date that isn't for sale and only be
   // stopped at checkout. Admins keep access — preparing the room is the point.
-  if (!isAdmin && !isDateOpen(event, date)) {
+  if (!isAdmin && !isDateOpen(event, date) && !privateAccess) {
     return (
       <div className={styles.page}>
         <div className={styles.canvasLayer}>

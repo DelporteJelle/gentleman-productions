@@ -18,8 +18,8 @@ export function centsToEuros(cents: number): number {
  * seats are the room, not the sale. An admin needs to disable seats and place
  * wheelchair spots on a date that is still closed — a rehearsal day held back
  * until the other dates sell out — and opening it should then be an instant
- * flip rather than a wait for provisioning. Closed dates stay unreachable to
- * customers through `isDateOpen`, which gates the seat map and checkout.
+ * flip rather than a wait for provisioning. Closed dates stay unavailable to
+ * public customers; a valid private ticket link can authorize its date.
  */
 export async function provisionTicketsForEvent(sql: Sql, event: Event): Promise<void> {
   const pricedDates = (event.dates ?? []).filter(
