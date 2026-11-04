@@ -17,8 +17,16 @@
   margin-bottom: 40px;
 }
 
+.dateItem {
+  display: flex;
+  align-items: stretch;
+  gap: 8px;
+}
+
 .dateRow {
   display: flex;
+  flex: 1;
+  min-width: 0;
   align-items: baseline;
   justify-content: space-between;
   gap: 12px;
@@ -140,6 +148,18 @@
 .actionBtn:hover {
   border-color: var(--gold-soft);
   color: var(--gold-soft);
+}
+
+.draftEmailBtn {
+  align-self: center;
+  flex: none;
+  margin: 0;
+  white-space: nowrap;
+}
+
+.draftEmailBtn:disabled {
+  opacity: 0.5;
+  cursor: wait;
 }
 
 .releaseBtn {
