@@ -69,7 +69,7 @@ alter table tickets add column if not exists seat_kind text;
 -- a wrong name makes the drop a silent no-op and the add then fails.
 alter table tickets drop constraint if exists tickets_status_check;
 alter table tickets add constraint tickets_status_check
-  check (status in ('available','held','sold','blocked'));
+  check (status in ('available','held','sold','blocked','disabled'));
 
 alter table tickets drop constraint if exists tickets_seat_kind_check;
 alter table tickets add constraint tickets_seat_kind_check
@@ -81,7 +81,19 @@ create index if not exists tickets_wheelchair_group_idx on tickets(wheelchair_gr
 -- deployed code: it makes P1/P2/P28/P29 ordinary sellable seats, which is the
 -- desired end state anyway. The `drop column` is deliberately NOT here — see
 -- scripts/drop-reserved-for.sql.
-update seats set reserved_for = null where reserved_for is not null;
+do $$
+begin
+  if exists (
+    select 1
+    from information_schema.columns
+    where table_schema = current_schema()
+      and table_name = 'seats'
+      and column_name = 'reserved_for'
+  ) then
+    execute 'update seats set reserved_for = null where reserved_for is not null';
+  end if;
+end
+$$;
 
 -- ---------------------------------------------------------------------------
 -- Access codes and free-ticket codes.
