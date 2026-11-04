@@ -18,17 +18,20 @@ import { DbObjectType, Event } from "@/types";
 import { formRootRule, isNotEmpty, useForm } from "@mantine/form";
 import { DateInput, TimeInput } from "@mantine/dates";
 import { usePosts } from "@/app/contexts/PostsContext";
+import PrivateTicketLinkManager from "./PrivateTicketLinkManager";
 
 interface CreateEventModalProps {
   opened: boolean;
   onClose: () => void;
   event: Event | undefined;
+  isAdmin?: boolean;
 }
 
 export default function CreateEventModal({
   opened,
   onClose,
   event,
+  isAdmin = false,
 }: CreateEventModalProps) {
   const { createEvent, updateEvent } = usePosts();
 
@@ -271,6 +274,14 @@ export default function CreateEventModal({
             minRows={2}
             key={form.key(`dates.${index}.closed_message`)}
             {...form.getInputProps(`dates.${index}.closed_message`)}
+          />
+        )}
+        {event && isAdmin && (
+          <PrivateTicketLinkManager
+            eventUuid={event.uuid}
+            dateUuid={date.uuid}
+            publicOpen={date.tickets_open === true && typeof date.price === "number"}
+            price={date.price}
           />
         )}
       </Stack>

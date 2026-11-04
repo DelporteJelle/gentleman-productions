@@ -2,6 +2,8 @@ import type { NeonQueryFunction } from "@neondatabase/serverless";
 import { getMollie } from "./mollie";
 import { applyMolliePaymentToOrder } from "./orderFulfillment";
 import { releaseCodesForOrder } from "./ticketCodes";
+import { cancelPendingOrder } from "./privateTicketLinks";
+import { getDateAccess } from "./privateTicketLinks";
 import { isDateOpen } from "@/lib/dateAvailability";
 import type { Event } from "@/types";
 
@@ -73,10 +75,7 @@ export async function expirePendingOrder(
     WHERE order_id = ${order.id} AND status = 'held';
   `;
   await releaseCodesForOrder(sql, order.id);
-  await sql`
-    UPDATE orders SET status = 'cancelled'
-    WHERE id = ${order.id} AND status = 'pending';
-  `;
+  await cancelPendingOrder(sql, order.id);
 }
 
 export type ResumeResult =
@@ -100,7 +99,7 @@ const DEAD = ["expired", "canceled", "failed"];
  * database's side, and telling that customer their reservation expired would
  * invite a second payment for tickets they already own.
  */
-export async function resumeOrder(sql: Sql, orderId: string): Promise<ResumeResult> {
+export async function resumeOrder(sql: Sql, orderId: string, request?: Request): Promise<ResumeResult> {
   const rows = await sql`
     SELECT id, event_uuid, date_uuid, total_amount, status, mollie_payment_id,
            coalesce(payment_started_at, created_at) > now() - interval '1 hour' AS window_live
@@ -170,7 +169,11 @@ export async function resumeOrder(sql: Sql, orderId: string): Promise<ResumeResu
   const events = await sql`SELECT * FROM events WHERE uuid = ${order.event_uuid};`;
   const event = events[0] as Event | undefined;
   const date = (event?.dates ?? []).find((d) => d.uuid === order.date_uuid);
-  if (!event || !date || !isDateOpen(event, date)) return { state: "unknown" };
+  if (!event || !date) return { state: "unknown" };
+  const access = request
+    ? await getDateAccess(sql, request, event, date)
+    : { allowed: isDateOpen(event, date), privateLinkId: null, tokenHash: null };
+  if (!access.allowed) return { state: "unknown" };
 
   const baseUrl = process.env.NEXT_PUBLIC_BASE_URL || "http://localhost:3000";
   const isLocal = baseUrl.includes("localhost");

@@ -68,13 +68,17 @@ function idEligibleStatuses(sql: string): string[] {
 
 function installFakeSql() {
   mocks.sqlImpl = (async (strings: TemplateStringsArray) => {
-    lastSql = strings.join(" ");
     // Recognise the one statement this route issues (either audience's
     // variant) and throw on anything else, matching the house convention in
     // lib/server/seatAvailability.test.ts, lib/server/wheelchairPlaces.test.ts
     // and lib/server/adminReservation.test.ts — so a second query added later
     // fails the test instead of silently getting answered with seat rows.
     const head = strings[0].trim().replace(/\s+/g, " ");
+    if (head.startsWith("SELECT DISTINCT event_uuid FROM tickets")) return [{ event_uuid: "event-1" }];
+    if (head.startsWith("SELECT * FROM events WHERE uuid")) {
+      return [{ uuid: "event-1", tickets_open: true, dates: [{ uuid: "date-1", price: 20, tickets_open: true }] }];
+    }
+    lastSql = strings.join(" ");
     if (!head.startsWith("SELECT CASE")) {
       throw new Error(`Unhandled fake SQL in test: ${head}`);
     }

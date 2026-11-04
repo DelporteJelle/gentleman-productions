@@ -45,7 +45,7 @@ export function useTicketCodes(eventUuid: string | undefined, dateUuid: string) 
         const res = await fetch("/api/tickets/codes/validate", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ eventUuid, code }),
+          body: JSON.stringify({ eventUuid, dateUuid, code }),
         });
         const data = await res.json().catch(() => ({}));
         if (!res.ok) {

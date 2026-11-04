@@ -4,6 +4,7 @@ import { useEffect, useState } from "react";
 import Link from "next/link";
 import { Stack } from "@mantine/core";
 import { LoadingScreen, ErrorScreen } from "@/components/StateScreens/StateScreens";
+import { buildTicketBuyerEmailDraft } from "@/lib/ticketEmailDraft";
 import styles from "./AdminPortal.module.css";
 
 interface DateSummary {
@@ -108,6 +109,34 @@ export default function TicketsSummaryPage() {
   const [codes, setCodes] = useState<CodeRow[]>([]);
   const [codesError, setCodesError] = useState(false);
   const [revoking, setRevoking] = useState<string | null>(null);
+  const [draftingEmailFor, setDraftingEmailFor] = useState<string | null>(null);
+
+  async function handleDraftEmail(date: DateSummary) {
+    const key = `${date.event_uuid}-${date.date_uuid}`;
+    setDraftingEmailFor(key);
+    try {
+      const res = await fetch(
+        `/api/tickets/admin/recipients/${date.event_uuid}/${date.date_uuid}`,
+      );
+      const body = await res.json().catch(() => ({}));
+      if (!res.ok) {
+        window.alert(body.error ?? "Could not load ticket buyer email addresses.");
+        return;
+      }
+
+      const draftUrl = buildTicketBuyerEmailDraft(body.emails ?? []);
+      if (!draftUrl) {
+        window.alert("There are no paid ticket buyers for this date.");
+        return;
+      }
+
+      window.location.href = draftUrl;
+    } catch {
+      window.alert("Could not load ticket buyer email addresses.");
+    } finally {
+      setDraftingEmailFor(null);
+    }
+  }
 
   async function handleRecheck(order: OrderSummary) {
     setRechecking(order.id);
@@ -233,26 +262,38 @@ export default function TicketsSummaryPage() {
           <p className={styles.empty}>No ticketed dates yet.</p>
         ) : (
           <div className={styles.dateList}>
-            {data.dates.map((d) => (
-              <Link
-                key={`${d.event_uuid}-${d.date_uuid}`}
-                href={`/event/${d.event_uuid}/ticket/${d.date_uuid}`}
-                className={styles.dateRow}
-              >
-                <span>
-                  <span className={styles.dateRowTitle}>{d.title}</span>
-                  {" · "}
-                  <span className={styles.dateRowMeta}>
-                    {formatStartTime(d.start_time)}
-                    {d.tickets_open ? "" : " · gesloten"}
-                  </span>
-                </span>
-                <span className={styles.dateRowStats}>
-                  {d.sold} sold · {d.available} available · {d.wheelchair} wheelchair
-                  {Number(d.disabled) > 0 ? ` · ${d.disabled} disabled` : ""} · {d.total} total
-                </span>
-              </Link>
-            ))}
+            {data.dates.map((d) => {
+              const key = `${d.event_uuid}-${d.date_uuid}`;
+              return (
+                <div className={styles.dateItem} key={key}>
+                  <Link
+                    href={`/event/${d.event_uuid}/ticket/${d.date_uuid}`}
+                    className={styles.dateRow}
+                  >
+                    <span>
+                      <span className={styles.dateRowTitle}>{d.title}</span>
+                      {" · "}
+                      <span className={styles.dateRowMeta}>
+                        {formatStartTime(d.start_time)}
+                        {d.tickets_open ? "" : " · gesloten"}
+                      </span>
+                    </span>
+                    <span className={styles.dateRowStats}>
+                      {d.sold} sold · {d.available} available · {d.wheelchair} wheelchair
+                      {Number(d.disabled) > 0 ? ` · ${d.disabled} disabled` : ""} · {d.total} total
+                    </span>
+                  </Link>
+                  <button
+                    type="button"
+                    className={`${styles.actionBtn} ${styles.draftEmailBtn}`}
+                    disabled={draftingEmailFor !== null}
+                    onClick={() => void handleDraftEmail(d)}
+                  >
+                    {draftingEmailFor === key ? "Loading..." : "Draft email"}
+                  </button>
+                </div>
+              );
+            })}
           </div>
         )}
       </section>

@@ -247,6 +247,10 @@ export interface Order {
   /** Set at checkout and re-stamped on every resume; null on rows predating the column. */
   payment_started_at: string | null;
   reserved_by_admin: boolean;
+  /** Private-link allocation attached to this order, if the date was closed. */
+  private_link_id?: string | null;
+  private_ticket_count?: number;
+  private_capacity_reserved?: boolean;
   created_at: string;
 }
 

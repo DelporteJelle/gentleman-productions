@@ -1,11 +1,15 @@
 import { getDb, jsonResponse, errorResponse, parseBody } from "@/lib/server/api";
 import { eurosToCents } from "@/lib/server/ticketing";
-import { isDateOpen } from "@/lib/dateAvailability";
 import { getMollie } from "@/lib/server/mollie";
 import { validateCheckoutInput, type CheckoutInput } from "@/lib/server/checkoutValidation";
 import { claimCodes, releaseCodesForOrder } from "@/lib/server/ticketCodes";
 import { computeOrderTotalCents } from "@/lib/ticketCodes";
 import { fulfilPaidOrder } from "@/lib/server/orderFulfillment";
+import {
+  getDateAccess,
+  releasePrivateTicketCapacity,
+  reservePrivateTicketCapacity,
+} from "@/lib/server/privateTicketLinks";
 import type { Event } from "@/types";
 
 /** Compares as false rather than SQL NULL when no wheelchair place is unlocked. */
@@ -29,6 +33,7 @@ export async function POST(request: Request) {
   // pending order or a hold nothing will ever release before its 10-minute
   // expiry.
   const releaseAndDelete = async () => {
+    await releasePrivateTicketCapacity(sql, orderId!);
     // Seats are released FIRST, before codes: seats are the scarcer resource,
     // so if releasing codes throws, the seats must already be free rather
     // than stranded behind it.
@@ -64,7 +69,9 @@ export async function POST(request: Request) {
     const event = events[0] as Event | undefined;
     if (!event) return errorResponse("Event not found", 404);
     const date = (event.dates ?? []).find((d) => d.uuid === dateUuid);
-    if (!date || !isDateOpen(event, date)) return errorResponse("Date not on sale", 404);
+    if (!date || typeof date.price !== "number") return errorResponse("Date not on sale", 404);
+    const access = await getDateAccess(sql, request, event, date);
+    if (!access.allowed) return errorResponse("Date not on sale", 404);
 
     const priceCents = eurosToCents(date.price);
     const grossCents = priceCents * ticketIds.length;
@@ -72,11 +79,30 @@ export async function POST(request: Request) {
     // The order row is created first so its id can be written into the tickets
     // by the same statement that claims them.
     const created = await sql`
-      INSERT INTO orders (event_uuid, date_uuid, customer_name, customer_email, total_amount, status, payment_started_at)
-      VALUES (${eventUuid}, ${dateUuid}, ${name}, ${email}, ${grossCents}, 'pending', now())
+      INSERT INTO orders (
+        event_uuid, date_uuid, customer_name, customer_email, total_amount,
+        status, payment_started_at, private_link_id, private_ticket_count
+      ) VALUES (
+        ${eventUuid}, ${dateUuid}, ${name}, ${email}, ${grossCents}, 'pending', now(),
+        ${access.privateLinkId}, ${access.privateLinkId ? ticketIds.length : 0}
+      )
       RETURNING id;
     `;
     orderId = created[0].id as string;
+
+    if (access.privateLinkId && access.tokenHash) {
+      const reserved = await reservePrivateTicketCapacity(
+        sql,
+        orderId,
+        access.privateLinkId,
+        access.tokenHash,
+        ticketIds.length,
+      );
+      if (!reserved) {
+        await releaseAndDelete();
+        return errorResponse("The private ticket allocation is no longer available.", 409);
+      }
+    }
 
     // Codes are claimed BEFORE the seats, because whether a wheelchair place
     // may be claimed at all depends on a wheelchair code having been won here.

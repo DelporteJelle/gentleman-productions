@@ -217,6 +217,11 @@ function createFakeSql(state: FakeState) {
       return [];
     }
 
+    if (head.startsWith("WITH cancelled AS (")) {
+      // Existing fixtures here represent public orders without private capacity.
+      return [];
+    }
+
     if (head.startsWith("UPDATE ticket_codes SET used_by_order_id = NULL")) {
       return []; // no codes in these fixtures
     }
@@ -563,6 +568,11 @@ describe("reconcileStuckOrders", () => {
 
       if (head.startsWith("UPDATE ticket_codes SET used_by_order_id = NULL")) {
         return []; // no codes in these fixtures
+      }
+
+      if (head.startsWith("WITH cancelled AS (")) {
+        // Existing sweep fixtures represent public orders without private capacity.
+        return [];
       }
 
       throw new Error(`Unhandled fake SQL in sweep test: ${head}`);

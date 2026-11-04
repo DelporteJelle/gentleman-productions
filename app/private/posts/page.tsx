@@ -31,6 +31,14 @@ export default function PostsPage() {
   const [basicPostToEdit, setBasicPostToEdit] = useState<
     BasicPost | undefined
   >(undefined);
+  const [isAdmin, setIsAdmin] = useState(false);
+
+  useEffect(() => {
+    fetch("/api/auth/me", { cache: "no-store" })
+      .then((response) => response.json())
+      .then((body) => setIsAdmin(body.user?.role === "ADMIN"))
+      .catch(() => setIsAdmin(false));
+  }, []);
 
   const {
     posts,
@@ -113,6 +121,7 @@ export default function PostsPage() {
           setEventToEdit(undefined);
         }}
         event={eventToEdit}
+        isAdmin={isAdmin}
       />
 
       {/* Create Basic Post Modal */}

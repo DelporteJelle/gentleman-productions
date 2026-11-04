@@ -1,4 +1,6 @@
 import { getDb, jsonResponse, errorResponse, getQueryParam, verifyAuth } from "@/lib/server/api";
+import { getDateAccess } from "@/lib/server/privateTicketLinks";
+import type { Event } from "@/types";
 
 interface SeatRow {
   id: string | null;
@@ -38,6 +40,20 @@ export async function GET(request: Request) {
 
   const sql = getDb();
   try {
+    const ticketDates = await sql`
+      SELECT DISTINCT event_uuid FROM tickets WHERE date_uuid = ${dateUuid} LIMIT 2;
+    `;
+    const eventUuid = ticketDates[0]?.event_uuid as string | undefined;
+    if (!eventUuid || ticketDates.length > 1) return errorResponse("Date not found", 404);
+    const eventRows = await sql`SELECT * FROM events WHERE uuid = ${eventUuid};`;
+    const event = eventRows[0] as Event | undefined;
+    const date = event?.dates?.find((entry) => entry.uuid === dateUuid);
+    if (!event || !date) return errorResponse("Date not found", 404);
+    if (!isAdmin) {
+      const access = await getDateAccess(sql, request, event, date);
+      if (!access.allowed) return errorResponse("Date not on sale", 404);
+    }
+
     // The two queries are spelled out rather than composed from a shared
     // fragment: the Neon tagged-template API cannot splice raw SQL, and
     // smuggling the audience in as a bound boolean would make the security
@@ -70,7 +86,9 @@ export async function GET(request: Request) {
           WHERE t.date_uuid = ${dateUuid}
             AND t.status <> 'disabled';
         `;
-    return jsonResponse((rows as unknown as SeatRow[]).map(toSeatTicket));
+    return jsonResponse((rows as unknown as SeatRow[]).map(toSeatTicket), 200, {
+      "Cache-Control": "no-store",
+    });
   } catch (error) {
     console.error("Error fetching seats:", error);
     return errorResponse("Failed to fetch seats");
