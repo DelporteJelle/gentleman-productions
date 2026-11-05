@@ -53,7 +53,7 @@ function getPostSortDate(post: Post): Date | null {
       ...event.dates.map((d) => new Date(d.start_time).getTime()),
     );
     return new Date(max);
-  } 
+  }
   if (post.post_type === DbObjectType.BASIC_POST) {
     const bp = post as BasicPost;
     return bp.date ? new Date(bp.date) : null;
@@ -187,6 +187,7 @@ export default function Home() {
       }
     }
   }
+
   const ctaIsExternal = !!ctaTarget;
 
   return (
