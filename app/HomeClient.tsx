@@ -18,6 +18,7 @@ import CanvasBackground from "@/components/Background/CanvasBackground";
 import GoldShimmerCTA from "@/components/GoldShimmerCTA/GoldShimmerCTA";
 import { usePosts } from "./contexts/PostsContext";
 import { splitTitleAccent } from "@/lib/text";
+import { isDateOpen } from "@/lib/dateAvailability";
 
 gsap.registerPlugin(useGSAP, ScrollTrigger, ScrollToPlugin);
 
@@ -161,20 +162,20 @@ export default function Home() {
   let ctaHref: string | undefined;
   let ctaTarget: string | undefined;
   let ctaRel: string | undefined;
-  let ctaDisabled = false;
 
   if (hasActiveHighlight) {
     if (isEventHighlight) {
-      const isFuture = showDate && showDate > new Date();
-      if (!isFuture) {
-        ctaLabel = "View Event";
-        ctaHref = `/event/${highlight.uuid}`;
-      } else if ((highlight as Event).tickets_open) {
+      const event = highlight as Event;
+      const hasSellableDate = (event.dates ?? []).some((date) =>
+        isDateOpen(event, date),
+      );
+
+      if (hasSellableDate) {
         ctaLabel = "Buy Tickets";
         ctaHref = `/event/${highlight.uuid}/ticket`;
       } else {
-        ctaLabel = "Tickets available soon";
-        ctaDisabled = true;
+        ctaLabel = "View Event";
+        ctaHref = `/event/${highlight.uuid}`;
       }
     } else {
       const bp = highlight as BasicPost;
@@ -302,11 +303,10 @@ export default function Home() {
                       target={ctaTarget}
                       rel={ctaRel}
                       onClick={
-                        !ctaIsExternal && !ctaDisabled && ctaHref
+                        !ctaIsExternal && ctaHref
                           ? () => router.push(ctaHref!)
                           : undefined
                       }
-                      disabled={ctaDisabled}
                     >
                       {ctaLabel}
                     </GoldShimmerCTA>
