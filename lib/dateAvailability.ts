@@ -17,16 +17,27 @@ export function isDateTicketsOpen(event: Event, date: EventDateEntry): boolean {
   return (date.tickets_open ?? event.tickets_open ?? false) === true;
 }
 
+/** A performance stops accepting new purchases after its final timeline time. */
+export function isDateEnded(date: EventDateEntry, now = Date.now()): boolean {
+  const end = Date.parse(date.end_time);
+  return Number.isFinite(end) && end <= now;
+}
+
 /**
- * A date is on sale only when its sales switch is on and it carries a numeric
- * price. Written as a type predicate so callers that go on to charge for the
- * date (checkout) get `price: number` without re-checking.
+ * A date is on sale only when its sales switch is on, it carries a numeric
+ * price, and its performance end time has not passed. Written as a type
+ * predicate so callers that go on to charge for the date get `price: number`
+ * without re-checking.
  */
 export function isDateOpen(
   event: Event,
   date: EventDateEntry,
 ): date is EventDateEntry & { price: number } {
-  return isDateTicketsOpen(event, date) && typeof date.price === "number";
+  return (
+    isDateTicketsOpen(event, date) &&
+    typeof date.price === "number" &&
+    !isDateEnded(date)
+  );
 }
 
 /** The message shown over a closed date, with a generic fallback. */

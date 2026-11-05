@@ -1,7 +1,7 @@
 import { getDateAccess, readPrivateTicketToken, hashPrivateTicketToken } from "@/lib/server/privateTicketLinks";
 import { errorResponse, getDb, jsonResponse, verifyAuth } from "@/lib/server/api";
 import type { Event } from "@/types";
-import { isDateOpen } from "@/lib/dateAvailability";
+import { isDateEnded, isDateOpen } from "@/lib/dateAvailability";
 
 export async function GET(request: Request) {
   const url = new URL(request.url);
@@ -44,7 +44,7 @@ export async function GET(request: Request) {
       | { date_uuid: string; token_hash: string | null; expires_at: string | null; revoked_at: string | null }
       | undefined;
     const date = event.dates?.find((entry) => entry.uuid === link?.date_uuid);
-    const authorizedDateUuid = link && date && typeof date.price === "number"
+    const authorizedDateUuid = link && date && !isDateEnded(date) && typeof date.price === "number"
       ? link.date_uuid
       : null;
     return jsonResponse({ authorizedDateUuid }, 200, { "Cache-Control": "no-store" });

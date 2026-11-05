@@ -1,7 +1,7 @@
 import { createHash, randomBytes } from "node:crypto";
 import type { NeonQueryFunction } from "@neondatabase/serverless";
 import type { Event, EventDateEntry } from "@/types";
-import { isDateOpen } from "@/lib/dateAvailability";
+import { isDateEnded, isDateOpen } from "@/lib/dateAvailability";
 
 type Sql = NeonQueryFunction<false, false>;
 
@@ -52,6 +52,9 @@ export async function getDateAccess(
   event: Event,
   date: EventDateEntry,
 ): Promise<DateAccess> {
+  if (isDateEnded(date)) {
+    return { allowed: false, privateLinkId: null, tokenHash: null };
+  }
   if (isDateOpen(event, date)) {
     return { allowed: true, privateLinkId: null, tokenHash: null };
   }

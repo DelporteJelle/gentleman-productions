@@ -1,6 +1,6 @@
 import { randomUUID } from "node:crypto";
 import type { Event } from "@/types";
-import { isDateOpen } from "@/lib/dateAvailability";
+import { isDateEnded, isDateOpen } from "@/lib/dateAvailability";
 import {
   createPrivateTicketToken,
   hashPrivateTicketToken,
@@ -81,6 +81,7 @@ export async function POST(request: Request) {
     const event = events[0] as Event | undefined;
     const date = event?.dates?.find((entry) => entry.uuid === dateUuid);
     if (!event || !date) return errorResponse("Event date not found.", 404);
+    if (isDateEnded(date)) return errorResponse("Cannot create a private link for an ended performance.", 409);
     if (isDateOpen(event, date) || typeof date.price !== "number") {
       return errorResponse("Private links are available for closed, priced dates.", 409);
     }
